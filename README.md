@@ -1,4 +1,5 @@
-# Recon UGV, *Inspired by popular tactical, team based shooter game Rainbow Six Siege by Ubisoft*
+# Recon UGV
+## *Inspired by popular tactical, team based shooter game Rainbow Six Siege by Ubisoft*
 
 Compact, rugged, two-wheeled reconnaissance robot with an actively pitch-stabilized camera body.
 
