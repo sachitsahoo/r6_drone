@@ -1,2 +1,10 @@
 # Host-side development dependencies. Firmware needs none of this.
 pytest>=8.0
+
+# Required by the protocol generator (protocol/generate.py). This makes PyYAML a hard
+# build dependency for the firmware, not just a test dependency -- see the generation
+# section of CMakeLists.txt.
+PyYAML>=6.0
+
+# Property-based fuzzing of the codec (tests/python/test_codec.py).
+hypothesis>=6.100

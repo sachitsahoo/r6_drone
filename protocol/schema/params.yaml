@@ -1,0 +1,59 @@
+# Tunable parameters, addressed by ID over the protocol and persisted in MCU flash.
+#
+# DELIBERATELY MINIMAL. This file exists to define and test the parameter *mechanism*
+# (get/set/commit, type-tagged uniform wire format, table-driven MCU lookup), not to
+# declare the robot's control gains.
+#
+# Controller gains are absent on purpose. Declaring `motor_kp` / `motor_ki` / `motor_kd`
+# would presuppose a PID form, and CLAUDE.md names "PID form" as an example of a choice
+# that requires an ADR. Gains get added here when their controller's ADR lands, not before.
+#
+# Every entry needs a `source` note (hard rule 6). "initial guess — to be tuned" is a
+# legitimate source; silence is not.
+
+params:
+
+  - id: 0x0001
+    name: telemetry_state_rate_Hz
+    type: u16
+    unit: Hz
+    range: [1, 200]
+    default: 100
+    writable: true
+    source: >
+      Upper bound from docs/bringup/uart-link.md — 100 Hz of StateTelemetry is 10% of a
+      460800 baud link, and 200 Hz is the point where headroom for Fault bursts disappears.
+    description: StateTelemetry transmit rate.
+
+  - id: 0x0002
+    name: telemetry_power_rate_Hz
+    type: u16
+    unit: Hz
+    range: [1, 50]
+    default: 10
+    writable: true
+    source: >
+      INA226 default conversion time is 1.1 ms per channel (datasheet SBOS547 section 7.3.4),
+      so sampling faster than ~50 Hz returns repeated values.
+    description: PowerTelemetry transmit rate.
+
+  - id: 0x0003
+    name: telemetry_loop_rate_Hz
+    type: u16
+    unit: Hz
+    range: [1, 20]
+    default: 5
+    writable: true
+    source: initial guess — loop timing is diagnostic, not something to watch continuously
+    description: LoopTiming transmit rate.
+
+  - id: 0x0010
+    name: protocol_version_readback
+    type: u16
+    range: [0, 65535]
+    default: 1
+    writable: false
+    source: derived — mirrors protocol_version in messages.yaml
+    description: >
+      Read-only. Exists so the operator can confirm which schema version the firmware was
+      built from without relying on the version byte of a frame it may be rejecting.

@@ -13,6 +13,10 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(core_tests
   test_timestamp.cpp
+  test_crc32.cpp
+  test_cobs.cpp
+  test_frame_codec.cpp
+  test_generated_messages.cpp
 )
 
 target_link_libraries(core_tests PRIVATE recon_core GTest::gtest_main)
@@ -25,3 +29,10 @@ target_compile_options(core_tests PRIVATE ${RECON_WARNINGS})
 
 include(GoogleTest)
 gtest_discover_tests(core_tests)
+
+# Host-only helper that exposes the real C++ codec on the command line, so
+# tests/python/test_cross_language.py can verify the two languages agree byte for byte
+# rather than trusting that both match the ADR.
+add_executable(protocol_vector_tool protocol_vector_tool.cpp)
+target_link_libraries(protocol_vector_tool PRIVATE recon_core)
+target_compile_options(protocol_vector_tool PRIVATE ${RECON_WARNINGS})

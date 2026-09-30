@@ -1,0 +1,371 @@
+# Recon UGV message schema — THE single source of truth for the wire protocol.
+#
+# C++ and Python bindings are generated from this file by protocol/generate.py and are
+# never hand-edited. See docs/decisions/0003-schema-format-and-code-generation.md.
+#
+# Framing (fixed in code, not generated from this file) is defined in
+# docs/decisions/0002-protocol-framing-and-codec.md:
+#   version:u8 | message_id:u8 | seq:u8 | timestamp_us:u32 | payload:N | crc32:u32
+# then COBS-encoded and terminated with 0x00.
+#
+# Conventions enforced by the generator, not by convention:
+#   - a field with a `unit` must carry the matching suffix in its name (hard rule 5)
+#   - a field with a `range` must carry a `source` note (hard rule 6)
+#   - message IDs must fall inside their direction's reserved range
+#   - payload size must not exceed max_payload_bytes
+
+protocol_version: 1
+max_payload_bytes: 64
+
+# ID ranges partitioned by direction, so a corrupted ID is far more likely to be
+# rejected outright than to be read as a legal message travelling the wrong way.
+id_ranges:
+  operator_to_robot: [0x01, 0x1F]
+  robot_to_operator: [0x20, 0x3F]
+
+enums:
+
+  SafetyState:
+    underlying: u8
+    description: Motors can only be driven in ARMED. Leaving FAULT or ESTOP needs operator action.
+    values:
+      - {name: DISARMED, value: 0}
+      - {name: ARMED,    value: 1}
+      - {name: FAULT,    value: 2}
+      - {name: ESTOP,    value: 3}
+
+  NackReason:
+    underlying: u8
+    description: Why the MCU rejected a frame. Makes rejection visible instead of silent.
+    values:
+      - {name: UNSPECIFIED,        value: 0}
+      - {name: UNKNOWN_MESSAGE_ID, value: 1}
+      - {name: LENGTH_MISMATCH,    value: 2}
+      - {name: RANGE_REJECT,       value: 3}
+      - {name: BAD_MAGIC,          value: 4}
+      - {name: STALE_TIMESTAMP,    value: 5}
+      - {name: NOT_DISARMED,       value: 6}
+      - {name: UNKNOWN_PARAM_ID,   value: 7}
+      - {name: PARAM_READ_ONLY,    value: 8}
+      - {name: VERSION_MISMATCH,   value: 9}
+
+  FaultCode:
+    underlying: u16
+    description: Provisional. Extended as each subsystem's failure modes are designed.
+    values:
+      - {name: NONE,               value: 0}
+      - {name: COMMS_TIMEOUT,      value: 1}
+      - {name: LOOP_OVERRUN,       value: 2}
+      - {name: IMU_FAULT,          value: 3}
+      - {name: ENCODER_FAULT,      value: 4}
+      - {name: OVERCURRENT,        value: 5}
+      - {name: UNDERVOLTAGE,       value: 6}
+      - {name: MOTOR_DRIVER_FAULT, value: 7}
+
+  LoopId:
+    underlying: u8
+    description: Identifies which control loop a LoopTiming sample describes.
+    values:
+      - {name: MOTOR_VELOCITY,   value: 0}
+      - {name: PITCH_STABILIZER, value: 1}
+      - {name: TELEMETRY,        value: 2}
+
+messages:
+
+  # ---------------------------------------------------------------- operator -> robot
+
+  - name: Heartbeat
+    id: 0x01
+    direction: operator_to_robot
+    rate_hz: 50
+    description: >
+      Keeps the MCU comms watchdog fed while DISARMED, when no DriveCommand is being sent.
+      Carries no payload; the header's timestamp and seq are the whole content.
+    fields: []
+
+  - name: DriveCommand
+    id: 0x02
+    direction: operator_to_robot
+    rate_hz: 50
+    description: Body-frame velocity command. Differential-drive kinematics run on the MCU.
+    fields:
+      - name: cmd_linear_speed_m_s
+        type: f32
+        unit: m/s
+        range: [-2.0, 2.0]
+        source: initial guess — to be tuned after wheel and gearbox characterization
+        description: Positive is forward (+x).
+      - name: cmd_angular_rate_rad_s
+        type: f32
+        unit: rad/s
+        range: [-6.2832, 6.2832]
+        source: initial guess — one revolution per second, to be tuned
+        description: Positive is counter-clockwise about +z, i.e. turning left.
+
+  # 0x03 is RESERVED for the camera pitch command. Deliberately unassigned: whether it
+  # carries a target angle or a target torque depends on the pitch actuator choice
+  # (geared servo vs. FOC gimbal BLDC), which has no ADR yet. Guessing would cost a
+  # protocol version bump later; reserving the ID costs nothing.
+
+  - name: SafetyStateRequest
+    id: 0x04
+    direction: operator_to_robot
+    description: >
+      Requests a safety state transition. Arming is always an explicit operator action.
+      The magic constant guards against a mis-routed or mis-generated message acting as
+      an arm request; it is not a substitute for the CRC.
+    fields:
+      - name: requested_state
+        type: enum
+        enum: SafetyState
+        description: Target state. The MCU may refuse; it replies with Nack when it does.
+      - name: magic
+        type: u32
+        const: 0x41524D21   # "ARM!"
+        description: Must equal the declared constant or the frame is rejected as BAD_MAGIC.
+
+  - name: EstopRequest
+    id: 0x05
+    direction: operator_to_robot
+    description: Immediate emergency stop. Leaving ESTOP requires an explicit operator action.
+    fields:
+      - name: magic
+        type: u32
+        const: 0x45535450   # "ESTP"
+        description: Distinct from the arm magic, so one cannot be misread as the other.
+
+  - name: ParamGet
+    id: 0x06
+    direction: operator_to_robot
+    description: Requests the current value of one parameter. Answered with ParamValue.
+    fields:
+      - name: param_id
+        type: u16
+        description: Parameter ID from protocol/schema/params.yaml.
+
+  - name: ParamSet
+    id: 0x07
+    direction: operator_to_robot
+    description: >
+      Sets one parameter in RAM. Does not persist it — see ParamCommit. The uniform
+      id/tag/value layout means one message serves every parameter and the MCU needs no
+      per-parameter decoding.
+    fields:
+      - name: param_id
+        type: u16
+        description: Parameter ID from protocol/schema/params.yaml.
+      - name: type_tag
+        type: u8
+        description: Declared type of the value, checked against the parameter table.
+      - name: value
+        type: u8
+        count: 4
+        description: Raw little-endian bytes of the value, interpreted per type_tag.
+
+  - name: ParamCommit
+    id: 0x08
+    direction: operator_to_robot
+    description: >
+      Persists all RAM parameter values to MCU flash. REJECTED unless DISARMED (Nack
+      NOT_DISARMED). A flash write stalls the core for milliseconds, which would miss a
+      1 kHz loop deadline, and flash endurance is finite. Owner decision, 2026-09-30.
+    fields:
+      - name: magic
+        type: u32
+        const: 0x434F4D54   # "COMT"
+        description: Guards against an accidental flash write from a mis-routed message.
+
+  # ---------------------------------------------------------------- robot -> operator
+
+  - name: StateTelemetry
+    id: 0x21
+    direction: robot_to_operator
+    rate_hz: 100
+    description: >
+      Core state snapshot. Internally consistent, but NOT simultaneous with other
+      telemetry messages — compare header timestamps rather than assuming.
+      PROVISIONAL: the pitch and rate fields depend on the state estimator design, which
+      is owner-reviewed and does not exist yet.
+    fields:
+      - name: wheel_speed_left_m_s
+        type: f32
+        unit: m/s
+        range: [-5.0, 5.0]
+        source: initial guess — wider than the command limit to keep real overshoot observable
+        description: Measured. Positive is robot moving forward.
+      - name: wheel_speed_right_m_s
+        type: f32
+        unit: m/s
+        range: [-5.0, 5.0]
+        source: initial guess — see wheel_speed_left_m_s
+        description: Measured. Positive is robot moving forward.
+      - name: cmd_linear_speed_m_s
+        type: f32
+        unit: m/s
+        range: [-5.0, 5.0]
+        source: initial guess — echoes the accepted command for closed-loop comparison
+        description: Command the MCU is currently acting on, echoed back.
+      - name: cmd_angular_rate_rad_s
+        type: f32
+        unit: rad/s
+        range: [-12.5664, 12.5664]
+        source: initial guess — twice the command limit, to keep overshoot observable
+        description: Command the MCU is currently acting on, echoed back.
+      - name: body_pitch_rad
+        type: f32
+        unit: rad
+        range: [-3.1416, 3.1416]
+        source: full range — the chassis can reach any pitch after an impact
+        description: Estimated chassis pitch. POSITIVE IS NOSE-DOWN.
+      - name: body_pitch_rate_rad_s
+        type: f32
+        unit: rad/s
+        range: [-34.9, 34.9]
+        source: ICM-42688-P default gyro full scale +/-2000 deg/s, converted to rad/s
+        description: Measured chassis pitch rate. POSITIVE IS NOSE-DOWN.
+      - name: camera_pitch_rad
+        type: f32
+        unit: rad
+        range: [-1.5708, 1.5708]
+        source: initial guess — mechanical travel limit unknown until the actuator is chosen
+        description: World-relative camera pitch. POSITIVE IS NOSE-DOWN.
+      - name: safety_state
+        type: enum
+        enum: SafetyState
+        description: Current state of the MCU safety state machine.
+      - name: fault_flags
+        type: u16
+        description: Bitfield of latched FaultCode conditions. Zero means no fault latched.
+
+  - name: PowerTelemetry
+    id: 0x22
+    direction: robot_to_operator
+    rate_hz: 10
+    description: INA226 power monitor readings. Slower than state telemetry because I2C is slow.
+    fields:
+      - name: bus_voltage_V
+        type: f32
+        unit: V
+        range: [0.0, 36.0]
+        source: INA226 datasheet (SBOS547) bus voltage full scale is 36 V
+        description: Battery bus voltage.
+      - name: current_A
+        type: f32
+        unit: A
+        range: [-20.0, 20.0]
+        source: initial guess — depends on the shunt resistor, not yet selected
+        description: Bus current. Positive is discharge.
+      - name: power_W
+        type: f32
+        unit: W
+        range: [0.0, 720.0]
+        source: derived — 36 V times 20 A, the product of the two ranges above
+        description: Computed by the INA226.
+
+  - name: LoopTiming
+    id: 0x23
+    direction: robot_to_operator
+    rate_hz: 5
+    description: >
+      Measured control loop execution time. CLAUDE.md requires every loop's execution time
+      be logged, because a 1 kHz loop that occasionally takes 1.2 ms is a bug only telemetry reveals.
+    fields:
+      - name: loop_id
+        type: enum
+        enum: LoopId
+        description: Which loop this sample describes.
+      - name: last_exec_us
+        type: u16
+        unit: us
+        range: [0, 65535]
+        source: full u16 range — 65.5 ms, far beyond any legal loop time
+        description: Execution time of the most recent iteration.
+      - name: max_exec_us
+        type: u16
+        unit: us
+        range: [0, 65535]
+        source: full u16 range — see last_exec_us
+        description: Worst execution time observed since boot. Never reset automatically.
+      - name: overrun_count
+        type: u32
+        description: Iterations that exceeded their deadline since boot. Monotonic.
+
+  - name: Fault
+    id: 0x24
+    direction: robot_to_operator
+    description: >
+      Emitted on a fault transition, not polled. A numeric code plus context rather than a
+      string, because strings on the MCU mean either allocation or wasted fixed buffers.
+    fields:
+      - name: fault_code
+        type: enum
+        enum: FaultCode
+        description: What failed.
+      - name: context
+        type: u32
+        description: Fault-specific detail, e.g. the measured value that tripped a limit.
+
+  - name: ParamValue
+    id: 0x25
+    direction: robot_to_operator
+    description: Reply to ParamGet, and confirmation of an accepted ParamSet.
+    fields:
+      - name: param_id
+        type: u16
+        description: Parameter ID from protocol/schema/params.yaml.
+      - name: type_tag
+        type: u8
+        description: Declared type of the value.
+      - name: value
+        type: u8
+        count: 4
+        description: Raw little-endian bytes of the value, interpreted per type_tag.
+
+  - name: Nack
+    id: 0x26
+    direction: robot_to_operator
+    description: >
+      A frame was rejected. A decoder that silently drops frames cannot be debugged from
+      the operator's seat.
+    fields:
+      - name: rejected_message_id
+        type: u8
+        description: message_id of the rejected frame, or 0 if it could not be read.
+      - name: reason
+        type: enum
+        enum: NackReason
+        description: Why it was rejected.
+      - name: rejected_seq
+        type: u8
+        description: seq of the rejected frame, to correlate with the operator's send log.
+
+  - name: LinkStats
+    id: 0x27
+    direction: robot_to_operator
+    rate_hz: 1
+    description: >
+      Decoder reject counters, so link quality is an observable rather than a guess. All
+      counters are monotonic since boot and wrap at u32. Non-zero cobs_errors or desyncs
+      indicates a physical-layer problem, not a decoder problem.
+    fields:
+      - name: frames_ok
+        type: u32
+        description: Frames that passed every validation stage.
+      - name: crc_errors
+        type: u32
+        description: Frames whose CRC-32 did not match.
+      - name: cobs_errors
+        type: u32
+        description: Frames whose COBS decode failed or was malformed.
+      - name: unknown_id
+        type: u32
+        description: Frames carrying a message_id not present in this schema.
+      - name: length_mismatch
+        type: u32
+        description: Frames whose payload length did not match the size declared for their ID.
+      - name: range_rejects
+        type: u32
+        description: Frames rejected because a field fell outside its declared range.
+      - name: desyncs
+        type: u32
+        description: Buffer overruns with no delimiter, i.e. entries into the DESYNC state.

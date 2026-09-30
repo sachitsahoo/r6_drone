@@ -152,26 +152,138 @@ sources of truth. Consequence: every build and every clone must be able to run t
 generator, which makes the generator a hard build dependency — accepted deliberately.</p>
 </details>
 
-<h2>Open questions</h2>
+<h2>Protocol slice — schema, generator, codec</h2>
 
-<details open>
-<summary>Schema format and generator language (blocks the protocol slice)</summary>
-<p>Two separate decisions: what the hand-edited schema file looks like (YAML, TOML, or a
-small DSL), and what language the generator is written in. The generator runs only at build
-time and never ships to the robot, so its language costs nothing at runtime.</p>
-<p>Recommendation: YAML schema, Python generator — Python is already a hard project
-dependency, and a C++ generator would have to be built before the firmware that needs its
-output. Rejecting Protobuf/nanopb/Cap'n Proto because the framing is already specified by
-hand and a ~200-line readable generator is defensible in a way a third-party wire format is
-not. Needs an ADR.</p>
+<details>
+<summary>COBS encoder dropped the last byte of any payload ending in <code>0x00</code><span class="tag">bug</span></summary>
+<p>The first version trimmed what looked like a redundant trailing length byte, on the
+theory that it kept the encoding canonical. It is not redundant: when the input ends with a
+zero, that final length byte is <em>what encodes the zero</em>. Trimming it silently dropped
+the last byte of every such payload — including a telemetry frame whose last field happened
+to be zero.</p>
+<p>Six tests caught it at once, clustered on trailing-zero inputs. The encoder now uses the
+standard encoding from the Cheshire &amp; Baker paper, with a comment at the site saying not
+to re-optimize it.</p>
 </details>
 
-<details open>
-<summary>How much protocol awareness does <code>robot_bridge/</code> need?</summary>
-<p>A pure byte relay needs none. Link monitoring may need frame-level awareness (COBS
-delimiters, sequence numbers) without field-level schema. Field-level coupling means every
-schema change forces a Pi redeploy, so the intent is to stay at frame level if monitoring
-allows it. Unresolved until the protocol design.</p>
+<details>
+<summary>COBS decoder accepted a zero byte in a literal position<span class="tag">bug</span></summary>
+<p>The zero check covered code-byte positions only, so <code>03 11 00</code> decoded happily
+to <code>11 00</code>. Encoded data must contain no zero <em>anywhere</em>: the caller found
+that run between two delimiters, so a zero inside it means the stream was already misframed.
+Now rejected in both positions.</p>
+</details>
+
+<details>
+<summary>Corrected a wrong test assertion about resynchronization<span class="tag">judgment</span></summary>
+<p>A fuzz test asserted that a valid frame decodes immediately after arbitrary garbage. It
+does not, and the decoder was right. Garbage ending without a delimiter leaves the decoder
+accumulating, so the next frame's bytes join that partial run and its delimiter closes
+garbage-plus-frame, which correctly fails. The frame after that decodes.</p>
+<p>This is inherent to delimiter-based framing. Rather than change the code, I wrote the real
+guarantee down — <strong>after arbitrary garbage, at most one subsequent frame is lost</strong>
+— in <code>FrameDecoder</code>'s header comment, and replaced the assertion with two tests
+that pin it in both the delimited and undelimited cases, in both languages.</p>
+<p class="why"><strong>Worth reviewing:</strong> CLAUDE.md says never weaken a test to make it
+pass. I judged this a wrong assertion rather than a weakened one — the new tests are stricter
+and name the property. If you disagree, the conversation to have is whether the decoder
+<em>should</em> promise zero loss, which would mean buffering speculatively.</p>
+</details>
+
+<details>
+<summary>The schema lint caught a hard-rule-5 violation in my own schema<span class="tag">good sign</span></summary>
+<p>First run rejected three parameters named <code>..._hz</code>: the declared unit is
+<code>Hz</code>, and unit symbols are case-sensitive, so the suffix must be <code>_Hz</code>
+to match CLAUDE.md's own <code>voltage_V</code> / <code>current_A</code> examples. Renamed.
+The check is worth having precisely because that violation looked fine to me.</p>
+</details>
+
+<details>
+<summary><code>version_mismatch</code> is counted but not transmitted<span class="tag">deferred</span></summary>
+<p><code>FrameDecoder::Stats</code> tracks seven counters including
+<code>version_mismatch</code>. The approved <code>LinkStats</code> message carries seven
+fields, and <code>version_mismatch</code> is not among them — the message set was fixed
+before the decoder existed.</p>
+<p>Adding it is a protocol schema change, which is owner-reviewed, so I did not do it. The
+counter is observable locally and in tests. <strong>Recommendation:</strong> add it in a
+future schema version; a version mismatch is exactly the kind of link problem the operator
+needs to see, and it costs 4 bytes at 1 Hz.</p>
+</details>
+
+<details>
+<summary><code>params.yaml</code> deliberately contains no controller gains<span class="tag">scope</span></summary>
+<p>The parameter mechanism needed something to address, but declaring
+<code>kp</code>/<code>ki</code>/<code>kd</code> would presuppose a PID form — and CLAUDE.md
+names "PID form" as an example of a choice requiring an ADR. The file holds three telemetry
+rates and one read-only version readback instead, which exercise the whole get/set/commit
+path without committing to a controller structure.</p>
+</details>
+
+<details>
+<summary>Generated code is written into the source tree, not the build tree<span class="tag">trade-off</span></summary>
+<p>Both the C++ and the Python consumers need one stable path, and
+<code>pyproject.toml</code> puts <code>protocol/generated</code> on
+<code>pythonpath</code>. Generating into <code>${CMAKE_BINARY_DIR}</code> instead would mean
+two different paths and a second mechanism for the Python side.</p>
+<p class="why"><strong>Known limitation:</strong> two build trees generating concurrently
+would race on those files. <code>build/</code> and <code>build-stm32/</code> are built
+sequentially here, and CI uses separate jobs on separate checkouts. Revisit if parallel
+builds ever matter.</p>
+</details>
+
+<details>
+<summary>PyYAML is now a hard build dependency for the firmware<span class="tag">consequence</span></summary>
+<p>Generated output is gitignored, so every clone and every CI job must run the generator,
+which imports <code>yaml</code>. A machine with a C++ toolchain but no PyYAML cannot build
+the firmware.</p>
+<p>Accepted deliberately — committing generated code invites editing it, which is the
+two-sources-of-truth failure the schema exists to prevent. Mitigated by a configure-time
+check that fails with the exact <code>pip install</code> command and the
+<code>-DPython3_EXECUTABLE</code> flag, rather than failing mid-build with an
+<code>ImportError</code>.</p>
+</details>
+
+<details>
+<summary>Cross-language verification drives a real C++ binary<span class="tag">design</span></summary>
+<p>Generating both languages from one schema guarantees they were <em>built</em> together,
+not that they <em>behave</em> identically. The frame codec is hand-written in both languages
+because the frame layout does not vary with the schema, and two implementations can each
+match ADR 0002 while disagreeing on a block boundary or on which rejection fires first.</p>
+<p>So <code>tests/cpp/protocol_vector_tool</code> exposes the real codec on the command line
+and <code>test_cross_language.py</code> drives it, comparing against
+<code>protocol/codec.py</code> and against <code>test_vectors.json</code> — whose CRC values
+come from stdlib <code>zlib</code> and whose COBS values come from the paper, so the vectors
+are independent of the code they test. The first frame vector is hand-traced byte by byte in
+that test file.</p>
+</details>
+
+<details>
+<summary>CRC is computed in software, not by the STM32 CRC peripheral<span class="tag">decision</span></summary>
+<p>The G474RE has a hardware CRC unit. Using it would put a vendor dependency inside
+<code>firmware/core/</code>, which must compile and pass tests on a laptop — the portability
+firewall the whole architecture rests on.</p>
+<p>The software cost is one table lookup and one XOR per byte, constant-time, on about 75
+bytes per frame. If profiling ever shows it matters, the correct move is a HAL interface with
+a peripheral-backed implementation in <code>firmware/stm32/</code>, not an
+<code>#ifdef</code> in <code>core</code>.</p>
+</details>
+
+<h2>Open questions</h2>
+
+<details>
+<summary>RESOLVED — Schema format and generator language<span class="tag">closed</span></summary>
+<p>YAML schema, Python generator, plain string building, gitignored output. Recorded in
+ADR 0003 (Accepted). Protobuf/nanopb/Cap'n Proto rejected: framing is already specified by
+hand, varint encoding conflicts with the fixed-size and no-allocation rules, and the format
+has to be defensible end to end.</p>
+</details>
+
+<details>
+<summary>RESOLVED — <code>robot_bridge/</code> stays at frame level<span class="tag">closed</span></summary>
+<p>Owner confirmed 2026-09-30. It counts <code>0x00</code> delimiters and reads
+<code>seq</code>, and must never import the generated message definitions, so a schema
+change never forces a Pi redeploy. Now a constraint recorded in
+<code>robot_bridge/README.md</code>.</p>
 </details>
 
 <details open>

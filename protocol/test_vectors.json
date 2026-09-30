@@ -1,0 +1,117 @@
+{
+  "_comment": [
+    "Committed known-answer vectors for the wire protocol. Both the C++ and the",
+    "Python codec must reproduce these exactly.",
+    "CRC values are from Python's stdlib zlib.crc32, which computes CRC-32/ISO-HDLC.",
+    "COBS values are from Cheshire & Baker (1999), table 1.",
+    "The first frame vector is hand-traced byte by byte in tests/python/test_cross_language.py.",
+    "Regenerating these from the code they test would make them worthless."
+  ],
+  "protocol_version": 1,
+  "crc32": [
+    {
+      "data": "",
+      "crc": "00000000"
+    },
+    {
+      "data": "61",
+      "crc": "e8b7be43"
+    },
+    {
+      "data": "616263",
+      "crc": "352441c2"
+    },
+    {
+      "data": "313233343536373839",
+      "crc": "cbf43926"
+    }
+  ],
+  "cobs": [
+    {
+      "decoded": "00",
+      "encoded": "0101"
+    },
+    {
+      "decoded": "0000",
+      "encoded": "010101"
+    },
+    {
+      "decoded": "11220033",
+      "encoded": "0311220233"
+    },
+    {
+      "decoded": "11223344",
+      "encoded": "0511223344"
+    },
+    {
+      "decoded": "11000000",
+      "encoded": "0211010101"
+    }
+  ],
+  "frames": [
+    {
+      "name": "DriveCommand",
+      "message_id": 2,
+      "seq": 42,
+      "timestamp_us": 3735928559,
+      "payload": "0000c03f000080be",
+      "wire": "0801022aefbeadde0103c03f010780be84d43b9400"
+    },
+    {
+      "name": "Heartbeat",
+      "message_id": 1,
+      "seq": 0,
+      "timestamp_us": 0,
+      "payload": "",
+      "wire": "03010101010101056f0747f000"
+    },
+    {
+      "name": "Heartbeat at timestamp wrap",
+      "message_id": 1,
+      "seq": 255,
+      "timestamp_us": 4294967295,
+      "payload": "",
+      "wire": "080101ffffffffff04e098e400"
+    },
+    {
+      "name": "EstopRequest",
+      "message_id": 5,
+      "seq": 7,
+      "timestamp_us": 1000,
+      "payload": "50545345",
+      "wire": "06010507e803010950545345aede047e00"
+    },
+    {
+      "name": "StateTelemetry all zeros",
+      "message_id": 33,
+      "seq": 1,
+      "timestamp_us": 1,
+      "payload": "00000000000000000000000000000000000000000000000000000000000000",
+      "wire": "050121010101010101010101010101010101010101010101010101010101010101010101010105690b170b00"
+    },
+    {
+      "name": "StateTelemetry armed",
+      "message_id": 33,
+      "seq": 2,
+      "timestamp_us": 123456,
+      "payload": "0000803e000000bf00000000000000000000003e000000000000000001efbe",
+      "wire": "0701210240e201010103803e010102bf01010101010101010101023e010101010101010801efbe27b417fe00"
+    },
+    {
+      "name": "LinkStats",
+      "message_id": 39,
+      "seq": 3,
+      "timestamp_us": 999999,
+      "payload": "01000000020000000300000004000000050000000600000007000000",
+      "wire": "070127033f420f0201010102020101020301010204010102050101020601010207010105fcc876aa00"
+    },
+    {
+      "name": "ParamSet",
+      "message_id": 7,
+      "seq": 4,
+      "timestamp_us": 5,
+      "payload": "01000264000000",
+      "wire": "0501070405010102010302640101055431652b00"
+    }
+  ]
+}

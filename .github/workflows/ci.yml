@@ -1,7 +1,7 @@
 name: CI
 
-# Every push and pull request. CLAUDE.md requires host build, all tests, and a
-# target cross-compile on every push.
+# Every push and pull request. CLAUDE.md requires host build, all tests, and a target
+# cross-compile on every push.
 on:
   push:
   pull_request:
@@ -11,21 +11,41 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # protocol/generated/ is gitignored, so every job that touches the protocol has to run
+  # the generator first. That is the deliberate cost of keeping the schema the single
+  # source of truth (docs/decisions/0003).
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
 jobs:
   host-build-and-test:
-    name: Host build + C++ tests
+    name: Host build + C++ tests + cross-language
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dev dependencies
+        run: python -m pip install -r requirements-dev.txt
+
       - name: Configure
-        run: cmake -B build -DTARGET=host
+        run: cmake -B build -DTARGET=host -DPython3_EXECUTABLE=$(which python)
 
       - name: Build
         run: cmake --build build
 
-      - name: Test
+      - name: C++ tests
         run: ctest --test-dir build --output-on-failure
+
+      # Runs here rather than in the Python-only job because the cross-language tests
+      # drive the compiled protocol_vector_tool, which only exists after the build above.
+      - name: Python tests, including cross-language verification
+        run: pytest
+        env:
+          RECON_REQUIRE_VECTOR_TOOL: "1"
 
   target-cross-compile:
     name: STM32 cross-compile
@@ -33,14 +53,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Proves firmware/core/ compiles for arm-none-eabi. This is the job that
-      # makes the portability firewall real rather than aspirational.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # The protocol generator is a build-time host tool, so the target build needs it too.
+      - name: Install dev dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      # Proves firmware/core/ compiles for arm-none-eabi. This is the job that makes the
+      # portability firewall real rather than aspirational.
       #
-      # NOTE: Ubuntu's gcc-arm-none-eabi is an older release than the Arm GNU
-      # Toolchain used on the developer machine (15.3.Rel1 as of 2026-09-30).
-      # With -Werror, a warning introduced or removed between versions can make
-      # CI and local builds disagree. Accepted for Phase 1; pin both to the same
-      # Arm release if that disagreement actually bites.
+      # NOTE: Ubuntu's gcc-arm-none-eabi is older than the Arm GNU Toolchain used on the
+      # developer machine (15.3.1 local vs 13.2.1 here, measured 2026-09-30). With
+      # -Werror, a warning added or removed between versions can make CI and local builds
+      # disagree. Accepted; pin both to the same Arm release if it bites.
       - name: Install arm-none-eabi toolchain
         run: |
           sudo apt-get update
@@ -50,13 +77,16 @@ jobs:
         run: arm-none-eabi-gcc --version
 
       - name: Configure
-        run: cmake -B build-stm32 -DTARGET=stm32
+        run: cmake -B build-stm32 -DTARGET=stm32 -DPython3_EXECUTABLE=$(which python)
 
       - name: Build
         run: cmake --build build-stm32
 
+      - name: Report firmware size
+        run: arm-none-eabi-size build-stm32/firmware/core/librecon_core.a
+
   python-tests:
-    name: Python tests + firewall guard
+    name: Python tests + firewall guard (no C++ toolchain)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,14 +96,23 @@ jobs:
           python-version: '3.11'   # the minimum the project claims to support
 
       - name: Install dev dependencies
-        run: python -m pip install --upgrade pip -r requirements-dev.txt
+        run: python -m pip install -r requirements-dev.txt
 
-      # CLAUDE.md hard rules 1 and 2 -- no vendor headers and no dynamic
-      # allocation in firmware/core/ -- are conventions that nothing in the
-      # compiler checks. This is their enforcement. The guard's own tests run in
-      # the pytest step below, so a guard that stopped working cannot read green.
+      # Gitignored output, so it must be produced before anything imports it.
+      - name: Generate protocol bindings
+        run: python protocol/generate.py
+
+      - name: Generator output is deterministic
+        run: python protocol/generate.py --check
+
+      # CLAUDE.md hard rules 1 and 2 -- no vendor headers and no dynamic allocation in
+      # firmware/core/ -- are conventions that nothing in the compiler checks. This is
+      # their enforcement. The guard's own tests run in the pytest step below, so a guard
+      # that stopped working cannot read green.
       - name: firmware/core purity guard
         run: python tools/check_core_purity.py
 
+      # The cross-language tests skip here by design: no C++ toolchain in this job. They
+      # run in host-build-and-test, which sets RECON_REQUIRE_VECTOR_TOOL=1.
       - name: Test
         run: pytest

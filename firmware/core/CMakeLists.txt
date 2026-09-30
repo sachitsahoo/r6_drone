@@ -3,9 +3,17 @@
 
 add_library(recon_core STATIC
   time/timestamp.cpp
+  protocol/cobs.cpp
+  protocol/frame.cpp
 )
 
-target_include_directories(recon_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# The generated protocol header must exist before anything here compiles.
+add_dependencies(recon_core protocol_generated)
+
+target_include_directories(recon_core PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${RECON_GENERATED_DIR}
+)
 
 target_compile_options(recon_core PRIVATE
   ${RECON_WARNINGS}

@@ -6,5 +6,7 @@ requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]
-pythonpath = ["operator", "robot_bridge", "tools", "protocol"]
+# protocol/generated holds the generated messages module; protocol/ holds the
+# hand-written codec that imports it.
+pythonpath = ["operator", "robot_bridge", "tools", "protocol", "protocol/generated"]
 addopts = "-q"
