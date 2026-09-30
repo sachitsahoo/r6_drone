@@ -81,9 +81,9 @@ def build_assembly() -> dict[str, cq.Workplane]:
     """Every part translated to its assembled position."""
     shell = parts.casing_shell()
     cap_a = parts.casing_end_cap(with_datum=True).translate((0, 0, Z_END_CAP_A))
-    # Flipped. The cap's bearing seat and labyrinth lip both project +Z in the part, and at
-    # this end of the casing "inboard" is -Z. Unflipped, the lip drove 1788 mm^3 into the
-    # shell's end flange and the bearing seat opened away from the boss it has to receive.
+    # Flipped: the cap's bearing seat opens toward +Z in the part, and at this end of the
+    # casing "inboard" is -Z, so unflipped the seat would open away from the boss it has to
+    # receive. (The labyrinth lip that also forced this has since been removed as useless.)
     cap_b = (parts.casing_end_cap()
              .rotate((0, 0, 0), (1, 0, 0), 180)
              .translate((0, 0, Z_END_CAP_B + P.END_CAP_THICKNESS)))

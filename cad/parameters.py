@@ -117,17 +117,19 @@ SLIP_RING_ENVELOPE_LENGTH = 25.0
 # 6 mm, not 4: the bearing seat is 4 mm deep, so a 4 mm cap was bored straight through and
 # left no shoulder for the bearing to seat against. Caught by cad/assembly.py.
 END_CAP_THICKNESS = 6.0
-#: Labyrinth lip projecting from the end cap over the chassis disc, shielding the 2.5 mm
-#: pitch-axis gap from grit. An open wheel flings debris inboard at that gap, and grit in
-#: it jams the pitch stabilization -- the exact function the project exists to study.
-#: Closing the wheels' inboard faces would do the same job for 91 g; this does it for ~4 g,
-#: because it sits at smaller radius and is thin.
-END_CAP_LIP_LENGTH = 3.0
-END_CAP_LIP_THICKNESS = 1.5
-#: Radial gap between the lip and the chassis disc it shrouds. A labyrinth works by
-#: proximity, not contact: at zero the lip rubs, and friction there lands directly on
-#: the pitch actuator's torque budget.
-END_CAP_LIP_CLEARANCE = 0.6
+#: The rim and spokes only carry screw loads, so they are thinner than the hub. The 6 mm
+#: above is needed solely where the bearing seats: a 4 mm seat plus a 2 mm shoulder. Running
+#: that thickness out to r=65 put ~7 g per cap at the largest radius in the rotating
+#: assembly, which is the most expensive place in the machine to spend mass.
+END_CAP_RIM_THICKNESS = 4.0
+
+# REMOVED: a labyrinth lip that shrouded the chassis disc. It was added to stop the open
+# wheels flinging grit into the 2.5 mm pitch gap, but that gap is already enclosed -- the
+# cap's own rim closes the casing bore at each end, the shielded bearing closes the central
+# bore, and the cap bolts to the shell so there is no relative motion at the rim to seal.
+# The lip guarded a joint that does not open. Meanwhile the camera aperture is 252 mm^2 of
+# hole straight through the shell, so the interior is not sealed by anything. If debris
+# ingress turns out to matter, the aperture is where to solve it -- a window, not a lip.
 #: Clearance bore through the cap's shoulder, so it passes the boss without rubbing.
 END_CAP_BOSS_CLEARANCE_BORE = 21.0
 END_CAP_SCREW_COUNT = 6

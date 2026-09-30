@@ -96,6 +96,16 @@ def test_standoff_holes_sit_in_material_on_every_part_that_has_them() -> None:
         "standoff holes fall outside the chassis disc's spokes"
 
 
+def test_end_cap_rim_is_thinner_than_its_hub() -> None:
+    """The 6 mm hub thickness exists only to give the bearing a 4 mm seat plus a shoulder.
+
+    Running it out to the rim put ~12 g per cap at r=65 -- the largest radius in the
+    rotating assembly, and so the most expensive place in the machine to spend mass.
+    """
+    assert P.END_CAP_RIM_THICKNESS < P.END_CAP_THICKNESS
+    assert P.END_CAP_THICKNESS - P.BEARING_WIDTH >= 1.5, "no shoulder left under the bearing"
+
+
 def test_end_cap_is_thicker_than_its_bearing_seat() -> None:
     """A 4 mm cap with a 4 mm seat was bored straight through, leaving no shoulder."""
     assert P.END_CAP_THICKNESS > P.BEARING_WIDTH

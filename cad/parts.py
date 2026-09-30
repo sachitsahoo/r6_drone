@@ -94,56 +94,58 @@ def casing_shell() -> cq.Workplane:
 # --------------------------------------------------------------------------- part 2
 
 def casing_end_cap(with_datum: bool = False) -> cq.Workplane:
-    """Rim, hub and spokes -- not a solid disc. Two needed.
+    """Rim, hub and spokes, stepped in thickness. Two needed.
 
-    Shape: disc. Features: bearing seat, screw holes matching the shell's flanges, and on
-    one cap the pendulum datum hole (R8).
+    Shape: disc. Features: bearing seat in the hub, screw holes matching the shell's
+    flanges, and on one cap the pendulum datum hole (R8).
 
-    Built as rim + hub + spokes because a solid 129 mm disc weighs 63 g, and it sits at the
-    largest radius in the rotating assembly, so it is the worst place in the machine to put
-    mass. The first mass build had two of these at 126 g combined.
+    Built as rim + hub + spokes because a solid 130 mm disc weighs 63 g, and it sits at the
+    largest radius in the rotating assembly -- the worst place in the machine to put mass.
+
+    Stepped because the 6 mm thickness is needed *only* at the hub, where the bearing needs
+    a 4 mm seat plus a shoulder. The rim and spokes carry screw loads and nothing else, so
+    they run at 4 mm. Carrying 6 mm out to r=65 cost about 7 g per cap at maximum radius.
     """
     r_out = P.CASING_ID / 2
-    thickness = P.END_CAP_THICKNESS
+    hub_t = P.END_CAP_THICKNESS
+    rim_t = P.END_CAP_RIM_THICKNESS
     rim_inner = r_out - 7.0
     hub_outer = P.BEARING_OD / 2 + 3.5
     spoke_count, spoke_width = 6, 9.0
 
-    rim = cq.Workplane("XY").circle(r_out).circle(rim_inner).extrude(thickness)
-    hub = cq.Workplane("XY").circle(hub_outer).extrude(thickness)
+    # z = 0 is the outboard face, which seats flat against the shell's end flange. The hub
+    # is the only thing that protrudes inboard, so the seating face stays planar.
+    rim = cq.Workplane("XY").circle(r_out).circle(rim_inner).extrude(rim_t)
+    hub = cq.Workplane("XY").circle(hub_outer).extrude(hub_t)
 
     spokes = cq.Workplane("XY")
     for x, y in _ring_points(1.0, spoke_count):
         angle = math.degrees(math.atan2(y, x))
         spokes = spokes.union(
-            cq.Workplane("XY").rect(r_out * 2, spoke_width).extrude(thickness)
+            cq.Workplane("XY").rect(r_out * 2, spoke_width).extrude(rim_t)
             .rotate((0, 0, 0), (0, 0, 1), angle))
-    spokes = spokes.intersect(cq.Workplane("XY").circle(rim_inner).extrude(thickness))
+    spokes = spokes.intersect(cq.Workplane("XY").circle(rim_inner).extrude(rim_t))
 
     cap = rim.union(hub).union(spokes)
 
-    cap = (cap.faces(">Z").workplane()
-           .circle(P.BEARING_OD / 2).cutBlind(-P.BEARING_WIDTH))
-    cap = cap.faces(">Z").workplane().circle(P.END_CAP_BOSS_CLEARANCE_BORE / 2).cutThruAll()
-    cap = (cap.faces(">Z").workplane()
-           .pushPoints(_ring_points(P.END_CAP_SCREW_RADIUS, P.END_CAP_SCREW_COUNT))
-           .circle(P.M3_CLEARANCE / 2).cutThruAll())
+    # Bearing seat, cut into the hub's inboard face.
+    cap = cap.cut(
+        cq.Workplane("XY", origin=(0, 0, hub_t - P.BEARING_WIDTH))
+        .circle(P.BEARING_OD / 2).extrude(P.BEARING_WIDTH))
+    # Clearance bore for the chassis boss, through the remaining shoulder.
+    cap = cap.cut(
+        cq.Workplane("XY").circle(P.END_CAP_BOSS_CLEARANCE_BORE / 2).extrude(hub_t))
+
+    cap = cap.cut(
+        cq.Workplane("XY")
+        .pushPoints(_ring_points(P.END_CAP_SCREW_RADIUS, P.END_CAP_SCREW_COUNT))
+        .circle(P.M3_CLEARANCE / 2).extrude(rim_t))
 
     if with_datum:
-        cap = (cap.faces(">Z").workplane()
-               .pushPoints([(P.PENDULUM_DATUM_RADIUS, 0.0)])
-               .circle(P.PENDULUM_DATUM_DIA / 2).cutThruAll())
-
-    # Labyrinth lip, projecting inboard over the chassis disc. The wheels are open, so they
-    # fling grit inboard toward the 2.5 mm pitch-axis gap, and grit in that gap jams the
-    # rotation this whole robot is built around. Closing the wheel faces instead would cost
-    # 91 g; this costs about 2 g per cap because it sits at smaller radius.
-    lip_inner = P.CHASSIS_OD / 2 + P.END_CAP_LIP_CLEARANCE
-    lip_outer = lip_inner + P.END_CAP_LIP_THICKNESS
-    lip = (cq.Workplane("XY", origin=(0, 0, thickness))
-           .circle(lip_outer).circle(lip_inner)
-           .extrude(P.END_CAP_LIP_LENGTH))
-    cap = cap.union(lip)
+        cap = cap.cut(
+            cq.Workplane("XY")
+            .pushPoints([(P.PENDULUM_DATUM_RADIUS, 0.0)])
+            .circle(P.PENDULUM_DATUM_DIA / 2).extrude(rim_t))
     return cap
 
 
