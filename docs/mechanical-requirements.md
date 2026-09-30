@@ -31,7 +31,7 @@ lands.** Between them it can be slim, which opens a deep annular pocket for both
 pulley and the pitch motor.
 
 Radial stack-up, with a 10 mm pulley and a GT2 belt (1.4 mm back, 0.75 mm teeth) against a
-casing inner radius of 64.5 mm:
+casing inner radius of 65.0 mm:
 
 | Track OD | Pulley tip radius | Gap to casing wall | Ratio |
 |---|---|---|---|
@@ -41,7 +41,7 @@ casing inner radius of 64.5 mm:
 
 **Use 80 mm, giving 8:1.** The table above only checks that the 10 mm *pulley* clears the
 shell. The **28 mm motor body is coaxial with that pulley**, and at a 90 mm band it reaches
-radius 66.2 mm against a wall at 64.5 mm — 1.7 mm through the shell. The largest band that
+radius 66.2 mm against a wall at 65.0 mm — through the shell. The largest band that
 fits a 28 mm motor with 2 mm of margin is 83.7 mm OD, so 80 mm and 8:1. Caught by
 `cad/assembly.py`'s clearance report, not by inspection.
 
@@ -58,7 +58,7 @@ actual motor chosen, and it is the last place the packaging can bite.
 | Wheels | Available | Casing | Belt band | Chassis | Spare |
 |---|---|---|---|---|---|
 | 15 mm | 135 mm | 125 mm | 15 mm | 106 mm | 10 mm |
-| 18 mm | 129 mm | 115 mm | 15 mm | 96 mm | 14 mm |
+| 18 mm | 129 mm | 120 mm | 15 mm | 101 mm | 9 mm |
 | 22 mm | 121 mm | 115 mm | 10 mm | 101 mm | 6 mm |
 
 **Reduction available** from the band diameter against a small pulley:
@@ -183,6 +183,20 @@ hole.
 
 ---
 
+## A note on derived dimensions
+
+`CASING_ID`, `CHASSIS_OD` and the clearances below are **computed** in
+`cad/parameters.py`, not chosen. Changing `CASING_WALL` moves all of them.
+
+That happened once: thinning the wall from 3.0 to 2.5 mm to fix the mass budget took
+`CASING_ID` from 129 to 130 and `CHASSIS_OD` from 124 to 125, and this document went stale
+for several commits without anyone noticing. **`CHASSIS_OD` is now 125 mm, exactly at the
+top of the owner's stated 115–125 range**, so further wall thinning pushes it out of range
+and that is a decision, not a free optimisation.
+
+Read the numbers out of `python3 cad/build.py --report` rather than from this table when
+they matter.
+
 ## A concrete starting point
 
 Ranges are right for analysis and wrong for sketching. This is one consistent set that
@@ -194,16 +208,17 @@ re-deciding them. Reproduce with the derivation at the bottom of
 |---|---|---|
 | Casing OD | **135 mm** | bottom of the 135–145 range; smaller is less inertia |
 | Casing wall | **3.0 mm** | printable and robust; thin it later with ribs (R6) |
-| Casing inner dia | **129 mm** | derived |
+| Casing inner dia | **130 mm** | derived from OD 135 and a 2.5 mm wall |
 | Rotational clearance | **2.5 mm** | mid-range |
-| Chassis OD | **124 mm** | derived; sits inside the stated 115–125 |
+| Chassis OD | **125 mm** | derived; **at the top of the stated 115–125**, so any
+further wall thinning pushes it out of range |
 | Wheel width | **18 mm** each | |
 | Casing length | **120 mm** | |
 | Side clearance | **4.5 mm** each | |
 | Belt band | **15 mm** | at one end, chassis absent here (R1) |
 | Chassis length | **101 mm** | derived |
 | **Total width** | **165 mm** | matches the target exactly |
-| Belt band pitch dia | **129 mm** | the casing's inner wall in the band |
+| Belt band pitch dia | **80 mm** | on the chassis, not the casing — see R1's correction |
 | Drive pulley | **10 mm** | |
 | **Reduction** | **12.9:1** | the torque budget assumed ~13:1 |
 

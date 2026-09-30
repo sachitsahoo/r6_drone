@@ -107,6 +107,18 @@ def test_chassis_clears_the_casing_wall(built) -> None:
     assert P.ROTATIONAL_CLEARANCE >= 2.0, "owner's stated minimum"
 
 
+def test_chassis_od_stays_inside_the_owners_stated_range() -> None:
+    """CHASSIS_OD is derived from CASING_OD and CASING_WALL, so thinning the wall moves it.
+
+    It is currently 125 mm, exactly at the top of the owner's stated 115-125 range. Thinning
+    the wall again to save mass would push it out, which is a decision rather than a free
+    optimisation -- and the last wall change drifted the docs for several commits unnoticed.
+    """
+    assert 115.0 <= P.CHASSIS_OD <= 125.0, (
+        f"CHASSIS_OD is {P.CHASSIS_OD:.1f} mm, outside the owner's stated 115-125 range; "
+        f"it follows from CASING_OD {P.CASING_OD} and CASING_WALL {P.CASING_WALL}")
+
+
 def test_wheel_is_larger_than_the_casing(built) -> None:
     """Otherwise the casing drags on the ground."""
     assert P.WHEEL_OD > P.CASING_OD
