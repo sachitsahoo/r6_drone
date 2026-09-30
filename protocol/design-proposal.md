@@ -1,0 +1,243 @@
+# Protocol design proposal
+
+**STATUS: PROPOSAL — awaiting owner approval. No code has been written.**
+
+Companion to [ADR 0002](../docs/decisions/0002-protocol-framing-and-codec.md) (framing and
+codec) and [ADR 0003](../docs/decisions/0003-schema-format-and-code-generation.md) (schema
+and code generation). Those two record the decisions between alternatives; this document is
+the concrete design: message set, schema shape, decoder behavior, and test plan.
+
+## Goal
+
+A schema-driven protocol and codec that lets the operator, the bridge, and the MCU exchange
+commands, telemetry, and parameters over a link that drops, corrupts, reorders, and
+duplicates — with the decoder proven against garbage rather than assumed safe, and with C++
+and Python unable to drift apart.
+
+## Files this would affect
+
+```
+protocol/schema/messages.yaml      new    message and enum definitions
+protocol/schema/params.yaml        new    tunable parameter table
+protocol/generate.py               new    generator (gitignored output)
+protocol/generated/                new    messages.hpp, messages.py (gitignored)
+protocol/test_vectors.json         new    shared known-answer frames, hand-checked
+firmware/core/protocol/            new    cobs, crc16, frame decoder/encoder
+tests/cpp/test_cobs.cpp            new
+tests/cpp/test_crc16.cpp           new
+tests/cpp/test_frame_codec.cpp     new
+tests/cpp/fuzz_frame_decoder.cpp   new    libFuzzer target, plus a seeded fallback
+tests/python/test_schema.py        new    schema validation and unit-suffix lint
+tests/python/test_generator.py     new    golden-output determinism
+tests/python/test_codec.py         new    round-trip + hypothesis fuzz
+tests/python/test_cross_language.py new    both languages vs test_vectors.json
+CMakeLists.txt                     edit   run generator before compiling consumers
+requirements-dev.txt               edit   add PyYAML, hypothesis
+```
+
+## Frame layout (from ADR 0002)
+
+Logical: `version:u8 | message_id:u8 | seq:u8 | timestamp_us:u32 | payload:N | crc16:u16`
+Wire: `COBS(logical) + 0x00`, so wire size is `11 + N` for `N < 244`.
+
+`MAX_PAYLOAD_BYTES = 64`, enforced by the generator. Buffer sizes in firmware derive from
+that constant rather than being written down anywhere, satisfying the no-magic-numbers rule.
+
+## Message set
+
+ID ranges are partitioned by direction so a corrupt ID is far more likely to be rejected than
+to be misread as a legal message travelling the wrong way.
+
+### Operator -> robot (`0x01`–`0x1F`)
+
+| ID | Name | Payload | Rate | Notes |
+|---|---|---|---|---|
+| `0x01` | `Heartbeat` | 0 B | 50 Hz | Keeps the comms watchdog fed while `DISARMED` |
+| `0x02` | `DriveCommand` | 8 B | 50 Hz | `cmd_linear_speed_m_s:f32`, `cmd_angular_rate_rad_s:f32` |
+| `0x04` | `SafetyStateRequest` | 5 B | on demand | `requested_state:u8`, `magic:u32` = `0x41524D21` |
+| `0x05` | `EstopRequest` | 4 B | on demand | `magic:u32` = `0x45535450` |
+| `0x06` | `ParamGet` | 2 B | on demand | `param_id:u16` |
+| `0x07` | `ParamSet` | 7 B | on demand | `param_id:u16`, `type_tag:u8`, `value:u8[4]` |
+| `0x08` | `ParamCommit` | 4 B | on demand | `magic:u32` = `0x434F4D54`; writes flash |
+
+`0x03` is intentionally unassigned: it is reserved for the camera pitch command, which cannot
+be designed until the actuator is chosen (see *Deliberately deferred*).
+
+### Robot -> operator (`0x20`–`0x3F`)
+
+| ID | Name | Payload | Rate | Notes |
+|---|---|---|---|---|
+| `0x21` | `StateTelemetry` | 31 B | 100 Hz | see below |
+| `0x22` | `PowerTelemetry` | 12 B | 10 Hz | `bus_voltage_V:f32`, `current_A:f32`, `power_W:f32` |
+| `0x23` | `LoopTiming` | 9 B | 5 Hz | `loop_id:u8`, `last_exec_us:u16`, `max_exec_us:u16`, `overrun_count:u32` |
+| `0x24` | `Fault` | 6 B | on event | `fault_code:u16`, `context:u32` |
+| `0x25` | `ParamValue` | 7 B | on demand | mirrors `ParamSet` |
+| `0x26` | `Nack` | 3 B | on event | `rejected_message_id:u8`, `reason:u8`, `rejected_seq:u8` |
+| `0x27` | `LinkStats` | 28 B | 1 Hz | decoder reject counters, below |
+
+`StateTelemetry` (31 B): `wheel_speed_left_m_s:f32`, `wheel_speed_right_m_s:f32`,
+`cmd_linear_speed_m_s:f32`, `cmd_angular_rate_rad_s:f32`, `body_pitch_rad:f32`,
+`body_pitch_rate_rad_s:f32`, `camera_pitch_rad:f32`, `safety_state:u8`, `fault_flags:u16`.
+
+Both pitch fields follow the project convention: **positive is nose-down**, and the schema
+says so in the field description, so the generated doc comment says so at every point of use.
+
+`LinkStats` (28 B): `frames_ok:u32`, `crc_errors:u32`, `cobs_errors:u32`,
+`unknown_id:u32`, `length_mismatch:u32`, `range_rejects:u32`, `desyncs:u32` — seven u32
+counters. Link quality becomes an observable rather than a guess, which matters both for
+radio debugging and for the research writeup.
+
+`safety_state` enum: `DISARMED=0`, `ARMED=1`, `FAULT=2`, `ESTOP=3`.
+
+### Bandwidth
+
+Robot -> operator at the rates above is about **4.5 kB/s, ~36 kbps**. A 115 200 baud UART
+carries 11 520 B/s, so this uses roughly 39% of it — workable but with little headroom for
+bursts of `Fault` or `Nack`. **Recommendation: run the MCU<->Pi UART at 460 800 or higher.**
+Operator -> robot is about 1 kB/s and is not a concern.
+
+## Defending safety-critical messages
+
+A CRC-16 lets roughly 1 in 65 536 random frames through. On a link generating garbage
+continuously that is a false accept every few minutes, which is fine for a telemetry sample
+and unacceptable for "arm the motors". Three layers, none of which is the CRC:
+
+1. **Magic constants on state-changing messages.** A distinct 4-byte value per message, so a
+   corrupt `SafetyStateRequest` cannot become an `EstopRequest`. Combined with the CRC this
+   puts a false accept at roughly 2^-48. The values are ASCII-derived (`ARM!`, `ESTP`,
+   `COMT`) for legibility; that slightly reduces entropy against a structured-garbage source
+   versus random constants, which is an acceptable trade for being readable in a hex dump.
+2. **Schema-declared per-field ranges, validated in the decoder.** A corrupt `DriveCommand`
+   that passes CRC still has to carry a plausible speed. This is cheap, generated, and
+   protects every message rather than only the dangerous ones.
+3. **Stale-command rejection.** The MCU rejects any command whose `timestamp_us` is not newer
+   than the last accepted command of that type, so a duplicated or delayed UDP datagram
+   cannot be replayed as a fresh command.
+
+`ParamCommit` writes MCU flash. Proposed rule: **rejected unless `DISARMED`.** A flash write
+stalls the core for milliseconds, which would blow a 1 kHz loop deadline, and flash endurance
+is finite.
+
+## Decoder state machine
+
+Three states, no allocation, no blocking, safe to call from the UART receive path:
+
+- **`ACCUMULATING`** — append each byte to a fixed buffer. On `0x00`, validate (below). On
+  buffer full without a delimiter, go to `DESYNC`.
+- **`DESYNC`** — discard every byte until the next `0x00`, then return to `ACCUMULATING`
+  with an empty buffer. *This is the step that a naive implementation gets wrong by simply
+  resetting the buffer, which resynchronizes mid-frame and then reads the tail of a frame as
+  a header.*
+- Validation order, cheapest and most-discriminating first: COBS decode -> minimum length ->
+  `protocol_version` equality -> CRC -> known `message_id` -> exact payload length for that
+  ID -> per-field range check. Each failure increments its own counter and returns to
+  `ACCUMULATING`.
+
+Rejections are counted and reported via `LinkStats`, and optionally `Nack`'d. A decoder that
+silently drops frames is a decoder that cannot be debugged from the operator's seat.
+
+## Schema shape
+
+Illustrative, not final:
+
+```yaml
+protocol_version: 1
+max_payload_bytes: 64
+
+enums:
+  SafetyState:
+    values: [{name: DISARMED, value: 0}, {name: ARMED, value: 1},
+             {name: FAULT, value: 2}, {name: ESTOP, value: 3}]
+
+messages:
+  - name: DriveCommand
+    id: 0x02
+    direction: operator_to_robot
+    rate_hz: 50
+    description: Body-frame velocity command. Diff-drive kinematics run on the MCU.
+    fields:
+      - name: cmd_linear_speed_m_s
+        type: f32
+        unit: m/s
+        range: [-2.0, 2.0]
+        source: "initial guess — to be tuned after wheel/gearbox characterization"
+        description: Positive is forward.
+      - name: cmd_angular_rate_rad_s
+        type: f32
+        unit: rad/s
+        range: [-6.28, 6.28]
+        source: "initial guess — to be tuned"
+        description: Positive is counter-clockwise about +z (turning left).
+```
+
+Types: `u8 u16 u32 i8 i16 i32 f32`, plus fixed-length arrays. **No `f64`** — the Cortex-M4
+FPU is single precision, so a double would be emulated in software inside a control loop.
+
+The generator rejects the schema if: IDs collide or fall outside their direction's range, a
+payload exceeds `max_payload_bytes`, a field name does not carry its declared unit suffix
+(hard rule 5), or a range or default lacks a `source:` note (hard rule 6).
+
+## Parameters
+
+`protocol/schema/params.yaml` declares each tunable with `id:u16`, type, unit, range,
+default, and `source:`. The wire format is deliberately uniform — `param_id`, `type_tag`,
+4-byte value — so one message pair serves every parameter and the MCU needs no per-parameter
+code. The generator emits a `constexpr` table for the MCU and typed accessors for Python.
+
+## Test plan (tests written before implementation)
+
+**C++**
+- `crc16`: known-answer `CRC("123456789") == 0x29B1`; empty input; single byte; every
+  `test_vectors.json` frame.
+- `cobs`: round-trip for all lengths 0–254 and for 254/255-byte runs (the block-boundary
+  cases); encoded output provably contains no `0x00`; malformed-input rejection.
+- `frame_codec`: round-trip every message; reject wrong version, bad CRC, unknown ID, wrong
+  length, out-of-range field; `seq` gap counting across the u8 wrap; timestamp wrap.
+- `frame_decoder` resync: valid frame, then garbage, then valid frame -> both valid frames
+  recovered. Oversized run with no delimiter -> `DESYNC`, then clean recovery. Truncated
+  frame followed by a valid one -> the valid one is recovered.
+- **Fuzz** (`libFuzzer`, with a seeded deterministic fallback so CI works without clang):
+  no crash, no out-of-bounds read, no infinite loop, decoder still usable afterward, and
+  never emits a frame that fails its own validation.
+
+**Python**
+- Schema validation, including deliberately bad schemas: colliding IDs, missing `source:`,
+  a unit/suffix mismatch. Each must fail with a clear message.
+- Generator determinism against golden output.
+- Codec round-trip, plus `hypothesis` property tests over arbitrary byte strings.
+- **Cross-language**: `test_vectors.json` holds hand-computed frames; both C++ and Python
+  must encode to and decode from those exact bytes. This is the mechanism that catches
+  drift, and it must be hand-checked at least once rather than generated by the code it tests.
+
+**Acceptance criteria:** every test above passes on host and in CI; the cross-compile still
+builds; `tools/check_core_purity.py` still passes over the new `firmware/core/protocol/`
+(no allocation, no vendor headers); and `docs/theory/` is not needed, but
+`docs/learning/protocol.md` is written, since the codec is an owner-reviewed module.
+
+## Deliberately deferred
+
+- **Camera pitch command (`0x03`).** Whether the message carries a target angle or a target
+  torque depends on the actuator choice (geared servo vs. FOC gimbal BLDC), which needs its
+  own ADR. Reserving the ID now costs nothing; guessing the semantics would cost a protocol
+  version bump later.
+- **`StateTelemetry`'s pitch and rate fields are provisional.** What the estimator actually
+  produces is an owner-reviewed design that does not exist yet. The field list will likely
+  change, which is a version bump — cheap now, while nothing is deployed.
+- **MQTT / video.** Out of scope; video is a separate path by design (`robot_bridge/README.md`).
+
+## Open questions for the owner
+
+1. **CRC-16 plus magic constants, or CRC-32 everywhere?** This is the decision I would most
+   like challenged. CRC-32 costs 2 bytes per frame and a 1 KB table, and makes the layered
+   defenses less load-bearing. I lean toward the layered approach because range validation
+   and stale-command rejection are worth having regardless, but the reasoning is arguable.
+2. **Is `ParamCommit` restricted to `DISARMED` acceptable?** It means gains cannot be
+   persisted mid-test, only applied in RAM and committed after disarming.
+3. **`robot_bridge/` at frame level only** — counts `0x00` delimiters and sequence numbers,
+   never decodes fields — so a schema change never forces a Pi redeploy. Confirm.
+4. **Three telemetry messages at three rates, or one combined message?** Split costs more
+   IDs and gives a consistent snapshot only within each message; combined wastes bandwidth
+   sending 10 Hz power data at 100 Hz.
+5. **`seq` as u8** (blind to exactly-256-frame losses) versus u16 for one more byte.
+6. **UART baud rate.** 115 200 leaves ~60% headroom at the proposed telemetry rates; 460 800
+   or 921 600 would be comfortable. This affects bring-up, not the protocol.
