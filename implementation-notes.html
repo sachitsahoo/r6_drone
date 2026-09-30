@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recon UGV — Implementation Notes</title>
+<style>
+  :root {
+    --bg: #fbfbf9; --fg: #1a1a18; --muted: #5f5f58;
+    --rule: #e2e2dc; --accent: #7a4d00; --card: #ffffff; --code-bg: #f3f3ef;
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17171a; --fg: #e8e8e4; --muted: #a0a099;
+      --rule: #32323a; --accent: #e0a84c; --card: #1f1f23; --code-bg: #26262b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17171a; --fg: #e8e8e4; --muted: #a0a099;
+    --rule: #32323a; --accent: #e0a84c; --card: #1f1f23; --code-bg: #26262b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px 16px 96px; background: var(--bg); color: var(--fg);
+    font: 16px/1.65 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin: 0 0 40px; font-size: 0.95rem; }
+  h2 {
+    font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--muted); margin: 44px 0 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule); font-weight: 650;
+  }
+  details {
+    background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 14px 18px; margin: 0 0 10px;
+  }
+  summary { cursor: pointer; font-weight: 600; }
+  summary::marker { color: var(--accent); }
+  details > *:last-child { margin-bottom: 0; }
+  .tag {
+    display: inline-block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 999px; padding: 1px 8px; margin-left: 8px; vertical-align: 1px;
+  }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.87em;
+    background: var(--code-bg); padding: 1px 5px; border-radius: 4px;
+  }
+  p { margin: 10px 0; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  .why { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Recon UGV — Implementation Notes</h1>
+<p class="sub">Off-spec decisions and open questions, appended as work lands. Started 2026-09-30.</p>
+
+<h2>Phase 1 — repo skeleton, build system, CI</h2>
+
+<details>
+<summary>Wrote a real core module instead of a placeholder source file<span class="tag">off-spec</span></summary>
+<p>Phase 1 as specified does not call for any code in <code>firmware/core/</code>, but a CMake
+static library needs at least one translation unit, and the target cross-compile job has
+nothing to prove without one.</p>
+<p>Rather than a dummy file, I wrote <code>firmware/core/time/timestamp.hpp/.cpp</code>:
+a wraparound-safe <code>elapsed_us()</code>. It directly serves hard rule 7 (integer
+wraparound handled explicitly and tested), it gives the test harness seven real
+assertions instead of <code>EXPECT_EQ(1, 1)</code>, and every later loop and the comms
+watchdog will need it.</p>
+<p class="why"><strong>Judgment call worth reviewing:</strong> the watchdog is an
+owner-reviewed area. I treated a pure timestamp-arithmetic utility as foundational rather
+than as watchdog logic — it contains no timeout policy, no state, and no decisions. If you
+consider that over the line, it should move or wait for a design review.</p>
+</details>
+
+<details>
+<summary><code>TARGET</code> collides with a reserved CMake <code>if()</code> operator<span class="tag">hazard</span></summary>
+<p><code>if(TARGET x)</code> is a documented CMake operator that tests whether a
+<em>CMake target</em> named <code>x</code> exists. Writing
+<code>if(TARGET STREQUAL "host")</code> is parsed as that operator and silently does the
+wrong thing — no error, just a wrong branch.</p>
+<p>The variable name is fixed by CLAUDE.md's documented commands, so every test in
+<code>CMakeLists.txt</code> dereferences and quotes it: <code>if("${TARGET}" STREQUAL
+"host")</code>. There is a comment at the definition site explaining why.</p>
+</details>
+
+<details>
+<summary>Firmware language subset is applied per-target, not globally<span class="tag">off-spec</span></summary>
+<p>CLAUDE.md says to compile with <code>-fno-exceptions -fno-rtti</code>. Those flags are
+applied to <code>recon_core</code> on <em>both</em> host and stm32 builds, so host tests
+exercise the same language subset that ships. They are deliberately <em>not</em> applied to
+the test executable or to GoogleTest, which is built with exceptions enabled.</p>
+<p class="why">Consequence: a test file could use a construct that firmware cannot. The
+purity guard covers <code>firmware/core/</code> itself, which is the code that ships, so
+this is a narrow and visible gap rather than a hole in the firewall.</p>
+</details>
+
+<details>
+<summary>The purity guard enforces hard rule 2 as well as rule 1<span class="tag">scope +</span></summary>
+<p>The plan called for a CI guard against vendor headers in <code>firmware/core/</code>
+(hard rule 1). <code>tools/check_core_purity.py</code> also rejects <code>new</code>,
+<code>malloc</code>, <code>std::vector</code>, <code>std::string</code>,
+<code>std::function</code>, <code>throw</code>, and <code>dynamic_cast</code> (hard rule 2).</p>
+<p>Same mechanism, same cost, and rule 2 is the one most likely to be violated by reflex
+while writing ordinary-looking C++. Comments and string literals are blanked before
+scanning so doc comments can discuss the banned constructs.</p>
+</details>
+
+<details>
+<summary>The guard's own tests caught a bug that would have made it useless<span class="tag">bug</span></summary>
+<p>The first version blanked all string literals before scanning. That also blanked the
+quoted header path in <code>#include "stm32g4xx_hal.h"</code> — so the guard silently
+missed every double-quoted vendor include while still reporting angle-bracket ones. It
+would have read green on the most likely real violation.</p>
+<p>Fixed by skipping literal-blanking on preprocessor lines. The four failing tests were
+what surfaced it; the guard was fixed rather than the tests relaxed.</p>
+<p class="why">This is the argument for testing CI guards like production code: a broken
+guard is worse than no guard, because it reports success.</p>
+</details>
+
+<details>
+<summary>CI cross-compiles with Ubuntu's toolchain, not the developer machine's<span class="tag">trade-off</span></summary>
+<p>Local is Arm GNU Toolchain 15.3.Rel1 (Homebrew cask). CI installs Ubuntu's
+<code>gcc-arm-none-eabi</code>, which is an older release. With <code>-Werror</code>, a
+warning added or removed between versions can make CI and local builds disagree.</p>
+<p>Accepted for Phase 1 in exchange for not depending on a third-party action or a pinned
+release string I could not verify. Noted in the workflow at the install step. Pin both to
+the same Arm release if the disagreement actually bites.</p>
+</details>
+
+<details>
+<summary>Python tests need a virtualenv; CLAUDE.md's bare <code>pytest</code> assumes it is active<span class="tag">setup</span></summary>
+<p>System Python 3.13 has no pytest, and installing into a Homebrew-managed framework
+Python is a bad idea. Created <code>.venv/</code> (gitignored) with
+<code>requirements-dev.txt</code>. The documented <code>pytest</code> command works once
+the venv is activated; otherwise it is <code>.venv/bin/pytest</code>.</p>
+<p><code>pyproject.toml</code> pins <code>testpaths</code> and <code>pythonpath</code> so
+pytest finds the right tests regardless of where it is invoked from.</p>
+</details>
+
+<details>
+<summary>Generated protocol bindings are gitignored<span class="tag">decision</span></summary>
+<p><code>protocol/generated/</code> is not committed. The schema is the single source of
+truth, so committing its output invites someone editing the generated file and creating two
+sources of truth. Consequence: every build and every clone must be able to run the
+generator, which makes the generator a hard build dependency — accepted deliberately.</p>
+</details>
+
+<h2>Open questions</h2>
+
+<details open>
+<summary>Schema format and generator language (blocks the protocol slice)</summary>
+<p>Two separate decisions: what the hand-edited schema file looks like (YAML, TOML, or a
+small DSL), and what language the generator is written in. The generator runs only at build
+time and never ships to the robot, so its language costs nothing at runtime.</p>
+<p>Recommendation: YAML schema, Python generator — Python is already a hard project
+dependency, and a C++ generator would have to be built before the firmware that needs its
+output. Rejecting Protobuf/nanopb/Cap'n Proto because the framing is already specified by
+hand and a ~200-line readable generator is defensible in a way a third-party wire format is
+not. Needs an ADR.</p>
+</details>
+
+<details open>
+<summary>How much protocol awareness does <code>robot_bridge/</code> need?</summary>
+<p>A pure byte relay needs none. Link monitoring may need frame-level awareness (COBS
+delimiters, sequence numbers) without field-level schema. Field-level coupling means every
+schema change forces a Pi redeploy, so the intent is to stay at frame level if monitoring
+allows it. Unresolved until the protocol design.</p>
+</details>
+
+<details open>
+<summary>Pitch actuator: geared servo vs. FOC gimbal BLDC</summary>
+<p>Undecided, and it gates the stabilization work. It likely also determines whether the
+HAL interface commands an <em>angle</em> or a <em>torque</em>, which is why
+<code>firmware/hal/</code> has no pitch actuator interface yet. First real ADR.</p>
+</details>
+
+</main>
+</body>
+</html>

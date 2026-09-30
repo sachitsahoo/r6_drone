@@ -1,0 +1,79 @@
+name: CI
+
+# Every push and pull request. CLAUDE.md requires host build, all tests, and a
+# target cross-compile on every push.
+on:
+  push:
+  pull_request:
+
+# A newer push to the same branch cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-build-and-test:
+    name: Host build + C++ tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -DTARGET=host
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  target-cross-compile:
+    name: STM32 cross-compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Proves firmware/core/ compiles for arm-none-eabi. This is the job that
+      # makes the portability firewall real rather than aspirational.
+      #
+      # NOTE: Ubuntu's gcc-arm-none-eabi is an older release than the Arm GNU
+      # Toolchain used on the developer machine (15.3.Rel1 as of 2026-09-30).
+      # With -Werror, a warning introduced or removed between versions can make
+      # CI and local builds disagree. Accepted for Phase 1; pin both to the same
+      # Arm release if that disagreement actually bites.
+      - name: Install arm-none-eabi toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi
+
+      - name: Report toolchain version
+        run: arm-none-eabi-gcc --version
+
+      - name: Configure
+        run: cmake -B build-stm32 -DTARGET=stm32
+
+      - name: Build
+        run: cmake --build build-stm32
+
+  python-tests:
+    name: Python tests + firewall guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # the minimum the project claims to support
+
+      - name: Install dev dependencies
+        run: python -m pip install --upgrade pip -r requirements-dev.txt
+
+      # CLAUDE.md hard rules 1 and 2 -- no vendor headers and no dynamic
+      # allocation in firmware/core/ -- are conventions that nothing in the
+      # compiler checks. This is their enforcement. The guard's own tests run in
+      # the pytest step below, so a guard that stopped working cannot read green.
+      - name: firmware/core purity guard
+        run: python tools/check_core_purity.py
+
+      - name: Test
+        run: pytest

@@ -1,0 +1,2 @@
+# Host-side development dependencies. Firmware needs none of this.
+pytest>=8.0

@@ -1,0 +1,37 @@
+# Build trees
+build/
+build-stm32/
+build-*/
+
+# Compiler / linker artifacts
+*.o
+*.a
+*.elf
+*.bin
+*.hex
+*.map
+*.su
+*.d
+
+# Generated protocol bindings — regenerated from protocol/ schema, never committed
+protocol/generated/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Logs and captures (raw protocol frames can get large)
+*.log
+logs/
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+compile_commands.json

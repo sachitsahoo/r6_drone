@@ -1,0 +1,10 @@
+[project]
+name = "recon-ugv"
+version = "0.1.0"
+description = "Operator app, robot bridge, and analysis tools for the Recon UGV"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+pythonpath = ["operator", "robot_bridge", "tools", "protocol"]
+addopts = "-q"
