@@ -13,10 +13,13 @@ ADR 0008 made this harder by putting the motor on the centreline, where it now c
 space with whatever carries those wires, and by cutting the torque budget from 67 mN m to
 22.5 mN m, which makes friction matter.
 
-## The question nobody had asked
+## First: the requirement is +/-180 degrees, not continuous rotation
 
 ADR 0004 specified **continuous** rotation, justified by the camera righting itself after a
-throw without a self-righting mechanism. That justification only needs **+/-180 degrees**.
+throw without a self-righting mechanism. That justification only needs **+/-180 degrees** —
+enough to bring the camera level from any landing orientation, including upside down.
+Everything beyond that is headroom for accumulation, not function. ADR 0004's wording was
+carried forward without re-examination.
 
 Where continuous rotation actually earns its keep is accumulation:
 
@@ -38,8 +41,30 @@ room for.
 
 Truly unbounded rotation. But:
 
-- **Friction lands directly on a 22.5 mN m budget.** A 3 mN m drag is 13% of it, and it is
-  *continuous* — the actuator pays it whenever the camera holds level, not just while moving.
+- **Friction exceeds the entire torque budget.** This is the finding that settles it, and it
+  is far worse than first assumed. Vendor specifications for 12.5 mm capsules:
+
+  | Source | Friction torque |
+  |---|---|
+  | Senring M125, OD 12.5 mm | "less than 0.06 N.m" = **60 mN m** |
+  | ATO 12.5 mm | 0.05 N.m, +0.01 per 6 circuits = **50-70 mN m** at 12 circuits |
+  | Another vendor datasheet | starting torque 2 N.cm = **20 mN m** |
+  | **Axis torque budget (ADR 0008)** | **22.5 mN m** |
+
+  The most optimistic figure is 0.9x the whole budget; the typical one is 2-3x. And the drag
+  is *continuous* — paid whenever the camera holds level, not only while it moves.
+
+  **Caveat, stated because the gap is suspicious:** a first-principles estimate — roughly 24
+  brushes at 0.1 N, mu around 0.3, at 5 mm radius — gives about 3.6 mN m, some 6x below the
+  most optimistic datasheet. Those specifications are probably worst-case breakaway including
+  seal and bearing drag. The true figure likely sits between 4 and 20 mN m and **should be
+  measured** rather than taken from either source. But a design cannot be committed on the
+  assumption that a datasheet overstates by 6x.
+
+  This is also the scale change talking. At ADR 0006's 302 mm the budget was 67 mN m and a
+  20 mN m slip ring was 30% — bad but survivable. Shrinking the robot made direct drive
+  possible *and* made the slip ring impossible, from the same k^4 scaling: the robot shrank
+  and the slip ring's friction did not.
 - A wear item, with a finite rotation life, in a robot that is meant to be thrown.
 - Another part on a centreline that now holds the motor and the IMU.
 
@@ -47,7 +72,9 @@ Truly unbounded rotation. But:
 
 Concentric with the motor. Elegant, and constrains which motor can be bought — hollow-shaft
 gimbal motors exist but the bore is typically 3–7 mm, while a 6-circuit through-bore unit is
-around 33 mm outer diameter. Added complexity for no functional gain over option 1.
+around 33 mm outer diameter. Added complexity for no functional gain over option 1 — and
+**worse on the point that matters**, since friction torque scales with contact radius and a
+through-bore unit has a much larger one.
 
 ### 3. Flexible wire loop with bounded travel and an opportunistic unwind (proposed)
 
@@ -104,9 +131,11 @@ a robot in constant motion that never pauses, degrades gracefully to the table a
 **Option 3: bounded travel with a software unwind**, with option 1 as the fallback if the
 unwind behaviour proves unacceptable in use.
 
-The deciding argument is friction, not cost. At 302 mm a slip ring's drag was noise against
-a 67 mN m budget. At 214 mm it is 2–13% of the budget, paid continuously, in a machine whose
-entire purpose is holding a camera steady.
+The deciding argument is friction, not cost, and it is not close. Vendor specifications put
+capsule slip ring drag at 20–70 mN m against a 22.5 mN m budget — between 0.9x and 3x the
+entire torque available, paid continuously, in a machine whose whole purpose is holding a
+camera steady. A wire loop has zero drag with certainty, which is worth more than a component
+whose friction specification carries a 6x uncertainty band sitting on top of the budget.
 
 ## Consequences
 
@@ -132,3 +161,6 @@ entire purpose is holding a camera steady.
    policy this should be rare, but it is a question about how the robot gets used rather
    than about mechanics.
 3. Whether turn count survives a power cycle, or is re-established by driving to a known stop.
+4. If the slip ring path is ever reopened: **measure a real one's friction torque.** The
+   datasheet figures and the first-principles estimate differ by about 6x, and the decision
+   turns entirely on which is closer to true.
