@@ -254,6 +254,66 @@ without digging through conversation history.
    UART clock problem that is the real constraint, is in
    [`docs/bringup/uart-link.md`](../docs/bringup/uart-link.md). Recommendation: 460 800.
 
+## Pending schema changes — PROPOSED, awaiting owner approval
+
+Protocol schema changes are owner-reviewed, so these are written down rather than applied.
+
+### 1. `camera_pitch_rad` range — a live defect, recommend fixing
+
+ADR 0004 settled that the outer casing rotates **continuously** about the wheel axis. The
+field still declares `[-1.5708, 1.5708]` (plus or minus 90 degrees) from when a limited-travel
+camera gimbal was assumed. Because the generator emits range validation into the decoder, this
+does not mislabel data — it **drops frames**:
+
+```
+casing at   89 deg -> accepted
+casing at   91 deg -> REJECTED (frame dropped)
+casing at  120 deg -> REJECTED (frame dropped)
+casing at -150 deg -> REJECTED (frame dropped)
+```
+
+Proposed change:
+
+```yaml
+      - name: camera_pitch_rad
+        type: f32
+        unit: rad
+        range: [-3.1416, 3.1416]          # was [-1.5708, 1.5708]
+        source: >
+          full circle — the casing rotates continuously about the wheel axis (ADR 0004),
+          so any angle is physically reachable
+        description: >
+          World-relative camera pitch, wrapped to [-pi, pi]. POSITIVE IS NOSE-DOWN.
+          Consumers that differentiate or plot this must unwrap it; a wrap is a 2*pi jump,
+          not motion.
+```
+
+**Wrapped rather than unbounded**, matching `body_pitch_rad`. An accumulating absolute angle
+would need a revolution counter to stay meaningful and would slowly lose angular resolution in
+`f32` — and nothing in the control loop needs to know how many turns the casing has made. If
+turn count ever matters, it belongs in its own field rather than smuggled into this one.
+
+**Cost: none beyond the edit.** The field stays `f32`, the payload stays 31 bytes, and the wire
+layout is unchanged, so this needs no `protocol_version` bump — only a regenerate. Tests that
+pin payload sizes stay valid.
+
+### 2. `version_mismatch` field for `LinkStats` — recommend, lower priority
+
+Carried over from the codec work. `FrameDecoder` counts `version_mismatch`, but `LinkStats`
+has no field for it, so it is observable locally and never transmitted. A version mismatch is
+exactly the kind of link problem the operator needs to see. Cost is 4 bytes at 1 Hz, taking the
+payload from 28 to 32 bytes — which *does* change a documented size, so it touches
+`tests/python/test_schema.py`, `tests/cpp/test_generated_messages.cpp`, and the bandwidth figure
+in `docs/bringup/uart-link.md` (4805 to 4809 B/s, immaterial).
+
+### 3. Possible redundancy between the two pitch fields — blocked on IMU placement
+
+If the IMU rides on the rotating casing, `camera_pitch_rad` is measured and `body_pitch_rad` is
+derived from it via the actuator encoder; if it rides on the chassis, the reverse. Either way
+one field is computed from the other plus the encoder, so transmitting both is arguably
+redundant — but transmitting both is also how the operator sees the estimator's two outputs
+without recomputing anything. Not worth deciding until IMU placement is.
+
 ## Remaining dependencies before implementation
 
 None. The camera pitch command (`0x03`) stays reserved and unassigned pending the pitch

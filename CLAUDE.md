@@ -1,7 +1,10 @@
 # CLAUDE.md — Recon UGV
 
 Compact, rugged, two-wheeled reconnaissance robot with an actively pitch-stabilized
-camera body. Personal CE portfolio project and possible Northeastern PEAK research
+camera body: an inner chassis carries the wheels and drive motors, and an outer casing
+carrying the camera and electronics rotates continuously about the wheel axis. See
+`docs/decisions/0004-pitch-axis-architecture.md` — the original phrasing was ambiguous
+and was read as a camera gimbal, which is the wrong machine. Personal CE portfolio project and possible Northeastern PEAK research
 project. Research question: how well can active pitch stabilization improve visual
 stability on a compact, impact-tolerant UGV under mass, power, and durability limits?
 
@@ -20,7 +23,11 @@ Three tiers. The faster and more safety-critical a loop, the closer to hardware 
 
 Bench hardware: TB6612FNG motor driver, 2x N20 gearmotors with magnetic encoders,
 ICM-42688-P IMU (SPI), INA226 power monitor (I2C).
-Pitch actuator: **undecided** (geared servo vs. gimbal BLDC with FOC). Do not assume one.
+Pitch actuator: **undecided**. The stabilized mass is the whole casing, not a camera
+assembly, so torque and gearing dominate the choice — the earlier servo-vs-gimbal-BLDC
+framing assumed a light gimbal load and must be re-argued. Needs an inertia estimate and a
+torque budget. Do not assume one. See ADR 0004.
+IMU placement: **undecided**, and it determines whether camera pitch is measured or derived.
 
 ## Repository layout
 
