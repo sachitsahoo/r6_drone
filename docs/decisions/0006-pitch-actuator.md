@@ -1,6 +1,10 @@
 # 0006 — Pitch actuator and transmission
 
-- **Status:** **PROPOSED — awaiting owner approval. Do not implement.**
+- **Status:** **SUPERSEDED by [0008](0008-reduced-scale-direct-drive.md)** (2026-09-30)
+- Superseded because the robot shrank from 302 mm to 214 mm overall. At that scale the
+  belt no longer fits and direct drive needs only 0.21 A, so the reduction this ADR
+  argues for became both impossible and unnecessary. Its argument that backlash lands
+  inside the measurement still stands and still rules out a geared actuator.
 - **Related:** [0004](0004-pitch-axis-architecture.md) (casing rotates continuously),
   [0005](0005-imu-placement.md) (actuator needs position feedback),
   [theory note](../theory/pitch-axis-inertia-and-torque.md) (the numbers below)
