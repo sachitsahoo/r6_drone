@@ -49,18 +49,55 @@ Concentric with the motor. Elegant, and constrains which motor can be bought —
 gimbal motors exist but the bore is typically 3–7 mm, while a 6-circuit through-bore unit is
 around 33 mm outer diameter. Added complexity for no functional gain over option 1.
 
-### 3. Flexible wire loop with bounded travel and a software unwind (proposed)
+### 3. Flexible wire loop with bounded travel and an opportunistic unwind (proposed)
 
-Let the wiring wrap. Allow roughly +/-3 turns of travel, track accumulated angle in firmware,
-and **unwind 360 degrees when the accumulated angle approaches the limit**, preferably while
-the robot is stationary.
+Let the wiring wrap. Allow several turns of travel, track accumulated angle in firmware, and
+unwind 360 degrees **whenever the accumulated angle reaches one turn and the robot is
+stationary** — not when it approaches the mechanical limit.
 
 - **Zero friction.** Nothing rubs, so none of the 22.5 mN m is spent on drag.
 - **Zero wear**, no rotation life, nothing to fail mechanically.
 - **Free**, and one fewer part on a crowded centreline.
 - Cost: the camera spins through 360 degrees during an unwind, so the operator loses the
-  picture briefly. It is deferrable — the firmware can wait for a stationary moment — and it
-  only happens after substantial accumulation.
+  picture briefly. See the frequency analysis below — with an opportunistic policy this
+  lands during pauses and is rare.
+
+## How often would an unwind actually happen?
+
+The cost of this option is entirely about how often the camera spins, so it is worth
+answering rather than assuming.
+
+**Almost nothing accumulates turns.**
+
+- **Normal driving: zero.** The casing tracks chassis pitch, which oscillates about a mean.
+  It does not go round.
+- **A throw: approximately zero**, provided the pitch loop is disarmed in flight. It should
+  be regardless — it can achieve nothing airborne and would fight the tumble. Disarm on
+  launch detection, re-zero on landing.
+- **A complete flip or roll-over: exactly one turn.** This is the only real source.
+
+**And flips are a random walk.** Tipping forward and backward roughly cancel, so accumulation
+grows as sqrt(N) rather than N. Median flips before hitting the limit, from a 20 000-trial
+Monte Carlo of a +/-1 random walk:
+
+| Loom limit | Symmetric | 60/40 bias | 70/30 bias |
+|---|---|---|---|
+| +/-3 turns | 7 flips | 7 flips | 5 flips |
+| +/-5 turns | 19 flips | 15 flips | 9 flips |
+| +/-8 turns | 48 flips | 30 flips | 18 flips |
+
+The limit is quadratic in turns, so a loom that tolerates +/-5 rather than +/-3 nearly
+triples the margin. A consistent bias — always tipping forward over obstacles — is the bad
+case and erodes that advantage.
+
+**The policy matters more than the number.** Unwinding *reactively* at the mechanical limit
+is the wrong design: it fires mid-drive, at whatever moment the count happens to reach the
+limit, which is precisely when losing the picture is most costly.
+
+Unwinding *opportunistically* — at one accumulated turn, while stationary — means the limit
+is essentially never reached, the spin lands during a pause when it costs least, and the
+operator can be shown a "recentering" indication rather than an unexplained spin. Worst case,
+a robot in constant motion that never pauses, degrades gracefully to the table above.
 
 ## Proposed decision
 
@@ -89,7 +126,9 @@ entire purpose is holding a camera steady.
 
 ## What must be settled before this is accepted
 
-1. How many turns the loom actually tolerates, measured on the real wiring rather than assumed.
-2. Whether an unwind mid-mission is acceptable to the operator, which is a question about how
-   the robot gets used rather than about mechanics.
+1. How many turns the loom actually tolerates, measured on the real wiring rather than
+   assumed. This is quadratic in value: +/-5 turns is nearly three times the margin of +/-3.
+2. Whether an unwind mid-mission is acceptable to the operator. With the opportunistic
+   policy this should be rare, but it is a question about how the robot gets used rather
+   than about mechanics.
 3. Whether turn count survives a power cycle, or is re-established by driving to a known stop.
