@@ -17,6 +17,12 @@ env:
   # source of truth (docs/decisions/0003).
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
+  # Matches the developer machine exactly (Homebrew cask gcc-arm-embedded). Bump this and
+  # ARM_TOOLCHAIN_SHA256 together; the checksum is for the x86_64 Linux tarball, which is
+  # a different file from the macOS package the cask installs.
+  ARM_TOOLCHAIN_VERSION: "15.3.rel1"
+  ARM_TOOLCHAIN_SHA256: "563bebb2b97d53382b956d6ee1fe61e2cae26699901417234a37df505ef9b5fa"
+
 jobs:
   host-build-and-test:
     name: Host build + C++ tests + cross-language
@@ -64,15 +70,42 @@ jobs:
       # Proves firmware/core/ compiles for arm-none-eabi. This is the job that makes the
       # portability firewall real rather than aspirational.
       #
-      # NOTE: Ubuntu's gcc-arm-none-eabi is older than the Arm GNU Toolchain used on the
-      # developer machine (15.3.1 local vs 13.2.1 here, measured 2026-09-30). With
-      # -Werror, a warning added or removed between versions can make CI and local builds
-      # disagree. Accepted; pin both to the same Arm release if it bites.
-      - name: Install arm-none-eabi toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi
+      # Installed from Arm's own release rather than Ubuntu's package, for two reasons.
+      #
+      # 1. Version parity. Ubuntu noble ships gcc 13.2.1; the developer machine runs
+      #    15.3.1 (Homebrew cask gcc-arm-embedded). Under -Werror, a warning added or
+      #    removed between two major versions makes CI and local builds disagree about
+      #    identical source. Pinning both to 15.3.rel1 removes that class of surprise.
+      #
+      # 2. Cost. `apt-get install gcc-arm-none-eabi` pulls 574 MB and unpacks 3.1 GB,
+      #    mostly multilib newlib variants this build never links against, on every push.
+      #    Arm's tarball is 153 MB and is cached after the first run.
+      #
+      # The download is pinned by SHA-256, so a tampered or swapped artifact fails the
+      # job rather than silently compiling the firmware. Bump both values together.
+      - name: Cache Arm GNU Toolchain
+        id: cache-arm-toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/arm-toolchain
+          key: arm-gnu-toolchain-${{ env.ARM_TOOLCHAIN_VERSION }}-x86_64
 
+      - name: Download Arm GNU Toolchain
+        if: steps.cache-arm-toolchain.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          archive="arm-gnu-toolchain-${ARM_TOOLCHAIN_VERSION}-x86_64-arm-none-eabi.tar.xz"
+          url="https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/${ARM_TOOLCHAIN_VERSION}/${archive}"
+          curl -fsSL --retry 3 -o /tmp/arm-toolchain.tar.xz "$url"
+          echo "${ARM_TOOLCHAIN_SHA256}  /tmp/arm-toolchain.tar.xz" | sha256sum -c -
+          mkdir -p "$HOME/arm-toolchain"
+          tar -xJf /tmp/arm-toolchain.tar.xz -C "$HOME/arm-toolchain" --strip-components=1
+
+      - name: Put the toolchain on PATH
+        run: echo "$HOME/arm-toolchain/bin" >> "$GITHUB_PATH"
+
+      # Printed so a version drift between CI and the developer machine is visible in the
+      # log rather than inferred from a confusing -Werror failure.
       - name: Report toolchain version
         run: arm-none-eabi-gcc --version
 

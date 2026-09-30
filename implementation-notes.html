@@ -124,14 +124,24 @@ guard is worse than no guard, because it reports success.</p>
 </details>
 
 <details>
-<summary>CI cross-compiles with Ubuntu's toolchain, not the developer machine's<span class="tag">trade-off</span></summary>
-<p>Local is Arm GNU Toolchain 15.3.Rel1 / gcc 15.3.1. CI installs Ubuntu's
-<code>gcc-arm-none-eabi</code>, measured as <strong>gcc 13.2.1</strong> on the first
-run (2026-09-30) &mdash; two major versions behind. With <code>-Werror</code>, a warning
-added or removed between versions can make CI and local builds disagree. Both pass today.</p>
-<p>Accepted for Phase 1 in exchange for not depending on a third-party action or a pinned
-release string I could not verify. Noted in the workflow at the install step. Pin both to
-the same Arm release if the disagreement actually bites.</p>
+<summary>RESOLVED &mdash; CI now uses the same Arm toolchain as the developer machine<span class="tag">closed</span></summary>
+<p>Originally CI installed Ubuntu's <code>gcc-arm-none-eabi</code>, measured as gcc
+<strong>13.2.1</strong> against <strong>15.3.1</strong> locally &mdash; two major versions
+apart, which under <code>-Werror</code> means CI and local can disagree about identical
+source. Logged as an accepted risk.</p>
+<p>Resolved when the install step's cost became visible in a CI log: <code>apt-get</code>
+was pulling <strong>574 MB</strong> and unpacking <strong>3.1 GB</strong> on every push,
+overwhelmingly multilib newlib variants this build never links against. The STM32 job took
+minutes while the other two finished in about twenty seconds each.</p>
+<p>CI now downloads Arm's own <code>15.3.rel1</code> release (153 MB, cached after the
+first run) from <code>gitlab.arm.com</code> &mdash; the same upstream the Homebrew cask
+uses, whose URL pattern is where the exact path came from. Pinned by SHA-256
+(<code>563bebb2&hellip;</code>, computed locally from the downloaded artifact) so a swapped
+or tampered tarball fails the job instead of silently compiling firmware. One change fixed
+both the version skew and the runtime.</p>
+<p class="why">Chose a pinned direct download over a third-party setup action: no
+unaudited action in the supply chain, and the version is pinned in two places that must be
+bumped together rather than floating.</p>
 </details>
 
 <details>
