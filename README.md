@@ -1,11 +1,11 @@
-# Recon UGV
+# Recon UGV, *Inspired by popular tactical, team based shooter game Rainbow Six Siege by Ubisoft*
 
 Compact, rugged, two-wheeled reconnaissance robot with an actively pitch-stabilized camera body.
 
 **Research question:** how well can active pitch stabilization improve visual stability on a
 compact, impact-tolerant UGV under mass, power, and durability limits?
 
-Personal computer-engineering portfolio project and possible Northeastern PEAK research project.
+Personal computer-engineering portfolio project
 
 ## Status
 
