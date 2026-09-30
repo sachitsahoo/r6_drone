@@ -67,7 +67,12 @@ BEARING_WIDTH = 4.0          # ASSUMPTION
 
 # ASSUMPTION, and worth a decision: the wheel OD must exceed the casing OD or the casing
 # drags. Ground clearance under the casing is (WHEEL_OD - CASING_OD) / 2.
-WHEEL_OD = 150.0             # ASSUMPTION: gives 7.5 mm ground clearance
+# 170, not 150. At 150 the ground clearance under the casing was 7.5 mm -- 10% of wheel
+# radius -- which is very little for a robot that gets thrown and driven over rubble.
+# Going to 170 costs 13.7 g on the pair (1.7% of the vehicle budget) and takes clearance to
+# 17.5 mm. Wheel inertia rises 47%, but wheel inertia is only ~9% of the effective drive
+# inertia, so the drive motors see about 15% more torque.
+WHEEL_OD = 170.0             # DECIDED 2026-09-30; ground clearance 17.5 mm
 WHEEL_WIDTH = 18.0           # DERIVED: axial budget
 WHEEL_BORE = 3.0             # ASSUMPTION: N20 output shaft
 WHEEL_ORING_CROSS_SECTION = 3.0   # ASSUMPTION: O-ring tread (R7 trick)
@@ -112,6 +117,17 @@ SLIP_RING_ENVELOPE_LENGTH = 25.0
 # 6 mm, not 4: the bearing seat is 4 mm deep, so a 4 mm cap was bored straight through and
 # left no shoulder for the bearing to seat against. Caught by cad/assembly.py.
 END_CAP_THICKNESS = 6.0
+#: Labyrinth lip projecting from the end cap over the chassis disc, shielding the 2.5 mm
+#: pitch-axis gap from grit. An open wheel flings debris inboard at that gap, and grit in
+#: it jams the pitch stabilization -- the exact function the project exists to study.
+#: Closing the wheels' inboard faces would do the same job for 91 g; this does it for ~4 g,
+#: because it sits at smaller radius and is thin.
+END_CAP_LIP_LENGTH = 3.0
+END_CAP_LIP_THICKNESS = 1.5
+#: Radial gap between the lip and the chassis disc it shrouds. A labyrinth works by
+#: proximity, not contact: at zero the lip rubs, and friction there lands directly on
+#: the pitch actuator's torque budget.
+END_CAP_LIP_CLEARANCE = 0.6
 #: Clearance bore through the cap's shoulder, so it passes the boss without rubbing.
 END_CAP_BOSS_CLEARANCE_BORE = 21.0
 END_CAP_SCREW_COUNT = 6

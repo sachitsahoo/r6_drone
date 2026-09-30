@@ -212,6 +212,7 @@ re-deciding them. Reproduce with the derivation at the bottom of
 | Rotational clearance | **2.5 mm** | mid-range |
 | Chassis OD | **125 mm** | derived; **at the top of the stated 115–125**, so any
 further wall thinning pushes it out of range |
+| **Wheel OD** | **170 mm** | 17.5 mm ground clearance under the casing; 150 mm gave only 7.5 |
 | Wheel width | **18 mm** each | |
 | Casing length | **120 mm** | |
 | Side clearance | **4.5 mm** each | |

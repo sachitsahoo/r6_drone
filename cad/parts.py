@@ -133,6 +133,17 @@ def casing_end_cap(with_datum: bool = False) -> cq.Workplane:
         cap = (cap.faces(">Z").workplane()
                .pushPoints([(P.PENDULUM_DATUM_RADIUS, 0.0)])
                .circle(P.PENDULUM_DATUM_DIA / 2).cutThruAll())
+
+    # Labyrinth lip, projecting inboard over the chassis disc. The wheels are open, so they
+    # fling grit inboard toward the 2.5 mm pitch-axis gap, and grit in that gap jams the
+    # rotation this whole robot is built around. Closing the wheel faces instead would cost
+    # 91 g; this costs about 2 g per cap because it sits at smaller radius.
+    lip_inner = P.CHASSIS_OD / 2 + P.END_CAP_LIP_CLEARANCE
+    lip_outer = lip_inner + P.END_CAP_LIP_THICKNESS
+    lip = (cq.Workplane("XY", origin=(0, 0, thickness))
+           .circle(lip_outer).circle(lip_inner)
+           .extrude(P.END_CAP_LIP_LENGTH))
+    cap = cap.union(lip)
     return cap
 
 
