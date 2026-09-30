@@ -21,9 +21,19 @@ generated Python bindings from [`../protocol/`](../protocol/).
 - **Every plot states its units**, and pitch plots state the sign convention, because
   positive nose-down is the opposite of most people's instinct.
 
+## Contents
+
+| Script | Purpose |
+|---|---|
+| `check_core_purity.py` | CI guard: enforces CLAUDE.md hard rules 1 and 2 over `firmware/core/`. |
+| `pitch_inertia_budget.py` | Inertia and torque budget for the pitch axis. Feeds ADR 0006. |
+
 ## Known limitations
 
-- Empty as of Phase 1. Nothing has been logged because nothing has run.
+- No log analysis or system identification yet, because nothing has run.
+- `pitch_inertia_budget.py` runs on estimates from the mechanical envelope, not
+  measurements. Its outputs are order-of-magnitude bounds until the shell is weighed and the
+  casing'''s pendulum period is measured. See the theory note for what to measure.
 
 ## How to test
 
