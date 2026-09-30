@@ -118,7 +118,7 @@ def casing_end_cap(with_datum: bool = False) -> cq.Workplane:
 
     cap = (cap.faces(">Z").workplane()
            .circle(P.BEARING_OD / 2).cutBlind(-P.BEARING_WIDTH))
-    cap = cap.faces(">Z").workplane().circle(P.BEARING_ID / 2).cutThruAll()
+    cap = cap.faces(">Z").workplane().circle(P.END_CAP_BOSS_CLEARANCE_BORE / 2).cutThruAll()
     cap = (cap.faces(">Z").workplane()
            .pushPoints(_ring_points(P.END_CAP_SCREW_RADIUS, P.END_CAP_SCREW_COUNT))
            .circle(P.M3_CLEARANCE / 2).cutThruAll())
@@ -206,7 +206,8 @@ def pitch_motor_bracket() -> cq.Workplane:
     Shape: flat plate. Features: motor bore, motor bolt circle, mounting slots for belt
     tension adjustment.
     """
-    plate_l, plate_w = 46.0, 38.0
+    plate_l = P.MOTOR_BRACKET_RADIAL_SPAN
+    plate_w = P.MOTOR_BRACKET_TANGENTIAL_SPAN
     t = P.MOTOR_BRACKET_THICKNESS
 
     plate = cq.Workplane("XY").rect(plate_l, plate_w).extrude(t)
@@ -218,8 +219,20 @@ def pitch_motor_bracket() -> cq.Workplane:
                                       phase_deg=45.0))
              .circle(P.M2_CLEARANCE / 2).cutThruAll())
 
+    # Trim to the casing's inner curve and the chassis frame's outer curve. A plain
+    # rectangle at this radius has CORNERS that poke through the shell even when its flat
+    # faces clear it -- the first assembly check caught exactly that. The part stays
+    # centred on its own origin; the trim cylinders are offset by the pulley radius.
+    outer_trim = (cq.Workplane("XY", origin=(-P.DRIVE_PULLEY_CENTER_RADIUS, 0, 0))
+                  .circle(P.CASING_ID / 2 - 1.0).extrude(t))
+    plate = plate.intersect(outer_trim)
+
+    inner_trim = (cq.Workplane("XY", origin=(-P.DRIVE_PULLEY_CENTER_RADIUS, 0, 0))
+                  .circle(P.CHASSIS_FRAME_OD / 2 + 1.0).extrude(t))
+    plate = plate.cut(inner_trim)
+
     # Slots, not holes: belt tension needs adjustment (ADR 0006).
-    for x in (-plate_l / 2 + 5.0, plate_l / 2 - 5.0):
+    for x in (-plate_l / 2 + 4.0, plate_l / 2 - 4.0):
         slot = (cq.Workplane("XY", origin=(x, 0, 0))
                 .slot2D(10.0, P.M3_CLEARANCE, 90.0).extrude(t))
         plate = plate.cut(slot)

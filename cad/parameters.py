@@ -30,10 +30,15 @@ ROTATIONAL_CLEARANCE = 2.5   # OWNER: range 2-3
 CHASSIS_OD = CASING_ID - 2 * ROTATIONAL_CLEARANCE   # DERIVED: 124.0, inside owner's 115-125
 CHASSIS_LENGTH = 101.0       # DERIVED: casing length minus drive band minus end clearance
 CHASSIS_DISC_THICKNESS = 4.0 # ASSUMPTION: printed disc stiff enough at 124 mm
-CHASSIS_FRAME_OD = 70.0      # DERIVED (R1): leaves a 29.5 mm radial pocket for a 28 mm motor
+CHASSIS_FRAME_OD = 60.0      # DERIVED (R1): the motor's inner edge sits at radius 33.1, so
+                             # the frame must stay under 62.3 mm OD to clear it
 
 # Drive band: the chassis diameter is locally reduced here and carries the belt (R1).
-DRIVE_BAND_OD = 90.0         # DERIVED: 9:1 with a 10 mm pulley, 7.4 mm wall clearance
+# DERIVED: 8:1 with a 10 mm pulley. NOT 90 mm / 9:1 as first specified -- that checked
+# only that the pulley cleared the shell, not the 28 mm motor body coaxial with it, which
+# poked 1.7 mm through the wall. The largest band that fits a 28 mm motor with 2 mm margin
+# is 83.7 mm OD. Caught by cad/assembly.py's clearance report.
+DRIVE_BAND_OD = 80.0
 DRIVE_BAND_WIDTH = 15.0      # DERIVED: axial budget
 
 # --------------------------------------------------------------------- belt and pulley
@@ -41,7 +46,7 @@ DRIVE_BAND_WIDTH = 15.0      # DERIVED: axial budget
 BELT_WIDTH = 6.0             # ASSUMPTION: GT2 6 mm, the common size
 BELT_BACK_THICKNESS = 1.4    # ASSUMPTION: GT2 nominal
 BELT_TOOTH_HEIGHT = 0.75     # ASSUMPTION: GT2 nominal
-DRIVE_PULLEY_OD = 10.0       # DERIVED: sets the 9:1 ratio
+DRIVE_PULLEY_OD = 10.0       # DERIVED: sets the 8:1 ratio
 
 # ------------------------------------------------------------------------------ axis
 
@@ -104,15 +109,20 @@ PENDULUM_DATUM_DIA = 3.2
 SLIP_RING_ENVELOPE_DIA = 15.0   # R5
 SLIP_RING_ENVELOPE_LENGTH = 25.0
 
-END_CAP_THICKNESS = 4.0
+# 6 mm, not 4: the bearing seat is 4 mm deep, so a 4 mm cap was bored straight through and
+# left no shoulder for the bearing to seat against. Caught by cad/assembly.py.
+END_CAP_THICKNESS = 6.0
+#: Clearance bore through the cap's shoulder, so it passes the boss without rubbing.
+END_CAP_BOSS_CLEARANCE_BORE = 21.0
 END_CAP_SCREW_COUNT = 6
 END_CAP_SCREW_RADIUS = 61.0     # DERIVED: inside the 64.5 mm inner wall
 
 STANDOFF_COUNT = 4              # ASSUMPTION: M3 standoffs joining the chassis discs
-STANDOFF_RADIUS = 40.0          # DERIVED: must sit inside the drive band's 45 mm outer
-                                # radius with clearance, and inside the chassis disc
-                                # spokes. At 45 the M3 holes ran 1.7 mm off the band --
-                                # caught by test_drive_band_diameter_gives_the_intended_ratio
+# Computed, not chosen. This was a literal twice, and twice it collided with the drive
+# band's outer radius after the band diameter changed -- the M3 holes ran off the edge of
+# the part both times. Deriving it from the band and frame kills the whole class of bug:
+# midway between the frame it bolts to and the band's rim.
+STANDOFF_RADIUS = (CHASSIS_FRAME_OD / 2 + DRIVE_BAND_OD / 2) / 2
 
 MOTOR_BRACKET_THICKNESS = 4.0
 PITCH_MOTOR_BORE = 28.0         # ASSUMPTION: 28 mm gimbal motor; the number R1 says to verify
@@ -127,3 +137,23 @@ PETG_DENSITY = 1.27e-3
 ABS_DENSITY = 1.04e-3
 PRINT_DENSITY = ABS_DENSITY     # what the reports assume; ABS is 18% lighter than
                                 # PETG, which is a free lever on rotating inertia
+
+
+# ------------------------------------------------- derived drive geometry (do not edit)
+
+BELT_TOTAL_THICKNESS = BELT_BACK_THICKNESS + BELT_TOOTH_HEIGHT
+
+#: Radius at which the drive pulley's axis sits, riding on the belt bonded to the band.
+DRIVE_PULLEY_CENTER_RADIUS = (DRIVE_BAND_OD / 2) + BELT_TOTAL_THICKNESS + (DRIVE_PULLEY_OD / 2)
+
+#: Reduction from motor to casing.
+DRIVE_RATIO = DRIVE_BAND_OD / DRIVE_PULLEY_OD
+
+#: Radial extent of the pitch motor body, coaxial with the pulley. Both must clear the
+#: casing wall outboard and the chassis frame inboard.
+PITCH_MOTOR_OUTER_RADIUS = DRIVE_PULLEY_CENTER_RADIUS + PITCH_MOTOR_BORE / 2
+PITCH_MOTOR_INNER_RADIUS = DRIVE_PULLEY_CENTER_RADIUS - PITCH_MOTOR_BORE / 2
+
+#: Motor bracket, sized to span the annular pocket without touching either wall.
+MOTOR_BRACKET_RADIAL_SPAN = 32.0
+MOTOR_BRACKET_TANGENTIAL_SPAN = 40.0

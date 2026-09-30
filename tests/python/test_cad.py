@@ -57,11 +57,49 @@ def test_casing_shell_outer_diameter_matches_parameters(built) -> None:
 
 
 def test_drive_band_diameter_gives_the_intended_ratio(built) -> None:
-    """ADR 0006 and R1 depend on 9:1 from a 90 mm band and a 10 mm pulley."""
+    """8:1 from an 80 mm band and a 10 mm pulley (ADR 0006, R1)."""
     bb = built["04_chassis_drive_band"].val().BoundingBox()
     assert math.isclose(bb.xlen, P.DRIVE_BAND_OD, abs_tol=0.01)
-    ratio = P.DRIVE_BAND_OD / P.DRIVE_PULLEY_OD
-    assert math.isclose(ratio, 9.0, abs_tol=0.01)
+    assert math.isclose(P.DRIVE_RATIO, 8.0, abs_tol=0.01)
+
+
+def test_pitch_motor_body_fits_inside_the_casing() -> None:
+    """The constraint that forced 9:1 down to 8:1.
+
+    The first spec checked only that the 10 mm pulley cleared the shell. The 28 mm motor
+    body is coaxial with that pulley, and at a 90 mm band it poked 1.7 mm through the wall.
+    """
+    assert P.PITCH_MOTOR_OUTER_RADIUS < P.CASING_ID / 2 - 1.0, (
+        f"motor reaches r={P.PITCH_MOTOR_OUTER_RADIUS:.1f} mm against a wall at "
+        f"{P.CASING_ID / 2:.1f} mm")
+    assert P.PITCH_MOTOR_INNER_RADIUS > P.CHASSIS_FRAME_OD / 2, (
+        "motor body fouls the chassis frame on its inner side")
+
+
+def test_standoff_holes_sit_in_material_on_every_part_that_has_them() -> None:
+    """This bug appeared twice: STANDOFF_RADIUS was a literal that collided with the drive
+    band's outer radius whenever the band diameter changed, running the M3 holes off the
+    edge of the part. It is now derived; this asserts the derivation stays valid."""
+    hole_outer = P.STANDOFF_RADIUS + P.M3_CLEARANCE / 2
+    hole_inner = P.STANDOFF_RADIUS - P.M3_CLEARANCE / 2
+
+    assert hole_outer < P.DRIVE_BAND_OD / 2, (
+        f"standoff holes reach r={hole_outer:.1f} mm, past the drive band's "
+        f"{P.DRIVE_BAND_OD / 2:.1f} mm rim")
+    assert hole_inner > P.CHASSIS_FRAME_OD / 2, (
+        f"standoff holes reach r={hole_inner:.1f} mm, inside the frame bore")
+
+    # And inside the chassis disc's spoke region.
+    hub_outer = P.AXIS_BOSS_OD / 2 + 4.0
+    rim_inner = P.CHASSIS_OD / 2 - 6.0
+    assert hub_outer < hole_inner and hole_outer < rim_inner, \
+        "standoff holes fall outside the chassis disc's spokes"
+
+
+def test_end_cap_is_thicker_than_its_bearing_seat() -> None:
+    """A 4 mm cap with a 4 mm seat was bored straight through, leaving no shoulder."""
+    assert P.END_CAP_THICKNESS > P.BEARING_WIDTH
+    assert P.END_CAP_BOSS_CLEARANCE_BORE > P.AXIS_BOSS_OD, "cap would rub on the boss"
 
 
 def test_chassis_clears_the_casing_wall(built) -> None:
@@ -109,3 +147,51 @@ def test_imu_bridge_reaches_the_rotation_axis(built) -> None:
 
 def test_end_cap_screw_circle_fits_inside_the_shell(built) -> None:
     assert P.END_CAP_SCREW_RADIUS < P.CASING_ID / 2, "screws would miss the shell flange"
+
+
+
+# ----------------------------------------------------------------- assembly clearances
+
+@pytest.fixture(scope="module")
+def assembly():
+    import assembly as asm  # noqa: PLC0415
+    return asm, asm.build_assembly()
+
+
+def test_assembly_has_no_interference(assembly) -> None:
+    """The check that caught three real errors: a motor body through the shell, a bracket
+    whose corners poked through it, and a boss pointing away from its own bearing."""
+    asm, parts_map = assembly
+    clashes = []
+    for a_name, b_name, _target, _note in asm.CHECKS:
+        a, b = parts_map[a_name].val(), parts_map[b_name].val()
+        if asm.min_distance_mm(a, b) < 1e-6 and asm.overlaps(a, b):
+            clashes.append(f"{a_name} / {b_name}")
+    assert not clashes, f"interference: {clashes}"
+
+
+def test_rotational_clearance_is_as_designed(assembly) -> None:
+    asm, parts_map = assembly
+    for disc in ("chassis_disc_a", "chassis_disc_b"):
+        gap = asm.min_distance_mm(parts_map["casing_shell"].val(), parts_map[disc].val())
+        assert math.isclose(gap, P.ROTATIONAL_CLEARANCE, abs_tol=0.05), \
+            f"{disc}: {gap:.2f} mm, expected {P.ROTATIONAL_CLEARANCE}"
+
+
+def test_both_bosses_engage_their_bearing_seats(assembly) -> None:
+    """A minimum-distance check cannot see this: a boss can be concentric with its cap and
+    still miss it axially, which both of the first two assembly attempts did."""
+    asm, parts_map = assembly
+    for cap, disc in (("end_cap_a", "chassis_disc_a"), ("end_cap_b", "chassis_disc_b")):
+        cap_bb = parts_map[cap].val().BoundingBox()
+        disc_bb = parts_map[disc].val().BoundingBox()
+        overlap = min(cap_bb.zmax, disc_bb.zmax) - max(cap_bb.zmin, disc_bb.zmin)
+        assert overlap >= P.BEARING_WIDTH, \
+            f"{cap}/{disc}: {overlap:.1f} mm overlap, need {P.BEARING_WIDTH}"
+
+
+def test_wheels_clear_the_rotating_casing(assembly) -> None:
+    asm, parts_map = assembly
+    for wheel in ("wheel_a", "wheel_b"):
+        gap = asm.min_distance_mm(parts_map["casing_shell"].val(), parts_map[wheel].val())
+        assert gap > 1.0, f"{wheel} is {gap:.2f} mm from the casing"

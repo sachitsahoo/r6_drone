@@ -65,7 +65,9 @@ sub-0.1° region comfortably.
 A toothed belt, or a friction capstan, driving the casing directly — using the casing's own
 ~130 mm circumference as the output pulley.
 
-- ~13:1 in one stage, from geometry already committed to.
+- 8:1 in one stage, from geometry already committed to. (Originally specified as ~13:1,
+  then 9:1; the binding constraint turned out to be fitting the *motor body* inside the
+  casing alongside the belt, not the belt itself. See `docs/mechanical-requirements.md` R1.)
 - **Zero backlash** with a toothed belt; a capstan has none by construction.
 - Motor-side requirement drops to 5–11 mN m, so a small brushless motor with a magnetic
   absolute encoder is comfortable, satisfying ADR 0005's feedback requirement.
@@ -93,7 +95,7 @@ Costs and risks, which are real:
 ## Proposed decision
 
 **A small brushless motor with an absolute magnetic encoder, driving the casing through a
-zero-backlash belt or capstan reduction of roughly 10–15:1.** Read the encoder on the
+zero-backlash belt or capstan reduction of 8:1.** Read the encoder on the
 **casing side**, not the motor side, so that belt slip or compliance cannot corrupt the
 measured casing angle — which ADR 0005 makes the basis for deriving chassis pitch.
 

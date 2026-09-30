@@ -187,19 +187,22 @@ than from the estimate above. Run `python3 cad/build.py --report`.
 The light-corner estimate was close; the heavy corner was pessimistic. Revised torque, with
 the pitch motor still **not** included (it rides in the casing per R3):
 
-| Load | At the axis | At the motor, 9:1 |
+| Load | At the axis | At the motor, 8:1 |
 |---|---|---|
-| Gravity, 5 mm CoM offset | 10.3 mN m | 1.1 mN m |
-| Gravity, 10 mm CoM offset | 20.5 mN m | 2.3 mN m |
-| 10° in 200 ms | 13.3 mN m | 1.5 mN m |
-| 10° in 100 ms | 53.2 mN m | 5.9 mN m |
-| 10° in 50 ms | 212.8 mN m | 23.6 mN m |
-| **Moderate spec + 10 mm offset** | **73.7 mN m** | **8.2 mN m** |
+| Gravity, 5 mm CoM offset | 10.3 mN m | 1.3 mN m |
+| Gravity, 10 mm CoM offset | 20.5 mN m | 2.6 mN m |
+| 10° in 200 ms | 13.3 mN m | 1.7 mN m |
+| 10° in 100 ms | 53.2 mN m | 6.7 mN m |
+| 10° in 50 ms | 212.8 mN m | 26.6 mN m |
+| **Moderate spec + 10 mm offset** | **73.7 mN m** | **9.2 mN m** |
+
+The ratio is 8:1, not the 9:1 the earlier revision assumed: the binding constraint is
+fitting the 28 mm motor *body* inside the casing alongside the belt, not the belt itself.
 
 Pendulum resonance at a 10 mm offset: **0.83 Hz** — the sub-1 Hz finding holds.
 
-ADR 0006's conclusion survives contact with the real geometry: 8.2 mN m at the motor through
-a 9:1 zero-backlash reduction is undemanding, while 73.7 mN m direct-drive is not.
+ADR 0006's conclusion survives contact with the real geometry: 9.2 mN m at the motor through
+an 8:1 zero-backlash reduction is undemanding, while 73.7 mN m direct-drive is not.
 
 ### What building the CAD revealed that the estimate missed
 

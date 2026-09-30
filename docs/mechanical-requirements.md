@@ -16,7 +16,7 @@ Numbers are reproducible with `python3 tools/pitch_inertia_budget.py`.
 ## R1. Dedicate an axial band for the belt track
 
 **Requirement:** a 10–15 mm axial band in which the **chassis diameter is locally reduced to
-90 mm** and carries an outward-facing toothed track. The casing-mounted drive pulley reaches
+80 mm** and carries an outward-facing toothed track. The casing-mounted drive pulley reaches
 inward to engage it.
 
 **CORRECTION:** an earlier revision of this requirement put the track on the *casing's* inner
@@ -39,17 +39,16 @@ casing inner radius of 64.5 mm:
 | 100 mm | 62.1 mm | 2.4 mm | 10.0:1 |
 | 110 mm | 67.2 mm | does not fit | — |
 
-**Use 90 mm, giving 9:1.** Motor-side torque is then 7–16 mN m against the 62–144 mN m
-required at the axis, which is undemanding. 100 mm leaves only 2.4 mm and 110 mm interferes
-with the shell.
+**Use 80 mm, giving 8:1.** The table above only checks that the 10 mm *pulley* clears the
+shell. The **28 mm motor body is coaxial with that pulley**, and at a 90 mm band it reaches
+radius 66.2 mm against a wall at 64.5 mm — 1.7 mm through the shell. The largest band that
+fits a 28 mm motor with 2 mm of margin is 83.7 mm OD, so 80 mm and 8:1. Caught by
+`cad/assembly.py`'s clearance report, not by inspection.
 
 **Chassis frame diameter between the bearing lands** sets the motor pocket:
 
-| Frame OD | Radial pocket | 28 mm gimbal motor |
-|---|---|---|
-| 70 mm | 29.5 mm | fits |
-| 80 mm | 24.5 mm | tight |
-| 90 mm | 19.5 mm | tight |
+With an 80 mm band the motor's inner edge sits at radius 33.1 mm, so the frame must stay
+under 62.3 mm OD to clear it. **Use 60 mm.**
 
 **This is the one dimension the CAD must verify rather than inherit** — it depends on the
 actual motor chosen, and it is the last place the packaging can bite.
