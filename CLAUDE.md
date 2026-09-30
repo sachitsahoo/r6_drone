@@ -84,7 +84,8 @@ cmake -B build-stm32 -DTARGET=stm32 && cmake --build build-stm32
 ## Protocol
 
 - Schema in `protocol/` is the single source of truth; C++ and Python code is generated, never hand-edited.
-- Framing: COBS, CRC-16, message ID, sequence number, timestamp, protocol version.
+- Framing: COBS, CRC-32/ISO-HDLC, message ID, sequence number, timestamp, protocol version.
+  (CRC widened from CRC-16 to CRC-32 on 2026-09-30 — see `docs/decisions/0002`.)
 - The decoder must survive arbitrary garbage input (fuzz tested).
 - Parameters (gains, limits) are get/set by ID over the protocol and stored in MCU flash.
 - Logs are raw timestamped protocol frames, so replay reuses the same decoder.

@@ -1,6 +1,6 @@
 # Protocol design proposal
 
-**STATUS: PROPOSAL — awaiting owner approval. No code has been written.**
+**STATUS: APPROVED 2026-09-30. Implementation not yet started.**
 
 Companion to [ADR 0002](../docs/decisions/0002-protocol-framing-and-codec.md) (framing and
 codec) and [ADR 0003](../docs/decisions/0003-schema-format-and-code-generation.md) (schema
@@ -226,20 +226,36 @@ builds; `tools/check_core_purity.py` still passes over the new `firmware/core/pr
   change, which is a version bump — cheap now, while nothing is deployed.
 - **MQTT / video.** Out of scope; video is a separate path by design (`robot_bridge/README.md`).
 
-## Open questions for the owner
+## Owner decisions (2026-09-30)
 
-1. **CRC-32 deviates from CLAUDE.md, which says CRC-16 — confirm the deviation.** Resolved
-   on the engineering merits (ADR 0002: +232 B/s, +512 B flash, 65 536x fewer false accepts,
-   and `zlib.crc32` removes the need for a Python CRC implementation entirely). But CLAUDE.md
-   is the spec of record and names CRC-16, so this needs your explicit nod rather than my
-   arithmetic.
-2. **Is `ParamCommit` restricted to `DISARMED` acceptable?** It means gains cannot be
-   persisted mid-test, only applied in RAM and committed after disarming.
-3. **`robot_bridge/` at frame level only** — counts `0x00` delimiters and sequence numbers,
-   never decodes fields — so a schema change never forces a Pi redeploy. Confirm.
-4. **Three telemetry messages at three rates, or one combined message?** Split costs more
-   IDs and gives a consistent snapshot only within each message; combined wastes bandwidth
-   sending 10 Hz power data at 100 Hz.
-5. **`seq` as u8** (blind to exactly-256-frame losses) versus u16 for one more byte.
-6. **UART baud rate.** 115 200 leaves ~60% headroom at the proposed telemetry rates; 460 800
-   or 921 600 would be comfortable. This affects bring-up, not the protocol.
+All six questions resolved. Recorded here so the reasoning behind the design is traceable
+without digging through conversation history.
+
+1. **CRC-32 — approved**, including the deviation from CLAUDE.md's CRC-16. See ADR 0002 for
+   the numbers that settled it. CLAUDE.md's framing section now disagrees with the
+   implementation and should be updated.
+2. **`ParamCommit` restricted to `DISARMED` — approved**, on the grounds that it prevents
+   mistakes rather than merely protecting loop timing. Consequence: gains can be applied in
+   RAM and tested while `ARMED`, but persisting them requires disarming first. The MCU
+   returns `Nack` with a distinct reason code if a commit arrives while armed.
+3. **`robot_bridge/` stays at frame level — confirmed.** It counts `0x00` delimiters and
+   reads `seq` for loss detection, and never decodes payload fields. A schema change
+   therefore never requires a Pi redeploy. This is now a constraint on the bridge, not a
+   preference: `robot_bridge/` must not import the generated message definitions.
+4. **Three telemetry messages at three rates — confirmed.** `StateTelemetry` at 100 Hz,
+   `PowerTelemetry` at 10 Hz, `LoopTiming` at 5 Hz. Each message is an internally consistent
+   snapshot; there is no cross-message atomicity, so the operator must not assume a
+   `PowerTelemetry` sample is simultaneous with a `StateTelemetry` sample. Timestamps make
+   the actual relationship explicit.
+5. **`seq` as u8 — confirmed.** Loss detection is exact up to 255 consecutive dropped frames
+   and blind to exactly 256. `timestamp_us` is the authoritative timeline.
+6. **UART baud — analyzed separately.** Baud does not appear in the protocol, so it is a
+   bring-up parameter rather than a design decision. Full analysis, including the Pi Zero 2 W
+   UART clock problem that is the real constraint, is in
+   [`docs/bringup/uart-link.md`](../docs/bringup/uart-link.md). Recommendation: 460 800.
+
+## Remaining dependencies before implementation
+
+None. The camera pitch command (`0x03`) stays reserved and unassigned pending the pitch
+actuator ADR, and `StateTelemetry`'s pitch fields stay provisional pending the estimator
+design. Neither blocks the schema, generator, codec, or tests.

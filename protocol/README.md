@@ -21,8 +21,8 @@ protocol/messages.<schema>
 
 ## Key design decisions
 
-Framing is COBS + CRC-16 + message ID + sequence number + timestamp + protocol version.
-The rationale for each element, and the choices still open, belong in an ADR:
+Framing is COBS + CRC-32 + message ID + sequence number + timestamp + protocol version.
+The rationale for each element is in ADR 0002:
 
 - **A protocol version field exists because the two ends are built separately.** Firmware
   flashed from an older schema can meet an operator app built from a newer one; the version
@@ -34,12 +34,12 @@ The rationale for each element, and the choices still open, belong in an ADR:
 
 ## Known limitations
 
-- **Not designed yet.** Schema format, generator language, CRC-16 polynomial, byte order,
-  the initial message set, and the resynchronization strategy are all open.
-- Protocol schema changes are an owner-reviewed area: propose, then wait for approval.
-- Open question: whether `../robot_bridge/` needs field-level schema awareness at all, or
-  only frame-level (COBS delimiters, sequence numbers) for link monitoring. The tighter
-  coupling means a schema change forces a Pi redeploy.
+- **Designed and approved (2026-09-30), not yet implemented.** See
+  `design-proposal.md`, ADR 0002 (framing, CRC-32/ISO-HDLC, little-endian, resync) and
+  ADR 0003 (YAML schema, Python generator).
+- Protocol schema changes remain an owner-reviewed area: propose, then wait for approval.
+- `../robot_bridge/` is constrained to frame-level awareness only and must not import the
+  generated message definitions.
 
 ## How to test
 

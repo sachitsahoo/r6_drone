@@ -1,6 +1,6 @@
 # 0003 — Schema format and code generation
 
-- **Status:** **PROPOSED — awaiting owner approval. Do not implement.**
+- **Status:** Accepted (2026-09-30)
 - **Date:** 2026-09-30
 - **Related:** [0002](0002-protocol-framing-and-codec.md), [`protocol/design-proposal.md`](../../protocol/design-proposal.md)
 

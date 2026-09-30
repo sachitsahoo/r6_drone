@@ -1,6 +1,6 @@
 # 0002 — Protocol framing and codec
 
-- **Status:** **PROPOSED — awaiting owner approval. Do not implement.**
+- **Status:** Accepted (2026-09-30)
 - **Date:** 2026-09-30
 - **Supersedes:** nothing
 - **Related:** [0003](0003-schema-format-and-code-generation.md), [`protocol/design-proposal.md`](../../protocol/design-proposal.md)
@@ -57,8 +57,9 @@ Parameters: polynomial `0x04C11DB7`, init `0xFFFFFFFF`, input reflected, output 
 final XOR `0xFFFFFFFF`. Known-answer check: CRC of the ASCII string `123456789` is
 `0xCBF43926`. This is the Ethernet / zlib / PNG CRC.
 
-**This deviates from CLAUDE.md, which specifies CRC-16.** The deviation is the substance of
-this ADR and needs an explicit decision, not a silent change.
+**This deviates from CLAUDE.md, which specifies CRC-16.** The owner approved the deviation
+explicitly on 2026-09-30. CLAUDE.md's framing section should be updated to say CRC-32 so the
+spec and the implementation do not disagree.
 
 An earlier revision of this ADR chose CRC-16/CCITT-FALSE and justified it on frame size,
 flash cost, and a layered defense. Those arguments did not survive being computed:

@@ -21,10 +21,10 @@ OS with no real-time guarantees and can be rebooted or lose its link at any time
 ## Known limitations
 
 - Empty as of Phase 1.
-- Open question: how much protocol awareness this daemon needs. A pure byte relay needs
-  none; link monitoring may need frame-level awareness (COBS delimiters, sequence numbers)
-  without field-level schema. Field-level coupling means a schema change forces a Pi
-  redeploy, so the intent is to stay at frame level if monitoring allows it.
+- **Constraint (decided 2026-09-30):** this daemon operates at frame level only. It counts
+  `0x00` COBS delimiters and reads `seq` for loss detection, and must never decode payload
+  fields or import the generated message definitions. That keeps a schema change from
+  forcing a Pi redeploy. See `protocol/design-proposal.md`.
 - Video pipeline latency is unmeasured and is a primary research metric. It belongs in
   [`../docs/bringup/`](../docs/bringup/) once measured.
 
