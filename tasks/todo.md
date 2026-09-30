@@ -3,7 +3,11 @@
 Phase 1: repo skeleton, build system, CI, protocol schema and codec, minimal simulator.
 Plan written 2026-09-30. Spec of record: ../CLAUDE.md
 
-**Slices 1-3 complete and verified 2026-09-30.** Slice 4 (protocol) awaits owner approval.
+**Slices 1–4 complete and verified 2026-09-30.** Slice 5 (simulator) is blocked on the
+`firmware/hal/` interfaces, which are owner-reviewed.
+
+Mechanical work beyond Phase 1 has also happened: ADRs 0004–0006, a torque budget, and a
+parametric CAD model in `cad/`. See `docs/mechanical-requirements.md`.
 
 ---
 
@@ -73,13 +77,13 @@ that turns CI red before being reverted.
 
 Write a design proposal before any code. Must cover:
 
-- [ ] 4.1 Schema format and the generator's language (schema lives in `protocol/`)
-- [ ] 4.2 Frame layout: COBS + CRC-16 + message ID + sequence + timestamp + protocol version.
+- [x] 4.1 Schema format and the generator's language (schema lives in `protocol/`)
+- [x] 4.2 Frame layout: COBS + CRC-16 + message ID + sequence + timestamp + protocol version.
       Which CRC-16 polynomial, and byte order — stated, with a reason.
-- [ ] 4.3 Initial message set: command, telemetry, parameter get/set, fault/state
-- [ ] 4.4 `uint32_t` microsecond timestamp wraparound handling (~71 min) — explicit, and tested
-- [ ] 4.5 Decoder resynchronization strategy for arbitrary garbage input, plus the fuzz harness
-- [ ] 4.6 `docs/decisions/` ADR for framing choice; `docs/theory/` not needed for this one
+- [x] 4.3 Initial message set: command, telemetry, parameter get/set, fault/state
+- [x] 4.4 `uint32_t` microsecond timestamp wraparound handling (~71 min) — explicit, and tested
+- [x] 4.5 Decoder resynchronization strategy for arbitrary garbage input, plus the fuzz harness
+- [x] 4.6 `docs/decisions/` ADR for framing choice; `docs/theory/` not needed for this one
 
 **Done when:** owner has approved the proposal. Implementation is a separate task.
 
