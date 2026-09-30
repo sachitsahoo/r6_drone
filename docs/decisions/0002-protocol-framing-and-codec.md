@@ -27,7 +27,7 @@ Logical frame, before any transport encoding:
 | 2 | 1 | `seq` | u8, per-sender, increments every frame sent |
 | 3 | 4 | `timestamp_us` | u32 LE, microseconds since MCU boot |
 | 7 | N | `payload` | fixed size per `message_id`, N <= 64 |
-| 7+N | 2 | `crc16` | u16 LE, computed over bytes `[0, 7+N)` |
+| 7+N | 4 | `crc32` | u32 LE, computed over bytes `[0, 7+N)` |
 
 On the wire: `COBS(header + payload + crc) + 0x00`.
 
@@ -51,30 +51,57 @@ the no-dynamic-allocation rule and makes the length check exact rather than a ra
 Anything textual becomes a fixed `char[N]`, and the preference is to send an enum code plus a
 numeric context value instead.
 
-## Decision 2: CRC-16/CCITT-FALSE
+## Decision 2: CRC-32/ISO-HDLC
 
-Parameters: polynomial `0x1021`, init `0xFFFF`, input not reflected, output not reflected,
-final XOR `0x0000`. Known-answer check: CRC of the ASCII string `123456789` is `0x29B1`.
+Parameters: polynomial `0x04C11DB7`, init `0xFFFFFFFF`, input reflected, output reflected,
+final XOR `0xFFFFFFFF`. Known-answer check: CRC of the ASCII string `123456789` is
+`0xCBF43926`. This is the Ethernet / zlib / PNG CRC.
 
-Options considered:
+**This deviates from CLAUDE.md, which specifies CRC-16.** The deviation is the substance of
+this ADR and needs an explicit decision, not a silent change.
 
-1. **CRC-16/CCITT-FALSE (chosen).** Hamming distance 4 for messages well beyond our
-   ~600-bit frames, so every 1-, 2-, and 3-bit error is detected. The published check value
-   gives a citable known-answer test, which matters because a silently wrong CRC
-   implementation still round-trips against itself and looks fine.
-2. **CRC-16/XMODEM.** Same polynomial but init `0x0000`. Rejected: with a zero init, leading
-   zero bytes do not change the CRC. COBS removes zeros from the wire so this is close to
-   harmless here, but there is no reason to choose the weaker of two otherwise identical options.
-3. **CRC-16/MODBUS** (`0x8005`, reflected). Rejected: reflected algorithms are fine but
-   less legible to verify by hand, and `0x1021` has better-published distance properties at
-   our frame sizes.
-4. **CRC-32.** Rejected for routine framing on size grounds, but see *Consequences* — there
-   is a real safety argument for it that is being answered a different way.
+An earlier revision of this ADR chose CRC-16/CCITT-FALSE and justified it on frame size,
+flash cost, and a layered defense. Those arguments did not survive being computed:
 
-Implementation: a `static constexpr uint16_t[256]` table, which lands in flash (512 bytes
-of a 512 KB part) and costs one table lookup and one XOR per byte. At 100 Hz x ~75 bytes
-this is negligible either way; the table is chosen for determinism of execution time, which
-matters inside a fixed-rate loop.
+| | CRC-16 | CRC-32 |
+|---|---|---|
+| Robot -> operator throughput | 4569 B/s, 39.7% of a 115 200 baud UART | 4801 B/s, 41.7% |
+| Byte-table size in flash | 512 B | 1024 B, or 0.20% of the G474RE's 512 KB |
+| Cost per byte | one table lookup, XOR, shift | identical; `uint32` is native on a 32-bit core |
+| False accept, 1000 candidate frames/s | one per 66 s | one per 49.7 days |
+| Hamming distance at ~600-bit frames | 4 (all 3-bit errors detected) | 5 (all 4-bit errors) |
+
+Two extra bytes per frame and 512 extra bytes of flash buy a 65 536-fold reduction in false
+accepts. At CRC-16, a link generating garbage at 1000 delimiter-bounded candidates per second
+admits a bad frame about once a minute; at CRC-32 it is once every seven weeks. The first
+number is a hazard for a robot with motors; the second is not.
+
+There is also a code-risk argument that points only at this specific polynomial: Python's
+stdlib provides `zlib.crc32`, which computes exactly CRC-32/ISO-HDLC. The Python side
+therefore needs no CRC implementation to write, test, or keep in agreement with the C++ one,
+and the C++ table can be verified directly against it. Choosing CRC-16 would mean
+hand-writing and maintaining a second implementation, which is a real source of
+cross-language drift in exchange for nothing.
+
+Options considered and rejected:
+
+1. **CRC-16/CCITT-FALSE** (`0x1021`, init `0xFFFF`). The previous choice. Adequate for
+   detecting bit corruption in real frames, and 65 536 times weaker against whole garbage
+   frames, for savings that round to zero on this link.
+2. **CRC-16/XMODEM.** Same polynomial with a zero init, so leading zero bytes do not change
+   the CRC. Strictly worse than option 1 with no compensating benefit.
+3. **CRC-32C (Castagnoli, `0x1EDC6F41`).** Better Hamming distance at long lengths and
+   hardware-accelerated on some cores. Rejected: the G474RE's CRC peripheral does not
+   accelerate it for free in a way that matters here, it is not in Python's stdlib, and at
+   600-bit frames its advantage over ISO-HDLC is not the binding constraint.
+4. **A cryptographic MAC.** Worth stating explicitly: no CRC of any width protects against
+   *intentional* modification, since an attacker simply recomputes it. If hostile
+   interference on the radio link ever becomes a requirement, that is a different mechanism
+   (HMAC and a key), not a wider CRC. Out of scope now per CLAUDE.md; noted so the limit of
+   this decision is on the record.
+
+Implementation: a `static constexpr uint32_t[256]` table in flash, one lookup and one XOR
+per byte, constant execution time inside a fixed-rate loop.
 
 ## Decision 3: Little-endian, with explicit byte-by-byte serialization
 
@@ -115,13 +142,15 @@ deliberately rather than discovered.
   out-of-order frames. Proposed rule: telemetry consumers keep the newest frame by
   `timestamp_us`, and the MCU rejects any command whose `timestamp_us` is not newer than the
   last accepted command, so a delayed or duplicated command cannot be replayed as a fresh one.
-- **A CRC-16 admits roughly 1 in 65 536 random frames.** On a noisy radio link producing
-  garbage continuously, a bad frame passes validation every few minutes. That is tolerable for
-  telemetry and intolerable for state changes, so the mitigation is layered rather than
-  widening the CRC: schema-declared per-field ranges reject nonsense values, and any frame
-  that changes safety state carries a 4-byte magic constant. Both are detailed in
-  `protocol/design-proposal.md`. **This is the decision most worth challenging** — the
-  alternative is CRC-32 on every frame for two extra bytes.
+- **Range validation and stale-command rejection stay, and are not a CRC substitute.** An
+  earlier revision presented them as an alternative to widening the CRC, which was wrong:
+  they defend against *bugs* — an operator sending NaN, a units error, a duplicated UDP
+  datagram replayed as a fresh command — not only against corruption. They belong in the
+  design at any CRC width. Details in `protocol/design-proposal.md`.
+- **Magic constants on state-changing messages are retained, with a different rationale.**
+  At CRC-32 they are no longer compensating for a weak checksum; they guard against a
+  mis-routed or mis-generated message, which is a software fault rather than a link fault.
+  Four bytes on messages sent once per session is not a cost worth optimizing.
 - **`seq` is u8, so it wraps every 256 frames** (2.56 s at 100 Hz). Gap detection is exact up
   to 255 consecutive losses and blind to exactly-256 losses. `timestamp_us` is the
   authoritative timeline; `seq` exists only for cheap loss counting.

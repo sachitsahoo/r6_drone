@@ -22,9 +22,9 @@ protocol/schema/params.yaml        new    tunable parameter table
 protocol/generate.py               new    generator (gitignored output)
 protocol/generated/                new    messages.hpp, messages.py (gitignored)
 protocol/test_vectors.json         new    shared known-answer frames, hand-checked
-firmware/core/protocol/            new    cobs, crc16, frame decoder/encoder
+firmware/core/protocol/            new    cobs, crc32, frame decoder/encoder
 tests/cpp/test_cobs.cpp            new
-tests/cpp/test_crc16.cpp           new
+tests/cpp/test_crc32.cpp           new
 tests/cpp/test_frame_codec.cpp     new
 tests/cpp/fuzz_frame_decoder.cpp   new    libFuzzer target, plus a seeded fallback
 tests/python/test_schema.py        new    schema validation and unit-suffix lint
@@ -37,8 +37,8 @@ requirements-dev.txt               edit   add PyYAML, hypothesis
 
 ## Frame layout (from ADR 0002)
 
-Logical: `version:u8 | message_id:u8 | seq:u8 | timestamp_us:u32 | payload:N | crc16:u16`
-Wire: `COBS(logical) + 0x00`, so wire size is `11 + N` for `N < 244`.
+Logical: `version:u8 | message_id:u8 | seq:u8 | timestamp_us:u32 | payload:N | crc32:u32`
+Wire: `COBS(logical) + 0x00`, so wire size is `13 + N` for `N < 242`.
 
 `MAX_PAYLOAD_BYTES = 64`, enforced by the generator. Buffer sizes in firmware derive from
 that constant rather than being written down anywhere, satisfying the no-magic-numbers rule.
@@ -91,22 +91,22 @@ radio debugging and for the research writeup.
 
 ### Bandwidth
 
-Robot -> operator at the rates above is about **4.5 kB/s, ~36 kbps**. A 115 200 baud UART
-carries 11 520 B/s, so this uses roughly 39% of it — workable but with little headroom for
+Robot -> operator at the rates above is about **4.8 kB/s, ~38 kbps** (with CRC-32 per ADR
+0002). A 115 200 baud UART carries 11 520 B/s, so this uses roughly 42% of it — workable but with little headroom for
 bursts of `Fault` or `Nack`. **Recommendation: run the MCU<->Pi UART at 460 800 or higher.**
 Operator -> robot is about 1 kB/s and is not a concern.
 
 ## Defending safety-critical messages
 
-A CRC-16 lets roughly 1 in 65 536 random frames through. On a link generating garbage
-continuously that is a false accept every few minutes, which is fine for a telemetry sample
-and unacceptable for "arm the motors". Three layers, none of which is the CRC:
+ADR 0002 now specifies CRC-32, which puts a false accept at roughly one per seven weeks on
+a link generating 1000 garbage candidates per second. The layers below are **not** there to
+compensate for the checksum — they defend against software faults, which a CRC of any width
+cannot see, and they would be in the design even at CRC-64:
 
 1. **Magic constants on state-changing messages.** A distinct 4-byte value per message, so a
-   corrupt `SafetyStateRequest` cannot become an `EstopRequest`. Combined with the CRC this
-   puts a false accept at roughly 2^-48. The values are ASCII-derived (`ARM!`, `ESTP`,
-   `COMT`) for legibility; that slightly reduces entropy against a structured-garbage source
-   versus random constants, which is an acceptable trade for being readable in a hex dump.
+   mis-routed or mis-generated `SafetyStateRequest` cannot act as an `EstopRequest`. This
+   guards against a software fault, not a link fault. The values are ASCII-derived (`ARM!`,
+   `ESTP`, `COMT`) so they are readable in a hex dump.
 2. **Schema-declared per-field ranges, validated in the decoder.** A corrupt `DriveCommand`
    that passes CRC still has to carry a plausible speed. This is cheap, generated, and
    protects every message rather than only the dangerous ones.
@@ -187,7 +187,8 @@ code. The generator emits a `constexpr` table for the MCU and typed accessors fo
 ## Test plan (tests written before implementation)
 
 **C++**
-- `crc16`: known-answer `CRC("123456789") == 0x29B1`; empty input; single byte; every
+- `crc32`: known-answer `CRC("123456789") == 0xCBF43926`, cross-checked against Python's
+  stdlib `zlib.crc32`; empty input; single byte; every
   `test_vectors.json` frame.
 - `cobs`: round-trip for all lengths 0–254 and for 254/255-byte runs (the block-boundary
   cases); encoded output provably contains no `0x00`; malformed-input rejection.
@@ -227,10 +228,11 @@ builds; `tools/check_core_purity.py` still passes over the new `firmware/core/pr
 
 ## Open questions for the owner
 
-1. **CRC-16 plus magic constants, or CRC-32 everywhere?** This is the decision I would most
-   like challenged. CRC-32 costs 2 bytes per frame and a 1 KB table, and makes the layered
-   defenses less load-bearing. I lean toward the layered approach because range validation
-   and stale-command rejection are worth having regardless, but the reasoning is arguable.
+1. **CRC-32 deviates from CLAUDE.md, which says CRC-16 — confirm the deviation.** Resolved
+   on the engineering merits (ADR 0002: +232 B/s, +512 B flash, 65 536x fewer false accepts,
+   and `zlib.crc32` removes the need for a Python CRC implementation entirely). But CLAUDE.md
+   is the spec of record and names CRC-16, so this needs your explicit nod rather than my
+   arithmetic.
 2. **Is `ParamCommit` restricted to `DISARMED` acceptable?** It means gains cannot be
    persisted mid-test, only applied in RAM and committed after disarming.
 3. **`robot_bridge/` at frame level only** — counts `0x00` delimiters and sequence numbers,
