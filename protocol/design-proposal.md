@@ -306,7 +306,46 @@ payload from 28 to 32 bytes — which *does* change a documented size, so it tou
 `tests/python/test_schema.py`, `tests/cpp/test_generated_messages.cpp`, and the bandwidth figure
 in `docs/bringup/uart-link.md` (4805 to 4809 B/s, immaterial).
 
-### 3. Possible redundancy between the two pitch fields — blocked on IMU placement
+### 3. `body_pitch_rate_rad_s` is now mislabelled — recommend fixing, costs nothing
+
+ADR 0005 puts the IMU on the rotating casing. The field currently reads:
+
+```yaml
+      - name: body_pitch_rate_rad_s
+        source: ICM-42688-P default gyro full scale +/-2000 deg/s, converted to rad/s
+        description: Measured chassis pitch rate. POSITIVE IS NOSE-DOWN.
+```
+
+The gyro no longer measures chassis rate — it measures *casing* rate. Chassis rate is derived
+by subtracting the encoder's angular rate. Calling this "measured" invites someone to trust it
+as a direct reading, and citing the gyro full scale as its source is now the wrong provenance.
+
+Proposed: keep the name and range, change the description to "Chassis pitch rate, derived from
+the casing gyro minus the actuator encoder rate (ADR 0005)" and the source to note that the
+range still comes from the gyro full scale because the derived value cannot exceed it. Text
+only — no wire change, no regenerate needed beyond the doc comments.
+
+### 4. The casing rate the inner loop runs on is not transmitted — recommend adding
+
+With the IMU on the casing, the gyro's casing pitch rate is the single most important signal
+in the 500 Hz–1 kHz stabilization loop. `StateTelemetry` carries `camera_pitch_rad` (the angle)
+and `body_pitch_rate_rad_s` (a derived chassis rate) but not the measured casing rate, so the
+operator cannot see the inner loop's actual input without reconstructing it.
+
+Proposed: add `camera_pitch_rate_rad_s: f32`, range +/-34.9 rad/s, sourced to the gyro full
+scale, described as the directly measured casing rate.
+
+**This one has a real cost**, unlike the others: payload goes 31 to 35 bytes, wire 44 to 48.
+That touches the size assertions in `tests/python/test_schema.py` and
+`tests/cpp/test_generated_messages.cpp`, and the bandwidth figure in
+`docs/bringup/uart-link.md` (4805 to 5205 B/s, or 45% of a 460800 baud link — still
+comfortable). No `protocol_version` bump is needed since no existing field moves; the payload
+simply grows, and the decoder's length check handles the rest.
+
+Worth waiting on until the estimator is designed, since that will settle what else belongs in
+this message and one combined change beats three.
+
+### 5. Possible redundancy between the two pitch fields — resolved direction, still open
 
 If the IMU rides on the rotating casing, `camera_pitch_rad` is measured and `body_pitch_rad` is
 derived from it via the actuator encoder; if it rides on the chassis, the reverse. Either way

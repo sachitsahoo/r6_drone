@@ -27,7 +27,10 @@ Pitch actuator: **undecided**. The stabilized mass is the whole casing, not a ca
 assembly, so torque and gearing dominate the choice — the earlier servo-vs-gimbal-BLDC
 framing assumed a light gimbal load and must be re-argued. Needs an inertia estimate and a
 torque budget. Do not assume one. See ADR 0004.
-IMU placement: **undecided**, and it determines whether camera pitch is measured or derived.
+IMU placement: **on the rotating casing**, as close to the wheel axis as packaging allows —
+an offset of 30 mm corrupts the gravity reference by 17 deg at only 10 rad/s. Chassis pitch is
+derived as casing pitch minus the actuator encoder angle, so the actuator needs absolute
+position feedback. See ADR 0005.
 
 ## Repository layout
 
