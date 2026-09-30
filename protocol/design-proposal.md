@@ -258,7 +258,7 @@ without digging through conversation history.
 
 Protocol schema changes are owner-reviewed, so these are written down rather than applied.
 
-### 1. `camera_pitch_rad` range — a live defect, recommend fixing
+### 1. `camera_pitch_rad` range — APPLIED 2026-09-30 (owner approved)
 
 ADR 0004 settled that the outer casing rotates **continuously** about the wheel axis. The
 field still declares `[-1.5708, 1.5708]` (plus or minus 90 degrees) from when a limited-travel
@@ -266,10 +266,8 @@ camera gimbal was assumed. Because the generator emits range validation into the
 does not mislabel data — it **drops frames**:
 
 ```
-casing at   89 deg -> accepted
-casing at   91 deg -> REJECTED (frame dropped)
-casing at  120 deg -> REJECTED (frame dropped)
-casing at -150 deg -> REJECTED (frame dropped)
+before:  casing at 89 deg accepted; 91, 120 and -150 deg REJECTED (frame dropped)
+after:   89, 91, 120, 180, -150 and -180 deg all accepted
 ```
 
 Proposed change:

@@ -226,9 +226,17 @@ messages:
       - name: camera_pitch_rad
         type: f32
         unit: rad
-        range: [-1.5708, 1.5708]
-        source: initial guess — mechanical travel limit unknown until the actuator is chosen
-        description: World-relative camera pitch. POSITIVE IS NOSE-DOWN.
+        range: [-3.1416, 3.1416]
+        source: >
+          full circle — the outer casing rotates continuously about the wheel axis
+          (ADR 0004), so every angle is physically reachable. The previous +/-90 deg
+          limit came from assuming a limited-travel camera gimbal and caused the decoder
+          to drop valid telemetry past 90 deg.
+        description: >
+          World-relative camera pitch, wrapped to [-pi, pi]. POSITIVE IS NOSE-DOWN.
+          Measured directly by the casing-mounted IMU (ADR 0005). Consumers that
+          differentiate or plot this must unwrap it first: a wrap is a 2*pi jump, not
+          motion.
       - name: safety_state
         type: enum
         enum: SafetyState

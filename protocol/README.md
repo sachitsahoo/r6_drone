@@ -43,6 +43,14 @@ The rationale for each element is in ADR 0002:
 - `FrameDecoder` counts `version_mismatch`, but the approved `LinkStats` message has no
   field for it, so it is observable locally and not transmitted. Adding it is a schema
   change and needs owner review.
+- **A range-only schema change is invisible to the `protocol_version` byte.** Changing a
+  field's declared range alters accept/reject behaviour without touching the wire layout or
+  payload size, so two ends built from different schema revisions will not detect the
+  mismatch: the older end simply drops frames the newer one considers valid, counted as a
+  range rejection with nothing pointing at the real cause. Benign today -- nothing is
+  deployed and both ends are always built from one repo -- but once firmware is flashed
+  independently of the operator app, a semantic-only change should bump `protocol_version`
+  anyway, so the mismatch is loud instead of silent.
 - `params.yaml` is deliberately minimal -- it demonstrates the parameter mechanism.
   Controller gains are absent because declaring `kp`/`ki`/`kd` would presuppose a PID
   form, which needs its own ADR.

@@ -80,12 +80,13 @@ here.
 
 ### Two already-shipped consequences in the protocol
 
-1. **`camera_pitch_rad`'s declared range is now wrong.** It is `[-1.5708, 1.5708]` — plus or
-   minus 90 degrees — with the note "mechanical travel limit unknown until the actuator is
-   chosen." With continuous rotation the true value covers the full circle. Because the
-   generator emits range validation into the decoder, out-of-range telemetry is *rejected*,
-   not merely mislabelled: a casing at 120 degrees would drop the frame. A fix is proposed
-   in `protocol/design-proposal.md`; it is a schema change and therefore owner-reviewed.
+1. **`camera_pitch_rad`'s declared range was wrong — fixed 2026-09-30.** It was
+   `[-1.5708, 1.5708]` — plus or minus 90 degrees — inherited from assuming a limited-travel
+   camera gimbal. Because the generator emits range validation into the decoder, out-of-range
+   telemetry was *rejected* rather than merely mislabelled: a casing at 120 degrees dropped
+   the frame. Now `[-3.1416, 3.1416]`, wrapped to [-pi, pi], with a regression test
+   (`test_camera_pitch_covers_the_full_circle`) that ties the range to this ADR rather than to
+   a number, so narrowing it again fails the build.
 2. **`body_pitch_rad` and `camera_pitch_rad` may be redundant**, depending on IMU placement.
    See below.
 

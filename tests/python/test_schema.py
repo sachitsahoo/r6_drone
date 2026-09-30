@@ -12,6 +12,7 @@ tests/python/test_check_core_purity.py).
 from __future__ import annotations
 
 import copy
+import math
 import sys
 from pathlib import Path
 
@@ -81,6 +82,22 @@ def test_message_ids_lie_in_their_direction_range(schema) -> None:
 def test_camera_pitch_id_stays_reserved(schema) -> None:
     """0x03 is reserved pending the pitch actuator ADR. Assigning it needs that decision."""
     assert 0x03 not in {m.id for m in schema.messages}
+
+
+def test_camera_pitch_covers_the_full_circle(schema) -> None:
+    """The outer casing rotates continuously about the wheel axis (ADR 0004).
+
+    Regression test. This field originally declared +/-90 deg, inherited from assuming a
+    limited-travel camera gimbal. Because the generator emits range validation into the
+    decoder, that did not mislabel data -- it dropped every frame with the casing past 90
+    degrees. Narrowing this range again would silently reintroduce that.
+    """
+    field = next(f for f in schema.message_by_name("StateTelemetry").fields
+                 if f.name == "camera_pitch_rad")
+    assert field.range is not None
+    low, high = field.range
+    assert low <= -math.pi + 1e-4, f"low bound {low} excludes reachable angles"
+    assert high >= math.pi - 1e-4, f"high bound {high} excludes reachable angles"
 
 
 def test_pitch_fields_document_the_sign_convention(schema) -> None:
