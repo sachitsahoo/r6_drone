@@ -155,6 +155,61 @@ hole.
 
 ---
 
+## A concrete starting point
+
+Ranges are right for analysis and wrong for sketching. This is one consistent set that
+satisfies every constraint above, so the first CAD session is typing numbers rather than
+re-deciding them. Reproduce with the derivation at the bottom of
+`tools/pitch_inertia_budget.py`'s companion analysis.
+
+| Dimension | Value | Note |
+|---|---|---|
+| Casing OD | **135 mm** | bottom of the 135–145 range; smaller is less inertia |
+| Casing wall | **3.0 mm** | printable and robust; thin it later with ribs (R6) |
+| Casing inner dia | **129 mm** | derived |
+| Rotational clearance | **2.5 mm** | mid-range |
+| Chassis OD | **124 mm** | derived; sits inside the stated 115–125 |
+| Wheel width | **18 mm** each | |
+| Casing length | **120 mm** | |
+| Side clearance | **4.5 mm** each | |
+| Belt band | **15 mm** | at one end, chassis absent here (R1) |
+| Chassis length | **101 mm** | derived |
+| **Total width** | **165 mm** | matches the target exactly |
+| Belt band pitch dia | **129 mm** | the casing's inner wall in the band |
+| Drive pulley | **10 mm** | |
+| **Reduction** | **12.9:1** | the torque budget assumed ~13:1 |
+
+Suggested fixtures, not derived from anything — adjust freely:
+
+| Feature | Suggestion |
+|---|---|
+| Trim mass bosses (R4) | 6 x M3, at radius 55 mm, every 60 degrees |
+| IMU boss (R2) | on the centreline, radial offset target under 3 mm |
+| Slip ring envelope (R5) | reserve 15 mm diameter x 25 mm on the axis |
+| Pendulum datum (R8) | one 3 mm hole at radius 50 mm, documented |
+
+## Modeling notes
+
+The geometry here is deliberately simple, and it is worth keeping it that way.
+
+- **The casing is a revolve.** Sketch the cross-section once — an annulus with end caps and a
+  stepped band — and revolve it. This is the easiest class of shape in any CAD package. There
+  is no surfacing, no lofting, and no organic geometry anywhere in this design.
+- **Drive the sketch from named parameters**, not typed literals. Every number in the table
+  above is likely to move at least once; if `casing_od` is a variable, that costs nothing, and
+  if it is typed into forty places it costs an afternoon.
+- **Model separate simple parts and assemble them.** One monolithic part that tries to be the
+  shell, the belt track, the IMU bridge and the camera mount at once is where CAD gets
+  genuinely hard. Four boring parts are easier than one clever one.
+- **Skip fillets, chamfers and cosmetics** until the thing works. They make every later edit
+  more expensive and they are not load-bearing on any question this project is asking.
+- **Print a 20 mm axial slice first.** A short section through the belt band and the clearance
+  gap tests the two fits that actually matter — belt engagement and rotational clearance — for
+  a few minutes of printing instead of several hours. Iterate on the slice, then print the full
+  120 mm once.
+- **Do not model the electronics.** Bounding boxes with mounting hole positions are enough, and
+  detailed component models mostly slow the assembly down.
+
 ## What to measure once parts exist
 
 Feeds back into `tools/pitch_inertia_budget.py`:
