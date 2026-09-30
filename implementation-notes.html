@@ -125,9 +125,10 @@ guard is worse than no guard, because it reports success.</p>
 
 <details>
 <summary>CI cross-compiles with Ubuntu's toolchain, not the developer machine's<span class="tag">trade-off</span></summary>
-<p>Local is Arm GNU Toolchain 15.3.Rel1 (Homebrew cask). CI installs Ubuntu's
-<code>gcc-arm-none-eabi</code>, which is an older release. With <code>-Werror</code>, a
-warning added or removed between versions can make CI and local builds disagree.</p>
+<p>Local is Arm GNU Toolchain 15.3.Rel1 / gcc 15.3.1. CI installs Ubuntu's
+<code>gcc-arm-none-eabi</code>, measured as <strong>gcc 13.2.1</strong> on the first
+run (2026-09-30) &mdash; two major versions behind. With <code>-Werror</code>, a warning
+added or removed between versions can make CI and local builds disagree. Both pass today.</p>
 <p>Accepted for Phase 1 in exchange for not depending on a third-party action or a pinned
 release string I could not verify. Noted in the workflow at the install step. Pin both to
 the same Arm release if the disagreement actually bites.</p>
