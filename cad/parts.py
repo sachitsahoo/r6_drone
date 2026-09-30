@@ -69,16 +69,22 @@ def casing_shell() -> cq.Workplane:
 
     # Trim mass bosses (R4): radial pads on the inner wall with tapped holes, so the
     # balanced-vs-bottom-heavy decision stays open after assembly.
+    # A YZ workplane extrudes along +X from wherever its origin sits, so starting at x=0
+    # and extruding by r_in produced a solid ROD from the rotation axis out to the wall --
+    # six of them, 5530 mm^3 of material in what is supposed to be a hollow tube, with the
+    # tap drilled clean through the impact surface. Start the plane just inside the wall
+    # instead, and keep the tap blind so nothing pierces the shell.
     boss_z = length / 2
+    boss_x0 = r_in - P.TRIM_BOSS_HEIGHT
     for x, y in _ring_points(1.0, P.TRIM_BOSS_COUNT):          # unit vector per position
         angle = math.degrees(math.atan2(y, x))
-        pad = (cq.Workplane("YZ", origin=(0, 0, boss_z))
+        pad = (cq.Workplane("YZ", origin=(boss_x0, 0, boss_z))
                .circle(P.TRIM_BOSS_OD / 2)
-               .extrude(r_in)
+               .extrude(P.TRIM_BOSS_HEIGHT)
                .rotate((0, 0, 0), (0, 0, 1), angle))
-        tap = (cq.Workplane("YZ", origin=(0, 0, boss_z))
+        tap = (cq.Workplane("YZ", origin=(boss_x0, 0, boss_z))
                .circle(P.M3_TAP / 2)
-               .extrude(r_out)
+               .extrude(P.TRIM_BOSS_HEIGHT - 1.0)      # blind: does not reach the wall
                .rotate((0, 0, 0), (0, 0, 1), angle))
         shell = shell.union(pad).cut(tap)
 

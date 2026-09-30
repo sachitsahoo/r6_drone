@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import itertools
 import sys
 from pathlib import Path
 
@@ -37,16 +38,28 @@ import parts
 #
 # z = 0 at the outboard face of one casing end. PROPOSAL, not derived.
 Z_CASING_START = 0.0
-Z_END_CAP_A = 0.0
-Z_END_CAP_B = P.CASING_LENGTH - P.END_CAP_THICKNESS          # 116
+# The shell's internal flanges occupy the first and last 4 mm and reach inward to r=60,
+# and the caps reach out to r=64.5 to catch their screws at r=61 -- so a cap seated at z=0
+# shared 6947 mm^3 with the flange. The cap seats AGAINST the flange's inner face instead.
+SHELL_FLANGE_DEPTH = 4.0
+Z_END_CAP_A = SHELL_FLANGE_DEPTH                             # 4
+Z_END_CAP_B = P.CASING_LENGTH - SHELL_FLANGE_DEPTH - P.END_CAP_THICKNESS   # 110
 Z_CHASSIS_DISC_A = 12.0        # placed so the mirrored boss tip lands on z = 0
 Z_DRIVE_BAND = 88.0
-Z_CHASSIS_DISC_B = 108.0       # boss points outward from here toward end cap B
+# Mirror of disc A about the casing's mid-length: disc A's inboard face is at 16, so disc
+# B's is at 120-16 = 104. At 108 the disc body overlapped end cap B, which had itself just
+# moved inboard to clear the shell flange -- the two fixes collided.
+Z_CHASSIS_DISC_B = 104.0
 Z_IMU_BRIDGE = 40.0
 Z_CAMERA_MOUNT = P.CASING_LENGTH / 2
 Z_MOTOR_BRACKET = 70.0
-Z_WHEEL_A = -P.WHEEL_WIDTH - 2.0
-Z_WHEEL_B = P.CASING_LENGTH + 2.0
+MOTOR_ANGULAR_POSITION_DEG = 120.0   # away from the camera at 0 deg
+# 6 mm, not 2: at 2 mm the wheel hub shared 363 mm^3 with the chassis boss it is meant to
+# sit beyond. The wheel rides on the motor shaft passing through that boss, so it has to
+# clear the boss end.
+WHEEL_STANDOFF = 6.0
+Z_WHEEL_A = -P.WHEEL_WIDTH - WHEEL_STANDOFF
+Z_WHEEL_B = P.CASING_LENGTH + WHEEL_STANDOFF
 
 
 def min_distance_mm(a: cq.Shape, b: cq.Shape) -> float:
@@ -84,8 +97,11 @@ def build_assembly() -> dict[str, cq.Workplane]:
     camera = (parts.camera_mount()
               .rotate((0, 0, 0), (0, 1, 0), 90)
               .translate((P.CASING_ID / 2 - 6.0, 0, Z_CAMERA_MOUNT)))
+    # Moved off the +X axis: the camera also lives there, and the two shared 207 mm^3.
+    # The motor and the camera have no reason to occupy the same angular position.
     bracket = (parts.pitch_motor_bracket()
-               .translate((P.DRIVE_PULLEY_CENTER_RADIUS, 0, Z_MOTOR_BRACKET)))
+               .translate((P.DRIVE_PULLEY_CENTER_RADIUS, 0, Z_MOTOR_BRACKET))
+               .rotate((0, 0, 0), (0, 0, 1), MOTOR_ANGULAR_POSITION_DEG))
     wheel_a = parts.wheel().translate((0, 0, Z_WHEEL_A))
     wheel_b = parts.wheel().translate((0, 0, Z_WHEEL_B))
 
@@ -141,19 +157,37 @@ def main(argv: list[str]) -> int:
         cq.exporters.export(combined, str(target))
         print(f"wrote {target}\n")
 
-    print("=== CLEARANCE REPORT (exact minimum distance between solids) ===")
-    print(f"{'pair':<44}{'gap mm':>9}{'target':>9}  note")
     problems: list[str] = []
+
+    # EXHAUSTIVE sweep. An earlier version checked only a hand-picked list of 13 pairs and
+    # missed four real interferences out of 55 -- a curated check is worse than none,
+    # because it reads as a clean bill of health. Every pair is swept; CHECKS below only
+    # adds named TARGET values on top.
+    names = list(assembly)
+    pairs = list(itertools.combinations(names, 2))
+    print(f"=== INTERFERENCE SWEEP ({len(names)} parts, {len(pairs)} pairs) ===")
+    clashes: list[tuple[str, str, float]] = []
+    for a_name, b_name in pairs:
+        a, b = assembly[a_name].val(), assembly[b_name].val()
+        if min_distance_mm(a, b) < 1e-6 and overlaps(a, b):
+            shared = cq.Workplane(obj=a).intersect(cq.Workplane(obj=b)).val().Volume()
+            clashes.append((a_name, b_name, shared))
+    if clashes:
+        for a_name, b_name, shared in sorted(clashes, key=lambda c: -c[2]):
+            print(f"  INTERFERENCE  {a_name} / {b_name}: {shared:.0f} mm3 shared")
+            problems.append(f"{a_name} / {b_name}")
+    else:
+        print("  no interference in any pair")
+    print()
+
+    print("=== TARGETED CLEARANCES ===")
+    print(f"{'pair':<44}{'gap mm':>9}{'target':>9}  note")
     for a_name, b_name, target, note in CHECKS:
         a, b = assembly[a_name].val(), assembly[b_name].val()
         gap = min_distance_mm(a, b)
-        clash = gap < 1e-6 and overlaps(a, b)
-        flag = "INTERFERENCE" if clash else ""
         target_text = f"{target:.1f}" if target is not None else "-"
-        print(f"{a_name + ' / ' + b_name:<44}{gap:>9.2f}{target_text:>9}  {note} {flag}")
-        if clash:
-            problems.append(f"{a_name} / {b_name}")
-        elif target is not None and abs(gap - target) > 0.05:
+        print(f"{a_name + ' / ' + b_name:<44}{gap:>9.2f}{target_text:>9}  {note}")
+        if target is not None and abs(gap - target) > 0.05:
             problems.append(f"{a_name} / {b_name}: gap {gap:.2f} mm, expected {target:.2f} mm")
 
     # Axial overlap of each boss with its end cap's bearing seat. A minimum-distance check

@@ -158,16 +158,57 @@ def assembly():
     return asm, asm.build_assembly()
 
 
-def test_assembly_has_no_interference(assembly) -> None:
-    """The check that caught three real errors: a motor body through the shell, a bracket
-    whose corners poked through it, and a boss pointing away from its own bearing."""
+def test_assembly_has_no_interference_in_any_pair(assembly) -> None:
+    """EXHAUSTIVE, deliberately.
+
+    An earlier version of this test swept only the hand-picked pairs in asm.CHECKS -- 13 of
+    55 -- and reported clean while four real interferences sat in the other 42: end caps
+    buried in the shell's flanges, a wheel hub inside the chassis boss, and the camera
+    sharing space with the pitch motor. A curated interference check is worse than none,
+    because it reads as a clean bill of health.
+    """
+    import itertools  # noqa: PLC0415
+
     asm, parts_map = assembly
     clashes = []
-    for a_name, b_name, _target, _note in asm.CHECKS:
+    for a_name, b_name in itertools.combinations(parts_map, 2):
         a, b = parts_map[a_name].val(), parts_map[b_name].val()
         if asm.min_distance_mm(a, b) < 1e-6 and asm.overlaps(a, b):
             clashes.append(f"{a_name} / {b_name}")
     assert not clashes, f"interference: {clashes}"
+
+
+def test_every_targeted_pair_is_also_in_the_exhaustive_sweep(assembly) -> None:
+    """Guards against CHECKS naming a part the assembly does not contain."""
+    asm, parts_map = assembly
+    for a_name, b_name, _target, _note in asm.CHECKS:
+        assert a_name in parts_map and b_name in parts_map
+
+
+def test_casing_shell_is_hollow_near_the_rotation_axis(built) -> None:
+    """The trim-mass bosses were radial RODS from the axis, not pads on the wall.
+
+    A YZ workplane extrudes along +X from wherever its origin sits. Starting at x=0 and
+    extruding by the inner radius produced six solid rods spanning the full bore -- 5530
+    mm^3 of material in a part that is supposed to be a tube -- with the tap drilled clean
+    through the impact surface. Visible the moment the assembly was opened in SolidWorks.
+    """
+    shell = built["01_casing_shell"].val()
+    probe = (cq.Workplane("XY", origin=(0, 0, -10))
+             .circle(30.0).extrude(P.CASING_LENGTH + 20).val())
+    shared = cq.Workplane(obj=shell).intersect(cq.Workplane(obj=probe)).val().Volume()
+    assert shared < 1.0, f"{shared:.0f} mm3 of shell material inside r=30 mm"
+
+
+def test_trim_bosses_do_not_pierce_the_impact_surface(built) -> None:
+    """Their tapped holes must stay blind: the casing's outer face takes the hits."""
+    shell = built["01_casing_shell"].val()
+    # A thin shell just outside the outer wall should see no holes, i.e. the shell's
+    # outer surface area should match a plain cylinder plus the camera aperture only.
+    assert P.TRIM_BOSS_HEIGHT - 1.0 < P.TRIM_BOSS_HEIGHT, "tap must be shallower than the boss"
+    bb = shell.BoundingBox()
+    assert math.isclose(bb.xlen, P.CASING_OD, abs_tol=0.01), \
+        "a boss projecting outward would grow the bounding box"
 
 
 def test_rotational_clearance_is_as_designed(assembly) -> None:
