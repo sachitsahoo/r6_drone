@@ -15,15 +15,44 @@ Numbers are reproducible with `python3 tools/pitch_inertia_budget.py`.
 
 ## R1. Dedicate an axial band for the belt track
 
-**Requirement:** a 10–15 mm axial band at one end of the casing where the **chassis does not
-extend**, carrying an internal toothed track (or a smooth capstan surface) on the casing's
-inner wall.
+**Requirement:** a 10–15 mm axial band in which the **chassis diameter is locally reduced to
+90 mm** and carries an outward-facing toothed track. The casing-mounted drive pulley reaches
+inward to engage it.
 
-**Why:** ADR 0006 flagged belt routing as its main risk, because the casing's outer surface is
-the impact surface and the 2–3 mm rotational clearance looked too tight for a belt. Giving the
-belt its own axial band dissolves that: with no chassis in the band, the track can project
-inward as far as it likes and radial clearance stops being the constraint. **Axial length is
-the constraint instead, and it fits comfortably.**
+**CORRECTION:** an earlier revision of this requirement put the track on the *casing's* inner
+wall with the chassis absent from the band. That contradicts R3, which puts the motor in the
+casing: if the track and the motor both ride on the casing they rotate together and nothing
+moves. The track must be on the chassis.
+
+**Why it fits:** the concern in ADR 0006 was that the casing's outer surface is the impact
+surface, so the belt must engage internally, and 2.5 mm of rotational clearance is far too
+little. The resolution is that **the chassis only needs full diameter at its two bearing
+lands.** Between them it can be slim, which opens a deep annular pocket for both the drive
+pulley and the pitch motor.
+
+Radial stack-up, with a 10 mm pulley and a GT2 belt (1.4 mm back, 0.75 mm teeth) against a
+casing inner radius of 64.5 mm:
+
+| Track OD | Pulley tip radius | Gap to casing wall | Ratio |
+|---|---|---|---|
+| 90 mm | 57.1 mm | **7.4 mm** | **9.0:1** |
+| 100 mm | 62.1 mm | 2.4 mm | 10.0:1 |
+| 110 mm | 67.2 mm | does not fit | — |
+
+**Use 90 mm, giving 9:1.** Motor-side torque is then 7–16 mN m against the 62–144 mN m
+required at the axis, which is undemanding. 100 mm leaves only 2.4 mm and 110 mm interferes
+with the shell.
+
+**Chassis frame diameter between the bearing lands** sets the motor pocket:
+
+| Frame OD | Radial pocket | 28 mm gimbal motor |
+|---|---|---|
+| 70 mm | 29.5 mm | fits |
+| 80 mm | 24.5 mm | tight |
+| 90 mm | 19.5 mm | tight |
+
+**This is the one dimension the CAD must verify rather than inherit** — it depends on the
+actual motor chosen, and it is the last place the packaging can bite.
 
 **Axial budget** (165 mm wheel-to-wheel):
 
@@ -187,6 +216,48 @@ Suggested fixtures, not derived from anything — adjust freely:
 | IMU boss (R2) | on the centreline, radial offset target under 3 mm |
 | Slip ring envelope (R5) | reserve 15 mm diameter x 25 mm on the axis |
 | Pendulum datum (R8) | one 3 mm hole at radius 50 mm, documented |
+
+## Every part, as primitive shapes
+
+Eight printed parts, built from **four shape types**: tube, disc, flat plate, cylinder.
+Nothing here needs surfacing, lofting, or a single piece of organic geometry.
+
+| # | Part | Base shape | Features to add |
+|---|---|---|---|
+| 1 | Casing shell | **tube** (cylinder minus cylinder) | camera aperture cutout; screw bosses at both ends |
+| 2 | Casing end cap x2 | **disc** with centre bore | bearing counterbore; screw holes; one gets the pendulum datum hole (R8) |
+| 3 | Chassis bearing disc x2 | **disc** with centre bore | bearing seat; standoff holes; wheel motor mount holes |
+| 4 | Chassis drive band | **short tube**, 90 mm OD | plain flat band — the belt bonds onto it |
+| 5 | Pitch motor bracket | **flat plate** | motor bore; screw holes; offset to set belt tension |
+| 6 | IMU bridge | **flat strip** | two holes at the wall, a flat pad on the centreline (R2) |
+| 7 | Camera mount | **flat plate** | four camera screw holes |
+| 8 | Wheel x2 | **cylinder** with bore | O-ring groove for tread; flat or D for the shaft |
+
+Optionally also: trim mass bosses (R4) are just threaded holes in part 1; the slip ring
+envelope (R5) is just a bore in part 3. Neither is a separate part.
+
+### Buy, do not model
+
+Axle rod, bearings, standoffs, GT2 timing belt, 10 mm drive pulley, O-rings for tread, capsule
+slip ring, N20 motor brackets, screws.
+
+### Two tricks that delete the hard geometry
+
+- **Bond a length of GT2 timing belt around the chassis drive band, teeth facing outward.**
+  That belt *is* the toothed rack. Gear teeth are the only genuinely difficult shape in this
+  whole design, and this removes them entirely — part 4 becomes a plain smooth band.
+- **Cut a groove in each wheel and drop in an O-ring** for traction. No tread pattern to model,
+  and the rubber is replaceable when it wears.
+
+### If you build the bench rig first
+
+Three parts, two shape types:
+
+| Part | Base shape |
+|---|---|
+| Base plate | **rectangle** with holes — or a scrap of plywood or aluminium, zero CAD |
+| Upright bearing block x2 | **rectangular block** with a bore |
+| Dummy inertia disc | **disc** with a bore and bolt holes at a known radius |
 
 ## Modeling notes
 
