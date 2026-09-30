@@ -76,10 +76,13 @@ A toothed belt, or a friction capstan, driving the casing directly — using the
 
 Costs and risks, which are real:
 
-- **Routing.** The casing's outer surface is the impact surface, so the belt cannot run
-  there. It has to engage an internal track or a stepped inner diameter, which the 2–3 mm
-  rotational clearance may not accommodate as drawn. **This is the main thing to check
-  against the CAD before accepting this ADR.**
+- **Routing — RESOLVED before the CAD existed.** The concern was that the casing's outer
+  surface is the impact surface, so the belt must engage internally, and 2–3 mm of rotational
+  clearance looked too tight. Dedicating a 10–15 mm axial band at one end of the casing, where
+  the chassis does not extend, removes the conflict entirely: the track projects inward freely
+  and the binding constraint becomes axial length, which fits with room to spare. A 10 mm
+  pulley against the 130 mm band gives 13:1, the ratio the torque budget assumed. See
+  `docs/mechanical-requirements.md` R1.
 - A belt needs tension and therefore an idler or an adjustable motor mount.
 - A friction capstan can slip under shock — which is arguably a feature for impact
   survival and a defect for position tracking, since slip breaks the encoder's relationship
@@ -100,7 +103,14 @@ balancing the casing to within a couple of millimetres.
 ## Consequences
 
 - Mechanical work is now on the critical path: the internal belt track has to exist before
-  the actuator can be ordered sensibly.
+  the actuator can be ordered sensibly. Requirements are written up in
+  `docs/mechanical-requirements.md` so the CAD can be designed to them directly.
+- **The belt drive frees the rotation axis.** The motor sits off-axis, leaving the centreline
+  for the axle, the slip ring and the IMU. A direct-drive actuator would be coaxial and would
+  compete with all three in a 165 mm wheel-to-wheel envelope. This is an argument for the belt
+  that the torque budget alone did not surface.
+- **The motor should sit in the casing**, not the chassis, so its phase currents stay off the
+  slip ring. Costs 2–13% added inertia depending on mass and radius.
 - Two encoders total on this axis if the motor also has one, or one casing-side encoder plus
   sensorless/open-loop commutation. FOC generally wants rotor position, so expect both.
 - Shell mass reduction is the highest-leverage change available and should happen regardless
@@ -113,7 +123,7 @@ The recommendation rests on estimates. Before implementation:
 
 1. Weigh the printed shell — it carries 85% of the inertia estimate.
 2. Measure the CoM offset and the pendulum period, and invert for the true `I`.
-3. Confirm belt routing is geometrically possible within the rotational clearance.
+3. Confirm the belt band survives detailed CAD (R1 shows it fits at the envelope level).
 4. Confirm the camera's true horizontal FOV and resolution, which set the pixel-per-degree
    figure that finding 3 depends on.
 

@@ -15,6 +15,8 @@ every task rather than cleanup afterward.
 | `bringup/` | Hardware bring-up procedures and the measurements they produced. |
 | `learning/` | For each owner-reviewed module, a plain-language walkthrough plus 5-10 "check your understanding" questions with answers. |
 
+`mechanical-requirements.md` sits at this level rather than in a subdirectory: it is neither a decision nor a derivation, but the set of design inputs the ADRs and the theory note impose on the CAD.
+
 ## Key design decisions
 
 - **ADRs are immutable once accepted.** A reversed decision gets a new ADR that supersedes
