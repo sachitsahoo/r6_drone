@@ -134,6 +134,38 @@ sets how large the drive band can be, which sets the ratio.
 | iPower GM2804 / GBM2804H | 35 mm | 51 g (w/ encoder) | 76.7 mm | 7.5:1 | 50.3 mm | 9.5 mN m | +0.102e-3 (+14%) |
 | iPower GM3506 | 40 mm | ~60 g | 71.7 mm | 7.0:1 | 40.3 mm | 10.2 mN m | +0.107e-3 (+14%) |
 
+### Selected part (pending the measurements below)
+
+**SpeedyFPV 2208 brushless gimbal motor, 80 KV, $8.99.** 28 mm diameter, **26 mm long**,
+39 g, 3 mm shaft, 12 V recommended (14 V max), 3-pin. No encoder included.
+
+Verified against the geometry:
+
+| Check | Result |
+|---|---|
+| Radial fit | 28 mm OD -> band 80 mm, frame 60 mm, 8:1 |
+| **Axial fit** | 26 mm body sits at z 58–84 in the annular pocket (z 16–104), 42 mm spare |
+| Torque | needs 8.9 mN m at the motor; `Kt = 9.549/KV = 0.119 N m/A` -> **0.075 A** |
+| Speed | 960 RPM no-load at 12 V -> casing 12.6 rad/s; the profile peaks at 3.5 rad/s (28%) |
+
+**Axial length had never been checked.** Only diameter had. It fits comfortably, but
+nothing was verifying it until the real part was looked up, and the bracket turned out to
+be positioned inside where the motor body would be — invisible because the motor was not
+modelled. There is now an envelope solid in the assembly so the sweep can see it.
+
+### A thermal argument for the reduction, not previously made
+
+Current scales with 1/ratio and dissipation with its square:
+
+| | Torque at the motor | Current | Relative heat |
+|---|---|---|---|
+| 8:1 belt | 8.9 mN m | 0.075 A | 1x |
+| Direct drive | 71.6 mN m | 0.600 A | **64x** |
+
+The motor lives inside a sealed printed casing, which is the worst place in the robot to
+dump watts and has no airflow. A 64-fold reduction in I^2R is a stronger argument for the
+belt than the torque figures alone, which merely showed direct drive was *possible*.
+
 **Recommend the 2208.** It is the only one that fits the geometry already drawn — 80 mm
 band, 60 mm frame, 8:1 — without shrinking the chassis frame. It is also the lightest, and
 its mass sits in the rotating assembly. GM3506 would push the frame to 40 mm, which is

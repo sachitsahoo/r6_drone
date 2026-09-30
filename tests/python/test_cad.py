@@ -63,6 +63,38 @@ def test_drive_band_diameter_gives_the_intended_ratio(built) -> None:
     assert math.isclose(P.DRIVE_RATIO, 8.0, abs_tol=0.01)
 
 
+def test_pitch_motor_fits_axially_in_the_annular_pocket() -> None:
+    """The motor is 26 mm LONG, which nothing checked until the real part was looked up.
+
+    Only its diameter had ever been verified. It has to sit between the two chassis discs,
+    inboard of the drive band, with the pulley reaching into the band plane.
+    """
+    import assembly as asm  # noqa: PLC0415
+
+    motor_hi = asm.Z_MOTOR_BRACKET
+    motor_lo = motor_hi - P.PITCH_MOTOR_LENGTH
+    pocket_lo = asm.Z_CHASSIS_DISC_A + P.CHASSIS_DISC_THICKNESS
+    pocket_hi = asm.Z_CHASSIS_DISC_B
+    assert pocket_lo < motor_lo, f"motor starts at {motor_lo}, pocket at {pocket_lo}"
+    assert motor_hi < pocket_hi, f"motor ends at {motor_hi}, pocket ends at {pocket_hi}"
+    assert motor_hi <= asm.Z_DRIVE_BAND, "bracket must sit inboard of the drive band"
+
+
+def test_pitch_motor_does_not_share_an_angle_with_a_trim_boss() -> None:
+    """The bosses project 5 mm inward at 0/60/120/.../300 degrees and the motor is wide."""
+    import assembly as asm  # noqa: PLC0415
+    import math as _math  # noqa: PLC0415
+
+    half_width_deg = _math.degrees(_math.atan2(P.PITCH_MOTOR_BORE / 2,
+                                               P.DRIVE_PULLEY_CENTER_RADIUS))
+    spacing = 360.0 / P.TRIM_BOSS_COUNT
+    offset = asm.MOTOR_ANGULAR_POSITION_DEG % spacing
+    clearance = min(offset, spacing - offset)
+    assert clearance > half_width_deg, (
+        f"motor half-width {half_width_deg:.0f} deg but only {clearance:.0f} deg to the "
+        f"nearest trim boss")
+
+
 def test_pitch_motor_body_fits_inside_the_casing() -> None:
     """The constraint that forced 9:1 down to 8:1.
 

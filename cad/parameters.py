@@ -154,6 +154,13 @@ MOTOR_BRACKET_THICKNESS = 4.0
 #
 # So this value was right by luck, not by design. See ADR 0006's candidate list.
 PITCH_MOTOR_BORE = 28.0
+#: Axial length of the motor body. Confirmed from the SpeedyFPV 2208 listing: 26 mm.
+#: This was never modelled or checked -- only the diameter was. It fits with 46 mm to
+#: spare in the annular pocket, but nothing was verifying that until the real part
+#: was looked up.
+PITCH_MOTOR_LENGTH = 26.0
+PITCH_MOTOR_MASS_G = 39.0
+PITCH_MOTOR_KV = 80.0
 PITCH_MOTOR_BOLT_RADIUS = 14.5  # ASSUMPTION
 PITCH_MOTOR_BOLT_COUNT = 4
 

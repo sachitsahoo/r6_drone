@@ -52,8 +52,14 @@ Z_DRIVE_BAND = 88.0
 Z_CHASSIS_DISC_B = 104.0
 Z_IMU_BRIDGE = 40.0
 Z_CAMERA_MOUNT = P.CASING_LENGTH / 2
-Z_MOTOR_BRACKET = 70.0
-MOTOR_ANGULAR_POSITION_DEG = 120.0   # away from the camera at 0 deg
+# Just INBOARD of the band, not level with its start: the bracket plate spans r=31..63 and
+# the band r=30..40, so sharing an axial station put 666 mm^3 of bracket inside the band.
+# Motor body 58..84, bracket 84..88, pulley 88.. reaching into the band plane at 88..103.
+Z_MOTOR_BRACKET = 84.0
+# 150, not 120. The trim-mass bosses sit at 0/60/120/180/240/300 and project 5 mm inward,
+# so at 120 the motor clipped the boss it shared an angle with. 150 puts it midway between
+# two bosses, about 13 deg clear on each side given the motor's ~33 deg angular width.
+MOTOR_ANGULAR_POSITION_DEG = 150.0   # away from the camera at 0 deg, and between bosses
 # 6 mm, not 2: at 2 mm the wheel hub shared 363 mm^3 with the chassis boss it is meant to
 # sit beyond. The wheel rides on the motor shaft passing through that boss, so it has to
 # clear the boss end.
@@ -107,6 +113,14 @@ def build_assembly() -> dict[str, cq.Workplane]:
     bracket = (parts.pitch_motor_bracket()
                .translate((P.DRIVE_PULLEY_CENTER_RADIUS, 0, Z_MOTOR_BRACKET))
                .rotate((0, 0, 0), (0, 0, 1), MOTOR_ANGULAR_POSITION_DEG))
+    # Envelope, not a printed part: a plain cylinder standing in for the bought motor so
+    # the interference sweep can see it. Until this existed the motor was invisible to
+    # every check, which is how a bracket ended up positioned inside its body.
+    motor = (cq.Workplane("XY", origin=(0, 0, Z_MOTOR_BRACKET - P.PITCH_MOTOR_LENGTH))
+             .circle(P.PITCH_MOTOR_BORE / 2).extrude(P.PITCH_MOTOR_LENGTH)
+             .translate((P.DRIVE_PULLEY_CENTER_RADIUS, 0, 0))
+             .rotate((0, 0, 0), (0, 0, 1), MOTOR_ANGULAR_POSITION_DEG))
+
     wheel_a = parts.wheel().translate((0, 0, Z_WHEEL_A))
     wheel_b = parts.wheel().translate((0, 0, Z_WHEEL_B))
 
@@ -120,6 +134,7 @@ def build_assembly() -> dict[str, cq.Workplane]:
         "imu_bridge": bridge,
         "camera_mount": camera,
         "pitch_motor_bracket": bracket,
+        "pitch_motor_envelope": motor,
         "wheel_a": wheel_a,
         "wheel_b": wheel_b,
     }
