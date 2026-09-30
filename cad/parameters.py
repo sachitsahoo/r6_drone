@@ -143,7 +143,17 @@ STANDOFF_COUNT = 4              # ASSUMPTION: M3 standoffs joining the chassis d
 STANDOFF_RADIUS = (CHASSIS_FRAME_OD / 2 + DRIVE_BAND_OD / 2) / 2
 
 MOTOR_BRACKET_THICKNESS = 4.0
-PITCH_MOTOR_BORE = 28.0         # ASSUMPTION: 28 mm gimbal motor; the number R1 says to verify
+# 28 mm matches a **2208** gimbal motor (vendor listings: 28 mm OD, 39-42 g, 3 mm shaft).
+# It does NOT match the more commonly recommended iPower GM2804 / GBM2804H, whose "2804"
+# names the 28 x 04 mm STATOR -- its actual outer diameter is 35 mm, confirmed across four
+# vendor listings. GM3506 is 40 mm. Either forces the drive band and chassis frame smaller:
+#
+#   motor OD 28 -> band 80, frame 60, 8.0:1   (the current design)
+#   motor OD 35 -> band 75, frame 50, 7.5:1
+#   motor OD 40 -> band 70, frame 40, 7.0:1
+#
+# So this value was right by luck, not by design. See ADR 0006's candidate list.
+PITCH_MOTOR_BORE = 28.0
 PITCH_MOTOR_BOLT_RADIUS = 14.5  # ASSUMPTION
 PITCH_MOTOR_BOLT_COUNT = 4
 

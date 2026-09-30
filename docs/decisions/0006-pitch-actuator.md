@@ -119,6 +119,54 @@ balancing the casing to within a couple of millimetres.
   of which option is chosen, since it attacks 85% of the inertia.
 - The balance choice from the theory note remains open and is a control design decision.
 
+## Candidate motors (real vendor data, 2026-09-30)
+
+Torque is a non-issue for all of them: the axis needs 71.6 mN m and the reduction divides
+that to 9-10 mN m, which any gimbal motor of this class exceeds several times over. The
+selection is driven by **packaging and mass**, not torque.
+
+The motor rides in the casing (R3), so its mass lands in the rotating inertia. Its diameter
+sets how large the drive band can be, which sets the ratio.
+
+| Motor | OD | Mass | Max band | Ratio | Frame OD | Motor torque needed | Added inertia |
+|---|---|---|---|---|---|---|---|
+| **2208 gimbal, 80-114 KV** | **28 mm** | 39-42 g | 83.7 mm | **8.0:1** | 62.3 mm | 8.9 mN m | +0.093e-3 (+12%) |
+| iPower GM2804 / GBM2804H | 35 mm | 51 g (w/ encoder) | 76.7 mm | 7.5:1 | 50.3 mm | 9.5 mN m | +0.102e-3 (+14%) |
+| iPower GM3506 | 40 mm | ~60 g | 71.7 mm | 7.0:1 | 40.3 mm | 10.2 mN m | +0.107e-3 (+14%) |
+
+**Recommend the 2208.** It is the only one that fits the geometry already drawn — 80 mm
+band, 60 mm frame, 8:1 — without shrinking the chassis frame. It is also the lightest, and
+its mass sits in the rotating assembly. GM3506 would push the frame to 40 mm, which is
+probably too slim to carry the wheel motors and the structure between the bearing lands.
+
+**Careful with the naming.** "2804" and "3506" name the *stator* (28 x 04 mm, 35 x 06 mm),
+not the outside. GM2804's actual outer diameter is 35 mm, confirmed across four vendor
+listings. `cad/parameters.py` assumed 28 mm, which turns out to match a 2208 and not the
+GM2804 that most gimbal guides recommend -- right by luck rather than by design.
+
+### Two sensors, not one
+
+ADR 0005 requires the casing angle be read on the **casing side**, so belt slip or
+compliance cannot corrupt it. A motor sold "with AS5048A encoder" gives rotor position for
+FOC commutation, which is a different measurement. Expect:
+
+1. **Rotor position** on the motor, for commutation. Integrated on the GM2804-with-encoder
+   variants; a bare 2208 needs one added, or sensorless startup.
+2. **Casing angle** at the wheel axis -- a diametrically magnetised magnet on the chassis
+   boss and a magnetic encoder on the casing. This is the one the control loop uses.
+
+AS5048A (14-bit, SPI, 0.022 deg) is preferable to AS5600 (12-bit, I2C) for the casing
+sensor: both resolutions are far finer than the 1-2 degree residual being measured, but I2C
+is awkward to poll inside a 1 kHz loop where SPI is not.
+
+### Driver
+
+The STM32G474 is a motor-control part with HRTIM, so driving FOC directly from it is the
+natural end state -- a three-phase gate driver plus MOSFETs, or an integrated DRV8313-class
+stage. A SimpleFOCmini-style board is a reasonable prototyping shortcut to get the loop
+closed before committing to a driver design. Either way the driver choice is not on the
+critical path for this ADR.
+
 ## What must be measured before this is accepted
 
 The recommendation rests on estimates. Before implementation:
