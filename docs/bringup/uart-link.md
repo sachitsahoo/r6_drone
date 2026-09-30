@@ -1,6 +1,6 @@
 # MCU <-> Pi UART link: baud rate selection
 
-**Status:** analysis complete, recommendation pending measurement at bring-up.
+**Status:** **460 800 baud selected (owner, 2026-09-30).** Unvalidated on hardware.
 **Date:** 2026-09-30
 
 ## Why this is a bring-up document and not an ADR
@@ -92,9 +92,9 @@ is that a UART overrun must be handled rather than ignored: lost bytes produce f
 errors, which is exactly the path the decoder's `DESYNC` handling exists for. The
 `LinkStats` counters make those events visible instead of mysterious.
 
-## Recommendation
+## Decision: 460 800 baud
 
-**460 800.** It cuts per-frame serialization from 3.82 ms to 0.95 ms and utilization from
+Selected by the owner on 2026-09-30. It cuts per-frame serialization from 3.82 ms to 0.95 ms and utilization from
 42% to 10%, leaving real headroom for `Fault` bursts and for telemetry fields that do not
 exist yet, while staying far from any clock-tolerance concern.
 
@@ -105,3 +105,26 @@ but it spends a third of every telemetry period on the wire for no reason.
 Whatever is chosen, the link should be validated with a sustained loopback under CPU load
 before any motors are enabled, with `LinkStats` counters checked for `cobs_errors` and
 `desyncs`.
+
+## What this decision obliges, at bring-up
+
+460 800 is above the rate at which the Pi's mini-UART clock drift stops being theoretical, so
+the items below are prerequisites rather than nice-to-haves. None has been done — no hardware
+has been powered.
+
+- [ ] Pi: `dtoverlay=disable-bt` in `config.txt`, so PL011 (`/dev/ttyAMA0`) lands on the GPIO
+      header instead of the mini-UART. Bluetooth is unused by this project.
+- [ ] Pi: confirm which device the header UART actually is after the overlay, rather than
+      assuming. `dmesg` and `/dev/serial*` symlinks.
+- [ ] MCU: USART clocked from the HSE crystal, not HSI. Compute the actual divisor error from
+      the configured USART kernel clock and record the number here.
+- [ ] Sustained loopback test at 460 800 **while the video pipeline is running**, not on an
+      idle Pi. This is the test that catches core-clock drift; an idle-Pi test will pass
+      regardless and prove nothing.
+- [ ] Check `LinkStats` for `cobs_errors` and `desyncs` over a multi-minute run. Non-zero is
+      a physical-layer problem, not a decoder problem.
+- [ ] Only then enable motors, wheels off the ground, kill switch in reach.
+
+The baud rate will appear in firmware as a named constant with a `source:` comment pointing at
+this document, per the no-magic-numbers rule. If the loopback test fails, dropping to 230 400
+costs one constant on each end and nothing else.
