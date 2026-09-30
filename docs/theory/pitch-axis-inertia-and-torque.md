@@ -174,6 +174,44 @@ the experiment would be measuring the gearbox, not the controller. Backlash must
 below the target residual error, which is a requirement on the transmission, not a
 preference about motors.
 
+## Measured from the CAD geometry (2026-09-30)
+
+The parametric model in `cad/` now exists, so mass and inertia come from the solids rather
+than from the estimate above. Run `python3 cad/build.py --report`.
+
+| | Estimated (light–heavy) | **From geometry** |
+|---|---|---|
+| Rotating mass | 174–370 g | **209 g** |
+| Rotating inertia | 0.647e-3 – 1.534e-3 kg m^2 | **0.762e-3 kg m^2** |
+
+The light-corner estimate was close; the heavy corner was pessimistic. Revised torque, with
+the pitch motor still **not** included (it rides in the casing per R3):
+
+| Load | At the axis | At the motor, 9:1 |
+|---|---|---|
+| Gravity, 5 mm CoM offset | 10.3 mN m | 1.1 mN m |
+| Gravity, 10 mm CoM offset | 20.5 mN m | 2.3 mN m |
+| 10° in 200 ms | 13.3 mN m | 1.5 mN m |
+| 10° in 100 ms | 53.2 mN m | 5.9 mN m |
+| 10° in 50 ms | 212.8 mN m | 23.6 mN m |
+| **Moderate spec + 10 mm offset** | **73.7 mN m** | **8.2 mN m** |
+
+Pendulum resonance at a 10 mm offset: **0.83 Hz** — the sub-1 Hz finding holds.
+
+ADR 0006's conclusion survives contact with the real geometry: 8.2 mN m at the motor through
+a 9:1 zero-backlash reduction is undemanding, while 73.7 mN m direct-drive is not.
+
+### What building the CAD revealed that the estimate missed
+
+The first build of the parts came to **855 g of printed plastic** against the owner's
+700–900 g vehicle target, leaving −155 to +45 g for motors, battery, electronics and
+bearings. The estimate above had only ever costed the casing shell; it never costed the end
+caps, the chassis discs, or the wheels — and a near-solid 150 mm wheel is 160 g each.
+
+Rebuilding those as rim-hub-and-spoke rather than solid discs brought the total to **398 g**,
+leaving 302–502 g. This is the reason to build geometry early even when the analysis seems
+settled: the inertia estimate was fine, and the mass budget was not.
+
 ## What to measure to replace these estimates
 
 1. Weigh the printed shell and each casing component. Shell mass carries 85% of the answer.

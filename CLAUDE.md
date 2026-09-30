@@ -44,6 +44,8 @@ protocol/          Message schema (single source of truth) + code generators
 robot_bridge/      Pi Zero 2 W daemon: UDP <-> UART relay, video pipeline
 operator/          Laptop app: controller input, video, telemetry UI, logging, replay
 tools/             Scripts: log analysis, plotting, system identification
+cad/               Parametric mechanical model (CadQuery). Exports STEP/STL and reports
+                   mass and inertia from the solids. Deps are NOT in requirements-dev
 tests/             Unit + software-in-the-loop (SIL) tests
 docs/              Architecture, decisions/ (ADRs), theory/, bringup/, learning/
 ```

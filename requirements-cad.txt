@@ -1,0 +1,7 @@
+# Mechanical CAD dependencies. Deliberately NOT in requirements-dev.txt: cadquery pulls
+# VTK, numba, scipy and matplotlib -- several hundred megabytes -- and none of it is needed
+# to build the firmware or run the protocol tests. CI does not install this.
+#
+#   python3 -m pip install -r requirements-cad.txt
+#   python3 cad/build.py
+cadquery>=2.8
