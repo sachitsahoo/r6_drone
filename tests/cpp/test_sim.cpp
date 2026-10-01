@@ -10,6 +10,7 @@
 
 #include "sim/sim_clock.hpp"
 #include "sim/sim_serial_link.hpp"
+#include "sim/sim_watchdog.hpp"
 #include "sim/sim_world.hpp"
 #include "sim/static_sensors.hpp"
 #include "sim/wheel_plant.hpp"
@@ -353,6 +354,83 @@ TEST(SimWorld, StepAdvancesClockLinkAndBothWheels) {
   EXPECT_EQ(world.link.host().rx_pending(), 1U);
   EXPECT_GT(world.left_wheel.speed_rad_s(), 0.0);
   EXPECT_LT(world.right_wheel.speed_rad_s(), 0.0);
+}
+
+// ------------------------------------------------- ADR 0014 test-only fault options
+
+TEST(SimWheel, AFrozenEncoderStopsCountingWhileTheShaftTurns) {
+  SimWheel w(test_params());
+  w.set_duty(1.0F);
+  w.step(0.5);
+  w.freeze_encoder(true);
+  const uint32_t frozen = w.count();
+  w.step(0.5);
+  EXPECT_EQ(w.count(), frozen);
+  EXPECT_GT(w.speed_rad_s(), 1.0) << "the wheel itself keeps turning";
+}
+
+TEST(SimWheel, AReversedEncoderCountsDownForForwardMotion) {
+  WheelPlantParams p = test_params();
+  p.encoder_reversed = true;
+  p.initial_count = 10;  // so counting down wraps through zero
+  SimWheel w(p);
+  w.set_duty(1.0F);
+  w.step(0.5);
+  ASSERT_GT(w.speed_rad_s(), 0.0);
+  const auto delta = static_cast<int32_t>(w.count() - 10U);
+  EXPECT_LT(delta, -100) << "forward motion reads as backward";
+}
+
+TEST(SimWheel, BrakingReportsTheLastStopMode) {
+  SimWheel w(test_params());
+  EXPECT_FALSE(w.braking());
+  w.stop(hal::StopMode::kBrake);
+  EXPECT_TRUE(w.braking());
+  w.stop(hal::StopMode::kCoast);
+  EXPECT_FALSE(w.braking());
+  w.stop(hal::StopMode::kBrake);
+  w.set_duty(0.1F);
+  EXPECT_FALSE(w.braking()) << "driving again ends the brake";
+}
+
+TEST(SimSerialLink, ACutLineDeliversNothingAndRestoresCleanly) {
+  SimSerialLink link;
+  const uint8_t bytes[] = {1, 2, 3};
+  link.set_cut(true);
+  ASSERT_EQ(link.host().write(bytes, 3), 3U);
+  link.step(1000);
+  EXPECT_EQ(link.host().tx_pending(), 0U) << "the transmitter still sends";
+  EXPECT_TRUE(drain(link.mcu()).empty()) << "but nothing arrives";
+  link.set_cut(false);
+  ASSERT_EQ(link.host().write(bytes, 3), 3U);
+  link.step(1000);
+  EXPECT_EQ(drain(link.mcu()), std::vector<uint8_t>(bytes, bytes + 3));
+}
+
+TEST(SimWatchdog, ExpiresOnlyAfterTheTimeoutWithoutAFeed) {
+  SimClock clock(0xFFFFFFFFU - 20000U);  // wraps inside the test
+  SimWatchdog wd(clock, 50000);
+  hal::Watchdog& hal_wd = wd;
+  for (int i = 0; i < 200; ++i) {  // fed every 10 ms for 2 s
+    clock.advance_us(10000);
+    hal_wd.feed();
+    ASSERT_FALSE(wd.expired());
+  }
+  EXPECT_EQ(wd.feed_count(), 200U);
+  clock.advance_us(49999);
+  EXPECT_FALSE(wd.expired());
+  clock.advance_us(1);
+  EXPECT_TRUE(wd.expired());
+  hal_wd.feed();
+  EXPECT_TRUE(wd.expired()) << "a late feed cannot hide an expiry";
+}
+
+TEST(SimWatchdog, ReportsTheBootReason) {
+  SimClock clock;
+  const SimWatchdog normal(clock, 50000);
+  const SimWatchdog after_reset(clock, 50000, /*boot_after_reset=*/true);
+  EXPECT_FALSE(static_cast<const hal::Watchdog&>(normal).reset_was_watchdog());
+  EXPECT_TRUE(static_cast<const hal::Watchdog&>(after_reset).reset_was_watchdog());
 }
 
 }  // namespace

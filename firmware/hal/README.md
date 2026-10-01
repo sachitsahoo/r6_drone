@@ -2,9 +2,10 @@
 
 ## What it does
 
-Declares the abstract interfaces through which portable code touches hardware. Eight, one
-header each in [`hal/`](hal/), designed in [`design-proposal.md`](design-proposal.md)
-(approved 2026-10-01):
+Declares the abstract interfaces through which portable code touches hardware. Nine, one
+header each in [`hal/`](hal/). The first eight were designed in
+[`design-proposal.md`](design-proposal.md) (approved 2026-10-01); `Watchdog` was added by
+ADR 0014 (accepted 2026-10-01):
 
 | Interface | Hardware |
 |---|---|
@@ -16,6 +17,7 @@ header each in [`hal/`](hal/), designed in [`design-proposal.md`](design-proposa
 | `WheelMotor` | TB6612FNG channels |
 | `PitchPowerStage` | SimpleFOCMini / DRV8313 (ADR 0007) |
 | `PowerMonitor` | INA226 |
+| `Watchdog` | the G474 IWDG and its RCC_CSR reset flag (ADR 0014); timeout is a build constant |
 
 ## How it fits the architecture
 

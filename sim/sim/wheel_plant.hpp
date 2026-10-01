@@ -45,6 +45,10 @@ struct WheelPlantParams {
   /// lowers the steady-state speed by 1/(1 + drag) and speeds up the response by the same
   /// factor. Default 0. Used for the ADR 0013 carpet case.
   float extra_viscous_drag = 0.0F;
+  /// Test-only fault: the encoder counts the wrong way (A/B swapped, or the motor wired
+  /// backwards relative to its encoder). Closed-loop this is positive feedback; ADR 0014's
+  /// WHEEL_STALL must catch it. Default false.
+  bool encoder_reversed = false;
 };
 
 /// One simulated wheel: a TB6612 channel driving an N20, with its quadrature encoder.
@@ -59,7 +63,7 @@ struct WheelPlantParams {
 /// `tau dw/dt = K (u - d) - (1 + c) w`, i.e. target `K (u - d) / (1 + c)`, lag `tau / (1 + c)`. Stepped with the exact solution of that
 /// ODE, so the result does not depend on the step size.
 ///
-/// Not modelled: load torque, wheel slip, voltage sag, encoder quantisation noise beyond
+/// Not modelled: wheel slip, voltage sag, encoder quantisation noise beyond
 /// integer counts, backlash. See sim/README.md.
 class SimWheel final : public hal::WheelMotor, public hal::WheelEncoder {
  public:
@@ -83,6 +87,14 @@ class SimWheel final : public hal::WheelMotor, public hal::WheelEncoder {
   double speed_rad_s() const { return speed_rad_s_; }
   /// Duty actually applied after clamping and limiting, or 0 when stopped.
   float applied_duty() const { return applied_duty_; }
+  /// True while the last command was `stop(kBrake)`. Ground truth for the escalation tests.
+  bool braking() const { return mode_ == Mode::kBrake; }
+
+  /// Test-only fault: freezes the encoder reading at its current value (an unplugged encoder
+  /// cable). The shaft keeps turning; only `count()` stops changing. `false` unfreezes, and
+  /// the count jumps to the true position, as a reconnected counter would not (it missed the
+  /// edges). Tests should not rely on unfreezing.
+  void freeze_encoder(bool frozen);
 
  private:
   enum class Mode : uint8_t { kDrive, kCoast, kBrake };
@@ -94,6 +106,8 @@ class SimWheel final : public hal::WheelMotor, public hal::WheelEncoder {
   /// Shaft position in encoder counts since construction, unwrapped. Double, so it stays
   /// exact to well under one count for any test-length simulation (2^53 counts).
   double position_counts_ = 0.0;
+  bool encoder_frozen_ = false;
+  uint32_t frozen_count_ = 0;
 };
 
 }  // namespace recon::sim

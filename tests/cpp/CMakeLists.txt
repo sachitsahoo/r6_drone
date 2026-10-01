@@ -25,6 +25,10 @@ add_executable(core_tests
   test_diff_drive.cpp
   test_drive_loop.cpp
   test_sil_drive.cpp
+  test_wheel_stall_detector.cpp
+  test_check_in_monitor.cpp
+  test_safety_supervisor.cpp
+  test_sil_safety.cpp
 )
 
 target_link_libraries(core_tests PRIVATE recon_core recon_sim GTest::gtest_main)

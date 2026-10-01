@@ -12,6 +12,7 @@
 #include "hal/power_monitor.hpp"
 #include "hal/serial_port.hpp"
 #include "hal/wheel_encoder.hpp"
+#include "hal/watchdog.hpp"
 #include "hal/wheel_motor.hpp"
 
 namespace recon::hal {
@@ -30,6 +31,7 @@ static_assert(kIsHalInterface<WheelEncoder>);
 static_assert(kIsHalInterface<WheelMotor>);
 static_assert(kIsHalInterface<PitchPowerStage>);
 static_assert(kIsHalInterface<PowerMonitor>);
+static_assert(kIsHalInterface<Watchdog>);
 
 // Rule: samples are plain data, so an ISR can copy them by value and a log can store them.
 static_assert(std::is_trivially_copyable_v<ImuSample>);

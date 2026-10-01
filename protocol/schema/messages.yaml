@@ -48,10 +48,14 @@ enums:
       - {name: UNKNOWN_PARAM_ID,   value: 7}
       - {name: PARAM_READ_ONLY,    value: 8}
       - {name: VERSION_MISMATCH,   value: 9}
+      - {name: ARM_INTERLOCK,      value: 10}  # ADR 0014: an arm request failed an interlock
+      - {name: FAULT_ACTIVE,       value: 11}  # ADR 0014: a clear request found a fault still active
 
   FaultCode:
     underlying: u16
-    description: Provisional. Extended as each subsystem's failure modes are designed.
+    description: >
+      Provisional. Extended as each subsystem's failure modes are designed. Code n is bit n-1
+      of fault_flags (u16), so codes must stay in 1..16. Actions: ADR 0014.
     values:
       - {name: NONE,               value: 0}
       - {name: COMMS_TIMEOUT,      value: 1}
@@ -61,6 +65,9 @@ enums:
       - {name: OVERCURRENT,        value: 5}
       - {name: UNDERVOLTAGE,       value: 6}
       - {name: MOTOR_DRIVER_FAULT, value: 7}
+      - {name: WHEEL_STALL,        value: 8}   # ADR 0014: saturated and not moving, or reversed
+      - {name: WATCHDOG_RESET,     value: 9}   # ADR 0014: booted after an IWDG reset
+      - {name: WIRE_LOOP_LIMIT,    value: 10}  # RESERVED for ADR 0009; no detector yet
 
   LoopId:
     underlying: u8

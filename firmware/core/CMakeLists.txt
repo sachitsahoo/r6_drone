@@ -10,6 +10,9 @@ add_library(recon_core STATIC
   control/diff_drive.cpp
   control/rate_limiter.cpp
   control/drive_loop.cpp
+  safety/wheel_stall_detector.cpp
+  safety/check_in_monitor.cpp
+  safety/safety_supervisor.cpp
 )
 
 # The generated protocol header must exist before anything here compiles.

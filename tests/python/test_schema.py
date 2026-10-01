@@ -43,7 +43,42 @@ def test_real_schema_is_valid(schema) -> None:
     assert schema.protocol_version == 1
     assert len(schema.messages) == 14
     assert len(schema.enums) == 4
-    assert len(schema.params) == 11  # 4 mechanism params + 7 drive params (ADR 0013)
+    # 4 mechanism params + 7 drive params (ADR 0013) + 4 safety params (ADR 0014)
+    assert len(schema.params) == 15
+
+
+def test_every_fault_code_fits_a_fault_flags_bit(schema) -> None:
+    """fault_flags is a u16 and code n is bit n-1 (ADR 0014), so a code above 16 would be a
+    fault the operator can never see latched."""
+    codes = [v.value for v in schema.enums["FaultCode"].values if v.name != "NONE"]
+    assert codes and all(1 <= c <= 16 for c in codes)
+
+
+# ADR 0014 assigns these numbers; firmware and the operator app both depend on them.
+ADR_0014_VALUES = [
+    ("FaultCode", "WHEEL_STALL", 8), ("FaultCode", "WATCHDOG_RESET", 9),
+    ("FaultCode", "WIRE_LOOP_LIMIT", 10),
+    ("NackReason", "ARM_INTERLOCK", 10), ("NackReason", "FAULT_ACTIVE", 11),
+]
+
+
+@pytest.mark.parametrize(("enum", "name", "value"), ADR_0014_VALUES)
+def test_adr_0014_enum_values(schema, enum: str, name: str, value: int) -> None:
+    values = {v.name: v.value for v in schema.enums[enum].values}
+    assert values[name] == value
+
+
+def test_adr_0014_safety_params(schema) -> None:
+    params = {p.name: p for p in schema.params}
+    expected = {  # name: (id, default, range)
+        "comms_timeout_ms": (0x0200, 200, [50, 1000]),
+        "fault_brake_delay_ms": (0x0201, 800, [0, 5000]),
+        "wheel_stall_ms": (0x0202, 500, [100, 2000]),
+        "loop_overrun_fault_us": (0x0203, 5000, [1500, 10000]),
+    }
+    for name, (pid, default, rng) in expected.items():
+        p = params[name]
+        assert (p.id, p.default, list(p.range), p.type) == (pid, default, rng, "u16"), name
 
 
 # Values quoted in protocol/design-proposal.md and docs/bringup/uart-link.md. If a schema

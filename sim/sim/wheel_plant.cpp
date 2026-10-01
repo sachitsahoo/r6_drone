@@ -28,12 +28,24 @@ void SimWheel::stop(hal::StopMode mode) {
   mode_ = (mode == hal::StopMode::kBrake) ? Mode::kBrake : Mode::kCoast;
 }
 
+void SimWheel::freeze_encoder(bool frozen) {
+  if (frozen && !encoder_frozen_) {
+    frozen_count_ = count();
+  }
+  encoder_frozen_ = frozen;
+}
+
 uint32_t SimWheel::count() const {
+  if (encoder_frozen_) {
+    return frozen_count_;
+  }
   // Truncate toward -infinity so a wheel rolling backwards through zero reads ..., 1, 0,
   // 2^32-1, ... as a real quadrature counter does. Converting a negative int64 to uint32 is
   // defined as modulo 2^32, which is exactly the hardware wrap.
   const auto whole = static_cast<int64_t>(std::floor(position_counts_));
-  return params_.initial_count + static_cast<uint32_t>(whole);
+  // A reversed encoder counts down for forward motion; unsigned negation wraps the same way.
+  const auto counted = static_cast<uint32_t>(whole);
+  return params_.initial_count + (params_.encoder_reversed ? 0U - counted : counted);
 }
 
 void SimWheel::step(double dt_s) {

@@ -171,6 +171,40 @@ Open: owner may want a reserved `kd` slot (recommended no).
 - Not here: wiring ParamSet to the live config (no param table in core yet), who calls
   step() at 1 kHz (STM32 timer design), LoopTiming transmission (telemetry scheduler).
 
+## Phase 2.2 — safety state machine (ADR 0014, accepted 2026-10-01)
+
+Plan written 2026-10-01. CI green on `e3a5296` before starting. Owner: no reserved `kd` slot.
+
+Goal: the pure safety logic from ADR 0014, closed against the sim in SIL, with no STM32 glue.
+
+Approach (tests first, then code):
+- [ ] Schema: FaultCode WHEEL_STALL=8, WATCHDOG_RESET=9, WIRE_LOOP_LIMIT=10 (reserved);
+      NackReason ARM_INTERLOCK=10, FAULT_ACTIVE=11; params 0x0200-0x0203. Python test: every
+      FaultCode fits a `fault_flags` bit (1..16); param count 11 -> 15.
+- [ ] `hal/watchdog.hpp` (`feed()`, `reset_was_watchdog()`), added to compile_check;
+      `sim/sim_watchdog.hpp` records feeds, reports expiry against the sim clock, can boot "after
+      a watchdog reset".
+- [ ] `core/safety/`: `WheelStallDetector`, `SafetySupervisor` (inputs struct -> outputs struct,
+      no HAL calls), `CheckInMonitor` (atomic mask, ISR-safe check-in).
+- [ ] `SimWheel`: `encoder_reversed` param, `freeze_encoder()`, `braking()` accessor;
+      `SimSerialLink::set_cut()`.
+- [ ] Tests: transition table (4 states x 11 events, completeness enforced), interlocks,
+      watchdog 199/200/201 ms + uint32 wrap + Heartbeat-in-ARMED, escalation, clearing,
+      CheckInMonitor, SIL (link cut, frozen encoder, reversed encoder, carpet full stick,
+      watchdog-reset boot, IWDG starves when a loop stops checking in).
+- [ ] Docs: theory/safety-state-machine.md, learning/safety-state-machine.md, core + sim + hal
+      READMEs, implementation-notes.html, lessons.
+- [ ] Prove: ctest, pytest, STM32 build. Commit at checkpoints (owner pushes).
+
+Alternatives considered: supervisor reads HAL directly (rejected: ADR wants every transition
+table-testable); stall detection inside DriveLoop (rejected: DriveLoop never stops motors itself,
+ADR 0013); LOOP_OVERRUN measured by the glue (rejected: the supervisor is stepped by the motor
+loop, so the gap between its own steps *is* the loop gap, and that keeps it pure).
+
+Not here (owner-reviewed, propose separately): STM32 IWDG/RCC_CSR driver, timer/ISR layout,
+the glue that decodes frames into `SafetyInputs` (incl. stale-timestamp rejection) and applies
+outputs to DriveLoop / WheelMotor / PitchPowerStage, param table wiring.
+
 ## Not now — deliberately deferred
 
 Motor control, pitch stabilization, state estimation, safety state machine, watchdog, STM32

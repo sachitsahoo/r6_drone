@@ -47,6 +47,9 @@ void SimSerialLink::transfer(SimSerialEndpoint& from, SimSerialEndpoint& to, Dir
   while (dir.credit_bit_us >= bit_us_per_byte && !from.tx_.empty()) {
     dir.credit_bit_us -= bit_us_per_byte;
     uint8_t byte = from.tx_.pop();
+    if (cut_) {
+      continue;  // the transmitter still clocks the byte out; nothing is at the other end
+    }
     if (config_.byte_error_rate > 0.0F && next_unit() < config_.byte_error_rate) {
       byte ^= static_cast<uint8_t>(1U << (next_random() % 8U));
       ++corrupted_bytes_;

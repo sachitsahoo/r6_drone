@@ -142,3 +142,59 @@ params:
       ADR 0013 — 10 samples at 1 kHz trades 0.449 rad/s resolution (1400 counts/rev) for
       5 ms of delay. Upper bound is the estimator's fixed buffer size.
     description: Encoder samples spanned by the speed estimate's count difference.
+
+  # ------------------------------------------------- safety: state machine (ADR 0014)
+  # The IWDG timeout is deliberately NOT a param: a watchdog that can be changed over the
+  # radio is not a watchdog. It is a build constant, core::kIwdgTimeout_ms.
+
+  - id: 0x0200
+    name: comms_timeout_ms
+    type: u16
+    unit: ms
+    range: [50, 1000]
+    default: 200
+    writable: true
+    source: >
+      CLAUDE.md (200 ms comms watchdog); floor = 2.5 periods of the 50 Hz DriveCommand, so a
+      single late frame cannot trip it.
+    description: >
+      No feeding frame for this long latches COMMS_TIMEOUT while ARMED. In ARMED only
+      DriveCommand feeds it; in DISARMED any valid operator frame does.
+
+  - id: 0x0201
+    name: fault_brake_delay_ms
+    type: u16
+    unit: ms
+    range: [0, 5000]
+    default: 800
+    writable: true
+    source: >
+      ADR 0014 Q2: coasting has cut the speed to 20% by then on the placeholder plant
+      (coast tau 0.5 s). Re-measure at bring-up once gearbox back-drive is known.
+    description: Wheels coast on entering FAULT and brake this long afterwards.
+
+  - id: 0x0202
+    name: wheel_stall_ms
+    type: u16
+    unit: ms
+    range: [100, 2000]
+    default: 500
+    writable: true
+    source: ADR 0014 Q3 — about 10 closed-loop time constants (tau_cl = 20 ms, ADR 0013).
+    description: >
+      How long a wheel's output may stay saturated while not turning (or turning against
+      its duty) before WHEEL_STALL latches.
+
+  - id: 0x0203
+    name: loop_overrun_fault_us
+    type: u16
+    unit: us
+    range: [1500, 10000]
+    default: 5000
+    writable: true
+    source: >
+      ADR 0014 Q4 — a 5 ms gap costs wc*Td = 50 rad/s * 5 ms = 14 deg of phase margin,
+      taking ADR 0013's 74 deg to 60 deg.
+    description: >
+      A gap between two motor-loop iterations longer than this latches LOOP_OVERRUN.
+      Smaller overruns are only counted (LoopTiming.overrun_count).

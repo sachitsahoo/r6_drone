@@ -115,6 +115,12 @@ class SimSerialLink {
   /// Bytes that have had a bit flipped, both directions, since construction.
   uint32_t corrupted_bytes() const { return corrupted_bytes_; }
 
+  /// Cuts (true) or restores (false) the line, both directions. While cut, bytes still leave
+  /// the TX buffers at the line rate but never arrive: a Wi-Fi drop or an unplugged cable as
+  /// the MCU sees it. Used by the ADR 0014 link-loss SIL test.
+  void set_cut(bool cut) { cut_ = cut; }
+  bool cut() const { return cut_; }
+
  private:
   /// Per-direction line state.
   struct Direction {
@@ -136,6 +142,7 @@ class SimSerialLink {
   Direction host_to_mcu_;
   uint64_t rng_state_;
   uint32_t corrupted_bytes_ = 0;
+  bool cut_ = false;
 };
 
 }  // namespace recon::sim
