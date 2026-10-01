@@ -67,8 +67,10 @@ jobs:
       - name: Install dev dependencies
         run: python -m pip install -r requirements-dev.txt
 
-      # Proves firmware/core/ compiles for arm-none-eabi. This is the job that makes the
-      # portability firewall real rather than aspirational.
+      # Proves firmware/core/ compiles for arm-none-eabi and that the firmware image
+      # (firmware/stm32, ADR 0015/0016) links. This is the job that makes the portability
+      # firewall real rather than aspirational. Configure also fetches the pinned CMSIS
+      # headers (ADR 0016), about 11 MB.
       #
       # Installed from Arm's own release rather than Ubuntu's package, for two reasons.
       #
@@ -115,8 +117,10 @@ jobs:
       - name: Build
         run: cmake --build build-stm32
 
+      # The link itself prints FLASH/RAM use (--print-memory-usage); this repeats it in a
+      # step of its own so it is easy to find in the log.
       - name: Report firmware size
-        run: arm-none-eabi-size build-stm32/firmware/core/librecon_core.a
+        run: arm-none-eabi-size build-stm32/firmware/stm32/recon_firmware.elf
 
   python-tests:
     name: Python tests + firewall guard (no C++ toolchain)

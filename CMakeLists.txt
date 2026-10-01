@@ -22,6 +22,12 @@ endif()
 
 # The toolchain file must be set before project() so that CMake's compiler
 # detection uses the cross compiler rather than the host one.
+# The firmware image is built optimised by default, so code size and loop timing match what
+# runs on the robot. -g is kept for the debugger. Override with -DCMAKE_BUILD_TYPE=Debug.
+if("${TARGET}" STREQUAL "stm32" AND NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+endif()
+
 if("${TARGET}" STREQUAL "stm32" AND NOT CMAKE_TOOLCHAIN_FILE)
   set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/arm-none-eabi.cmake")
 endif()
@@ -102,9 +108,9 @@ if("${TARGET}" STREQUAL "host")
   add_subdirectory(sim)
   add_subdirectory(tests/cpp)
 else()
-  # The target build compiles firmware/core and the firmware/hal interfaces to prove
-  # portability. It does not yet
-  # link a flashable image: startup code, linker script, and firmware/stm32/ do
-  # not exist (Phase 1).
-  message(STATUS "Recon UGV: target build compiles firmware/core only; no image is linked yet")
+  # The target build compiles firmware/core and links the firmware image (firmware/stm32).
+  # ST's startup file is assembly and its SystemInit is C, so the target build adds both
+  # languages; the host build stays C++ only.
+  enable_language(C ASM)
+  add_subdirectory(firmware/stm32)
 endif()
