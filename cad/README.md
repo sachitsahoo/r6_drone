@@ -1,14 +1,17 @@
 # cad — parametric mechanical model
 
 Code-CAD for the Recon UGV. Written as a script rather than modelled in a GUI, so the
-dimension table in `docs/mechanical-requirements.md` drives the geometry directly and mass
-and inertia can be computed from the solids instead of estimated.
+dimension table drives the geometry directly and mass and inertia can be computed from the
+solids instead of estimated.
 
 ## What it does
 
 ```
-python3 cad/build.py            # export STEP + STL to cad/out/, and report mass and inertia
-python3 cad/build.py --report    # report only, write nothing
+python3 cad/build.py               # export STEP + STL to cad/out/, report mass and inertia
+python3 cad/build.py --report      # report only, write nothing
+python3 cad/assembly.py            # positioned assembly STEP + rotation-aware clearance sweep
+python3 cad/assembly.py --report   # sweep only
+pytest tests/python/test_cad.py    # skipped unless requirements-cad.txt is installed
 ```
 
 STEP files open in any CAD package if you want to edit by hand; STLs go straight to a slicer.
@@ -18,44 +21,52 @@ STEP files open in any CAD package if you want to edit by hand; STLs go straight
 
 | File | Role |
 |---|---|
-| `parameters.py` | Every dimension, tagged OWNER / DERIVED / **ASSUMPTION**. The only place literals live. |
-| `parts.py` | Eight parts as solids. Four shape types: tube, disc, flat plate, cylinder. |
+| `parameters.py` | Every dimension, tagged OWNER / DERIVED / **ASSUMPTION**, and the axial layout as derived stations. The only place literals live. |
+| `parts.py` | Seven printed parts: shell, two end caps, chassis spine, IMU bridge, camera mount, wheel. |
+| `bought_parts.py` | Envelopes for bought components, tagged MEASURED / LISTING / GUESS. |
+| `assembly.py` | Places everything and sweeps every pair for interference over relative rotation. |
 | `build.py` | Exports, and computes mass and rotating inertia from the actual geometry. |
+
+## The machine at a glance (ADR 0008, ADR 0010)
+
+70 × 182 mm casing, 105 mm wheels, 214 mm overall. Direct drive: no belt, no pulley, no
+bracket. From end A, along the axis:
+
+```
+wheel A | cap A | pitch motor (in the cup) | wheel motor A | waist + IMU | wheel motor B | cap B | wheel B
+          ^ rotor bolts here                                   ^ IMU at r = 4.75 mm
+```
+
+The chassis is a single **spine** on the axis. The casing turns a full turn relative to it,
+so anything the chassis has at radius r sweeps a whole ring and the casing loses that radius.
+A spine keeps the chassis small everywhere. It also means nothing on the casing can be *on* the
+axis, which is why the IMU rings the waist instead (ADR 0010).
 
 ## This is a starting point, not a design
 
-**Read the ASSUMPTION tags in `parameters.py` before printing anything.** Several dimensions
-were invented because the geometry needed a number and no analysis supplies one. The weakest
-are:
+**Read the ASSUMPTION tags in `parameters.py` before printing anything.** The weakest are:
 
-- **`WHEEL_OD = 150`** — must exceed the 135 mm casing OD or the casing drags. Ground
-  clearance is currently 7.5 mm. Nothing derives this; it is a choice.
-- **The wheel hub and axis interface** — how the wheel mounts and is driven is unresolved.
-  The boss and bearing sizes make the parts printable, nothing more.
-- **`PITCH_MOTOR_BORE = 28`** — a placeholder for a 28 mm gimbal motor. R1 flags the chassis
-  frame diameter as the dimension the CAD must verify against the motor actually chosen.
-- Camera module hole spacing, belt dimensions, and bearing sizes are nominal values to
-  confirm against real datasheets.
+- **`PITCH_MOTOR_HOLLOW_BORE = 5`** — the layout needs a hollow-shaft motor because wheel A's
+  shaft passes through it. Whether a 28 mm one is buyable has not been checked.
+- **`SPINE_WAIST_OD = 5`** — a bought rod carrying all the wheel loads. Sets the IMU offset.
+- **`WHEEL_MOTOR_LENGTH = 40`** — N20 length varies with gear ratio and sets every station.
+- The spine is drawn as one solid. In reality it is two printed ends plus a rod.
+- Camera hole spacing, bearing sizes and bolt circles are nominal values to confirm.
 
 ## What building it revealed
 
-The first pass came out at **855 g of printed plastic** against the owner's 700–900 g vehicle
-target, leaving −155 to +45 g for motors, battery, electronics and bearings. No estimate had
-caught this, because the estimate only costed the casing shell and never costed the end caps,
-chassis discs or wheels at all.
-
-Rebuilding the four offenders as rim-hub-and-spoke rather than solid discs, taking the wall to
-the thin end of the owner's range, and reporting in ABS brought it to **398 g** — a 53%
-reduction, leaving 302–502 g for everything else.
-
-Measured rotating assembly: **209 g, I = 0.762e-3 kg m^2**, against an estimate of 0.647e-3
-(light) to 1.534e-3 (heavy). The light-corner estimate was close; the heavy corner was
-pessimistic.
+- First design: **855 g** of plastic against a 700–900 g vehicle target, cut to 398 g by
+  rebuilding discs as rim-hub-and-spoke. Current design: **209 g**.
+- Current rotating assembly: **138 g, I = 0.135e-3 kg m^2**, within 2% of ADR 0008's hand
+  figure. The shell is 90% of it.
+- The first design's sweep checked one pose and passed an IMU bridge that went through a
+  chassis standoff. That is what the rotation-aware sweep and its regression test are for.
 
 ## Known gaps
 
-- The pitch motor is not modelled and rides in the casing, so it is missing from the rotating
-  inertia. Add it before trusting the torque budget.
-- No assembly model, so nothing checks for interference between parts. Each part is validated
-  in isolation.
-- The belt, bearings, slip ring, axle and fasteners are bought, not modelled.
+- Rotating inertia is **plastic only**. The camera, Pi, MCU and battery sit near the wall and
+  will add a lot; the torque budget is not trustworthy until they are placed.
+- Bought electronics have envelopes in `bought_parts.py` but are not placed in the assembly
+  yet. The Nucleo-G474RE (70 × 82) cannot fit a 65 mm bore at all.
+- ADR 0009's wire loop is not modelled, and neither is the chassis platform for the TB6612.
+- Printed dimensional accuracy is not checked: FDM can close a 0.5 mm running gap entirely.

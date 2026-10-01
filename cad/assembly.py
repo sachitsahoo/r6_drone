@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """Assemble the parts at their intended positions and check clearances numerically.
 
-Two reasons this exists beyond a picture:
+Three reasons this exists beyond a picture:
 
 1. The individual part exports all sit at the origin, so there is nothing for a CAD
    package's interference detection to chew on. This writes one positioned STEP.
 2. Minimum distance between solids can be computed exactly, which is better than eyeballing
    a section view. Interference shows up as a distance of zero with overlapping volume.
+3. **The casing turns relative to the chassis, and the wheels turn relative to both.** A
+   check at one pose says nothing about the next one. The first version of this file swept
+   a single pose and passed an IMU bridge that went straight through a chassis standoff --
+   hidden only because the standoffs were holes, never modelled as rods. Parts in different
+   rotation groups are now checked over a full relative turn.
 
 Note what this does NOT check: whether a printed part achieves its nominal dimensions. FDM
-runs holes undersized and outer walls oversized, so a 2.5 mm designed gap can land anywhere
-from roughly 1.5 to 3.5 mm. That is a manufacturing question, not a geometry one.
+runs holes undersized and outer walls oversized, so a 0.5 mm designed gap can close entirely.
+That is a manufacturing question, not a geometry one.
 
-The axial layout below is a PROPOSAL. Nothing in the analysis so far fixes it.
+The axial layout comes from the derived stations in parameters.py, not from numbers here.
 
 Usage:
     python3 cad/assembly.py            # export assembly STEP + report clearances
@@ -23,7 +28,9 @@ from __future__ import annotations
 
 import argparse
 import itertools
+import math
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import cadquery as cq
@@ -34,38 +41,33 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import parameters as P
 import parts
 
-# --------------------------------------------------------------------- axial layout
-#
-# z = 0 at the outboard face of one casing end. PROPOSAL, not derived.
-Z_CASING_START = 0.0
-# The shell's internal flanges occupy the first and last 4 mm and reach inward to r=60,
-# and the caps reach out to r=64.5 to catch their screws at r=61 -- so a cap seated at z=0
-# shared 6947 mm^3 with the flange. The cap seats AGAINST the flange's inner face instead.
-SHELL_FLANGE_DEPTH = 4.0
-Z_END_CAP_A = SHELL_FLANGE_DEPTH                             # 4
-Z_END_CAP_B = P.CASING_LENGTH - SHELL_FLANGE_DEPTH - P.END_CAP_THICKNESS   # 110
-Z_CHASSIS_DISC_A = 12.0        # placed so the mirrored boss tip lands on z = 0
-Z_DRIVE_BAND = 88.0
-# Mirror of disc A about the casing's mid-length: disc A's inboard face is at 16, so disc
-# B's is at 120-16 = 104. At 108 the disc body overlapped end cap B, which had itself just
-# moved inboard to clear the shell flange -- the two fixes collided.
-Z_CHASSIS_DISC_B = 104.0
-Z_IMU_BRIDGE = 40.0
-Z_CAMERA_MOUNT = P.CASING_LENGTH / 2
-# Just INBOARD of the band, not level with its start: the bracket plate spans r=31..63 and
-# the band r=30..40, so sharing an axial station put 666 mm^3 of bracket inside the band.
-# Motor body 58..84, bracket 84..88, pulley 88.. reaching into the band plane at 88..103.
-Z_MOTOR_BRACKET = 84.0
-# 150, not 120. The trim-mass bosses sit at 0/60/120/180/240/300 and project 5 mm inward,
-# so at 120 the motor clipped the boss it shared an angle with. 150 puts it midway between
-# two bosses, about 13 deg clear on each side given the motor's ~33 deg angular width.
-MOTOR_ANGULAR_POSITION_DEG = 150.0   # away from the camera at 0 deg, and between bosses
-# 6 mm, not 2: at 2 mm the wheel hub shared 363 mm^3 with the chassis boss it is meant to
-# sit beyond. The wheel rides on the motor shaft passing through that boss, so it has to
-# clear the boss end.
-WHEEL_STANDOFF = 6.0
-Z_WHEEL_A = -P.WHEEL_WIDTH - WHEEL_STANDOFF
-Z_WHEEL_B = P.CASING_LENGTH + WHEEL_STANDOFF
+#: Angular step for the swept check. A feature narrower than r * step could slip between
+#: samples: at the 32.5 mm bore, 5 degrees is 2.8 mm. Every printed feature that crosses a
+#: rotation boundary is wider than that, and pairs that cannot meet at any angle are proven
+#: clear exactly by the radial test below rather than sampled.
+SWEEP_STEP_DEG = 5.0
+
+# Which body each part moves with. Parts in different groups rotate relative to each other
+# about the Z axis, so their clearance has to hold at every relative angle.
+ROTATION_GROUP = {
+    "casing_shell": "casing",
+    "end_cap_a": "casing",
+    "end_cap_b": "casing",
+    "imu_bridge": "casing",
+    "camera_mount": "casing",
+    "chassis_spine": "chassis",
+    "wheel_motor_a": "chassis",
+    "wheel_motor_b": "chassis",
+    # Stator on the chassis, rotor on the casing. As a plain envelope it is a cylinder, so
+    # which group it belongs to does not change any result.
+    "pitch_motor_envelope": "motor",
+    "wheel_a": "wheel_a",
+    "wheel_shaft_a": "wheel_a",
+    "wheel_b": "wheel_b",
+}
+
+#: Bodies of revolution: rotating them changes nothing, so one pose is an exact check.
+AXISYMMETRIC = {"pitch_motor_envelope", "wheel_motor_a", "wheel_motor_b", "wheel_shaft_a"}
 
 
 def min_distance_mm(a: cq.Shape, b: cq.Shape) -> float:
@@ -77,86 +79,194 @@ def min_distance_mm(a: cq.Shape, b: cq.Shape) -> float:
 
 def overlaps(a: cq.Shape, b: cq.Shape) -> bool:
     """True if the solids share volume, which min_distance alone cannot distinguish."""
+    return shared_volume_mm3(a, b) > 1e-6
+
+
+def shared_volume_mm3(a: cq.Shape, b: cq.Shape) -> float:
     try:
-        return cq.Workplane(obj=a).intersect(cq.Workplane(obj=b)).val().Volume() > 1e-6
+        return cq.Workplane(obj=a).intersect(cq.Workplane(obj=b)).val().Volume()
     except Exception:
-        return False
+        return 0.0
+
+
+def _cylinder(diameter: float, z_lo: float, z_hi: float, bore: float = 0.0) -> cq.Workplane:
+    wp = cq.Workplane("XY", origin=(0, 0, z_lo)).circle(diameter / 2)
+    if bore > 0.0:
+        wp = wp.circle(bore / 2)
+    return wp.extrude(z_hi - z_lo)
 
 
 def build_assembly() -> dict[str, cq.Workplane]:
-    """Every part translated to its assembled position."""
+    """Every part translated to its assembled position, plus envelopes for bought parts
+    that sit on the axis."""
     shell = parts.casing_shell()
-    cap_a = parts.casing_end_cap(with_datum=True).translate((0, 0, Z_END_CAP_A))
+    cap_a = parts.casing_end_cap_a().translate((0, 0, P.Z_END_CAP_A))
     # Flipped: the cap's bearing seat opens toward +Z in the part, and at this end of the
-    # casing "inboard" is -Z, so unflipped the seat would open away from the boss it has to
-    # receive. (The labyrinth lip that also forced this has since been removed as useless.)
-    cap_b = (parts.casing_end_cap()
+    # casing "inboard" is -Z.
+    cap_b = (parts.casing_end_cap_b()
              .rotate((0, 0, 0), (1, 0, 0), 180)
-             .translate((0, 0, Z_END_CAP_B + P.END_CAP_THICKNESS)))
-    # Mirrored, like disc B: the boss has to point OUTWARD toward its end cap's bearing.
-    # An earlier version left disc A unmirrored, so its boss pointed inboard and the casing
-    # had no bearing support at that end -- 14 mm of air where the bearing should be.
-    disc_a = (parts.chassis_disc()
-              .rotate((0, 0, 0), (1, 0, 0), 180)
-              .translate((0, 0, Z_CHASSIS_DISC_A + P.CHASSIS_DISC_THICKNESS)))
-    # NOT mirrored: disc A and disc B need OPPOSITE orientations, since each boss points
-    # outward toward its own end cap. Mirroring both left disc B's boss pointing inboard,
-    # 8 mm short of the bearing it is supposed to carry.
-    disc_b = parts.chassis_disc().translate((0, 0, Z_CHASSIS_DISC_B))
-    band = parts.chassis_drive_band().translate((0, 0, Z_DRIVE_BAND))
-    bridge = parts.imu_bridge().translate((0, 0, Z_IMU_BRIDGE))
+             .translate((0, 0, P.Z_END_CAP_B + P.END_CAP_THICKNESS)))
+    spine = parts.chassis_spine()                       # already built in casing coordinates
+    # Arm pointing away from the camera, which is on +X.
+    bridge = (parts.imu_bridge()
+              .rotate((0, 0, 0), (0, 0, 1), 180)
+              .translate((0, 0, P.Z_IMU_BRIDGE)))
     camera = (parts.camera_mount()
               .rotate((0, 0, 0), (0, 1, 0), 90)
-              .translate((P.CASING_ID / 2 - 6.0, 0, Z_CAMERA_MOUNT)))
-    # Moved off the +X axis: the camera also lives there, and the two shared 207 mm^3.
-    # The motor and the camera have no reason to occupy the same angular position.
-    bracket = (parts.pitch_motor_bracket()
-               .translate((P.DRIVE_PULLEY_CENTER_RADIUS, 0, Z_MOTOR_BRACKET))
-               .rotate((0, 0, 0), (0, 0, 1), MOTOR_ANGULAR_POSITION_DEG))
-    # Envelope, not a printed part: a plain cylinder standing in for the bought motor so
-    # the interference sweep can see it. Until this existed the motor was invisible to
-    # every check, which is how a bracket ended up positioned inside its body.
-    motor = (cq.Workplane("XY", origin=(0, 0, Z_MOTOR_BRACKET - P.PITCH_MOTOR_LENGTH))
-             .circle(P.PITCH_MOTOR_BORE / 2).extrude(P.PITCH_MOTOR_LENGTH)
-             .translate((P.DRIVE_PULLEY_CENTER_RADIUS, 0, 0))
-             .rotate((0, 0, 0), (0, 0, 1), MOTOR_ANGULAR_POSITION_DEG))
+              .translate((P.CAMERA_MOUNT_INNER_RADIUS, 0, P.Z_CAMERA)))
 
-    wheel_a = parts.wheel().translate((0, 0, Z_WHEEL_A))
-    wheel_b = parts.wheel().translate((0, 0, Z_WHEEL_B))
+    # Envelopes, not printed parts: plain cylinders standing in for bought parts so the
+    # sweep can see them. The pitch motor was invisible to every check in the first design
+    # until it got one, which is how a bracket ended up inside its body.
+    motor = _cylinder(P.PITCH_MOTOR_OD, P.Z_MOTOR_LO, P.Z_MOTOR_HI, P.PITCH_MOTOR_HOLLOW_BORE)
+    wheel_motor_a = _cylinder(P.WHEEL_MOTOR_OD, P.Z_WHEEL_MOTOR_A_LO, P.Z_WHEEL_MOTOR_A_HI)
+    wheel_motor_b = _cylinder(P.WHEEL_MOTOR_OD, P.Z_WHEEL_MOTOR_B_LO, P.Z_WHEEL_MOTOR_B_HI)
+    # Wheel A's shaft runs from wheel motor A's face, through the pitch motor's hollow bore
+    # and cap A, to the wheel. This is the part that forces a hollow-shaft motor.
+    shaft_a = _cylinder(P.WHEEL_SHAFT_DIA, P.Z_WHEEL_A, P.Z_WHEEL_MOTOR_A_LO)
+
+    wheel_a = parts.wheel().translate((0, 0, P.Z_WHEEL_A))
+    wheel_b = parts.wheel().translate((0, 0, P.Z_WHEEL_B))
 
     return {
         "casing_shell": shell,
         "end_cap_a": cap_a,
         "end_cap_b": cap_b,
-        "chassis_disc_a": disc_a,
-        "chassis_disc_b": disc_b,
-        "drive_band": band,
+        "chassis_spine": spine,
         "imu_bridge": bridge,
         "camera_mount": camera,
-        "pitch_motor_bracket": bracket,
         "pitch_motor_envelope": motor,
+        "wheel_motor_a": wheel_motor_a,
+        "wheel_motor_b": wheel_motor_b,
+        "wheel_shaft_a": shaft_a,
         "wheel_a": wheel_a,
         "wheel_b": wheel_b,
     }
 
 
-# Pairs worth checking, with the clearance the design intends. None means "must not touch,
-# no specific target". A target of 0.0 means contact is expected by design.
-CHECKS: list[tuple[str, str, float | None, str]] = [
-    ("casing_shell", "chassis_disc_a", P.ROTATIONAL_CLEARANCE, "rotational clearance"),
-    ("casing_shell", "chassis_disc_b", P.ROTATIONAL_CLEARANCE, "rotational clearance"),
-    ("casing_shell", "drive_band", None, "band sits well inside the shell"),
-    ("casing_shell", "wheel_a", None, "wheel must clear the rotating casing"),
-    ("casing_shell", "wheel_b", None, "wheel must clear the rotating casing"),
-    ("chassis_disc_a", "drive_band", None, "both are chassis; contact is fine"),
-    ("end_cap_a", "chassis_disc_a", None, "bearing sits between; overlap checked separately"),
-    ("end_cap_b", "chassis_disc_b", None, "bearing sits between; overlap checked separately"),
-    ("imu_bridge", "chassis_disc_a", None, "bridge must not foul the chassis"),
-    ("imu_bridge", "drive_band", None, "bridge must not foul the band"),
-    ("pitch_motor_bracket", "drive_band", None, "pulley engages here; bracket must clear"),
-    ("pitch_motor_bracket", "casing_shell", None, "bracket mounts to the shell"),
-    ("camera_mount", "chassis_disc_a", None, "camera must not foul the chassis"),
+# ------------------------------------------------------------------ the sweep itself
+
+@dataclass(frozen=True)
+class PairResult:
+    """Outcome of checking one pair. `gap_mm` is the minimum over every relative angle the
+    pair can reach (or a proven lower bound, when `method` is "radial")."""
+
+    a: str
+    b: str
+    method: str          # "radial", "static" or "swept"
+    gap_mm: float
+    shared_mm3: float    # > 0 means interference
+    worst_angle_deg: float = 0.0
+
+
+def _radial_extent(shape: cq.Shape) -> tuple[float, float]:
+    """(r_min, r_max) about the Z axis. r_min is exact; r_max is a safe upper bound."""
+    axis = cq.Edge.makeLine(cq.Vector(0, 0, -1e4), cq.Vector(0, 0, 1e4))
+    calc = BRepExtrema_DistShapeShape(shape.wrapped, axis.wrapped)
+    calc.Perform()
+    r_min = calc.Value()
+    bb = shape.BoundingBox()
+    r_max = max(math.hypot(x, y) for x in (bb.xmin, bb.xmax) for y in (bb.ymin, bb.ymax))
+    return r_min, r_max
+
+
+def check_pair(a_name: str, b_name: str, a: cq.Shape, b: cq.Shape,
+               prune: bool = True) -> PairResult:
+    """Clearance between two parts over every relative pose they can reach.
+
+    Cheapest exact test first. Two parts whose (r, z) extents are disjoint cannot meet at
+    any angle, because rotation about Z preserves both r and z. Only pairs that fail that
+    test, rotate relative to each other, and are not bodies of revolution get sampled.
+
+    The radial test proves "no contact" but its gap is only a lower bound (r_max comes
+    from the bounding box). Pass prune=False to measure the actual worst-case gap.
+    """
+    if prune:
+        a_bb, b_bb = a.BoundingBox(), b.BoundingBox()
+        z_gap = max(a_bb.zmin - b_bb.zmax, b_bb.zmin - a_bb.zmax)
+        a_r, b_r = _radial_extent(a), _radial_extent(b)
+        r_gap = max(a_r[0] - b_r[1], b_r[0] - a_r[1])
+        if z_gap > 0.0 or r_gap > 0.0:
+            return PairResult(a_name, b_name, "radial", max(z_gap, r_gap), 0.0)
+
+    same_body = ROTATION_GROUP[a_name] == ROTATION_GROUP[b_name]
+    if same_body or a_name in AXISYMMETRIC or b_name in AXISYMMETRIC:
+        gap = min_distance_mm(a, b)
+        shared = shared_volume_mm3(a, b) if gap < 1e-6 else 0.0
+        return PairResult(a_name, b_name, "static", gap, shared)
+
+    worst_gap, worst_angle, worst_shared = math.inf, 0.0, 0.0
+    steps = int(round(360.0 / SWEEP_STEP_DEG))
+    for i in range(steps):
+        angle = i * SWEEP_STEP_DEG
+        a_rot = a.rotate(cq.Vector(0, 0, 0), cq.Vector(0, 0, 1), angle)
+        gap = min_distance_mm(a_rot, b)
+        shared = shared_volume_mm3(a_rot, b) if gap < 1e-6 else 0.0
+        if shared > worst_shared or (worst_shared == 0.0 and gap < worst_gap):
+            worst_gap, worst_angle, worst_shared = gap, angle, shared
+    return PairResult(a_name, b_name, "swept", worst_gap, worst_shared, worst_angle)
+
+
+def sweep(assembly: dict[str, cq.Workplane]) -> dict[tuple[str, str], PairResult]:
+    """EVERY pair, deliberately. An earlier version checked a hand-picked 13 of 55 pairs and
+    missed four real interferences -- a curated check reads as a clean bill of health."""
+    return {(a, b): check_pair(a, b, assembly[a].val(), assembly[b].val())
+            for a, b in itertools.combinations(assembly, 2)}
+
+
+def bearing_engagement(race_holder: cq.Shape, r_lo: float, r_hi: float,
+                       z_lo: float, z_hi: float) -> float:
+    """Fraction of a bearing's width that is backed by material, from 0 to 1.
+
+    A minimum-distance check cannot see this: a boss can be concentric with its cap and
+    still miss it axially, which both of the first two assembly attempts did. So probe a
+    thin ring just inside (or outside) the race and measure how much of it is solid.
+    """
+    probe = _cylinder(2 * r_hi, z_lo, z_hi, 2 * r_lo).val()
+    return shared_volume_mm3(race_holder, probe) / probe.Volume()
+
+
+def bearing_checks(assembly: dict[str, cq.Workplane]) -> list[tuple[str, float]]:
+    """(description, engaged fraction) for both races of both casing bearings."""
+    spine = assembly["chassis_spine"].val()
+    cap_a = assembly["end_cap_a"].val()
+    cap_b = assembly["end_cap_b"].val()
+    probe = 0.4   # mm: radial depth of the probe ring on each side of the race
+
+    a_lo, a_hi = P.Z_MOTOR_LO - P.BEARING_A_WIDTH, P.Z_MOTOR_LO
+    b_lo, b_hi = P.Z_END_CAP_B, P.Z_END_CAP_B + P.BEARING_WIDTH
+    return [
+        ("A inner race on the cup wall",
+         bearing_engagement(spine, P.BEARING_A_ID / 2 - probe, P.BEARING_A_ID / 2, a_lo, a_hi)),
+        ("A outer race in cap A",
+         bearing_engagement(cap_a, P.BEARING_A_OD / 2, P.BEARING_A_OD / 2 + probe, a_lo, a_hi)),
+        ("B inner race on the boss",
+         bearing_engagement(spine, P.BEARING_ID / 2 - probe, P.BEARING_ID / 2, b_lo, b_hi)),
+        ("B outer race in cap B",
+         bearing_engagement(cap_b, P.BEARING_OD / 2, P.BEARING_OD / 2 + probe, b_lo, b_hi)),
+    ]
+
+
+# Pairs with a designed clearance. A target of 0.0 means contact is expected by design
+# (bolted faces). The gap compared is the worst over every reachable relative angle.
+CHECKS: list[tuple[str, str, float, str]] = [
+    ("end_cap_a", "chassis_spine", P.RUNNING_CLEARANCE, "cap A hub inside the cup, and cup tip"),
+    ("end_cap_b", "chassis_spine", P.RUNNING_CLEARANCE, "cap B bore around the boss"),
+    ("imu_bridge", "chassis_spine", P.IMU_WAIST_CLEARANCE, "IMU pad hole around the waist"),
+    ("pitch_motor_envelope", "end_cap_a", 0.0, "rotor bell bolted to cap A"),
+    ("pitch_motor_envelope", "chassis_spine", 0.0, "stator bolted to the cup floor"),
+    ("wheel_shaft_a", "pitch_motor_envelope",
+     (P.PITCH_MOTOR_HOLLOW_BORE - P.WHEEL_SHAFT_DIA) / 2, "shaft through the hollow bore"),
+    ("wheel_shaft_a", "end_cap_a",
+     (P.END_CAP_A_SHAFT_BORE - P.WHEEL_SHAFT_DIA) / 2, "shaft through cap A"),
+    ("wheel_motor_a", "chassis_spine", 0.0, "seated against pocket A's end wall"),
+    ("wheel_motor_b", "chassis_spine", 0.0, "seated against pocket B's end wall"),
 ]
+
+
+def measured_gap(assembly: dict[str, cq.Workplane], a: str, b: str) -> PairResult:
+    """The actual worst-case gap for one pair, never the radial lower bound."""
+    return check_pair(a, b, assembly[a].val(), assembly[b].val(), prune=False)
 
 
 def main(argv: list[str]) -> int:
@@ -179,53 +289,42 @@ def main(argv: list[str]) -> int:
 
     problems: list[str] = []
 
-    # EXHAUSTIVE sweep. An earlier version checked only a hand-picked list of 13 pairs and
-    # missed four real interferences out of 55 -- a curated check is worse than none,
-    # because it reads as a clean bill of health. Every pair is swept; CHECKS below only
-    # adds named TARGET values on top.
-    names = list(assembly)
-    pairs = list(itertools.combinations(names, 2))
-    print(f"=== INTERFERENCE SWEEP ({len(names)} parts, {len(pairs)} pairs) ===")
-    clashes: list[tuple[str, str, float]] = []
-    for a_name, b_name in pairs:
-        a, b = assembly[a_name].val(), assembly[b_name].val()
-        if min_distance_mm(a, b) < 1e-6 and overlaps(a, b):
-            shared = cq.Workplane(obj=a).intersect(cq.Workplane(obj=b)).val().Volume()
-            clashes.append((a_name, b_name, shared))
-    if clashes:
-        for a_name, b_name, shared in sorted(clashes, key=lambda c: -c[2]):
-            print(f"  INTERFERENCE  {a_name} / {b_name}: {shared:.0f} mm3 shared")
-            problems.append(f"{a_name} / {b_name}")
-    else:
-        print("  no interference in any pair")
+    results = sweep(assembly)
+    methods = {m: sum(r.method == m for r in results.values())
+               for m in ("radial", "static", "swept")}
+    print(f"=== INTERFERENCE SWEEP ({len(assembly)} parts, {len(results)} pairs: "
+          f"{methods['radial']} clear by radius/axial extent, {methods['static']} one pose, "
+          f"{methods['swept']} swept over a full turn at {SWEEP_STEP_DEG:g} deg) ===")
+    clashes = sorted((r for r in results.values() if r.shared_mm3 > 1e-6),
+                     key=lambda r: -r.shared_mm3)
+    for r in clashes:
+        where = f" at {r.worst_angle_deg:g} deg" if r.method == "swept" else ""
+        print(f"  INTERFERENCE  {r.a} / {r.b}: {r.shared_mm3:.0f} mm3 shared{where}")
+        problems.append(f"{r.a} / {r.b}")
+    if not clashes:
+        print("  no interference in any pair, at any reachable angle")
     print()
 
-    print("=== TARGETED CLEARANCES ===")
-    print(f"{'pair':<44}{'gap mm':>9}{'target':>9}  note")
+    print("=== TARGETED CLEARANCES (worst case over rotation) ===")
+    print(f"{'pair':<46}{'gap mm':>8}{'target':>8}  {'method':<7} note")
     for a_name, b_name, target, note in CHECKS:
-        a, b = assembly[a_name].val(), assembly[b_name].val()
-        gap = min_distance_mm(a, b)
-        target_text = f"{target:.1f}" if target is not None else "-"
-        print(f"{a_name + ' / ' + b_name:<44}{gap:>9.2f}{target_text:>9}  {note}")
-        if target is not None and abs(gap - target) > 0.05:
-            problems.append(f"{a_name} / {b_name}: gap {gap:.2f} mm, expected {target:.2f} mm")
+        r = measured_gap(assembly, a_name, b_name)
+        print(f"{a_name + ' / ' + b_name:<46}{r.gap_mm:>8.2f}{target:>8.2f}  {r.method:<7} {note}")
+        if abs(r.gap_mm - target) > 0.05:
+            problems.append(f"{a_name} / {b_name}: gap {r.gap_mm:.2f} mm, expected {target:.2f}")
 
-    # Axial overlap of each boss with its end cap's bearing seat. A minimum-distance check
-    # cannot see this: the boss can be concentric with the cap and still miss it axially,
-    # which is exactly the failure the first two assembly attempts had.
     print()
-    print("=== BEARING SEAT ENGAGEMENT (axial overlap, not distance) ===")
-    for cap_name, disc_name in (("end_cap_a", "chassis_disc_a"),
-                                ("end_cap_b", "chassis_disc_b")):
-        cap_bb = assembly[cap_name].val().BoundingBox()
-        disc_bb = assembly[disc_name].val().BoundingBox()
-        overlap = min(cap_bb.zmax, disc_bb.zmax) - max(cap_bb.zmin, disc_bb.zmin)
-        ok = overlap >= P.BEARING_WIDTH
-        print(f"  {cap_name} / {disc_name}: {overlap:.1f} mm of axial overlap "
-              f"(need {P.BEARING_WIDTH:.1f} for the bearing) {'OK' if ok else 'TOO SHORT'}")
+    print("=== BEARING SEAT ENGAGEMENT (material behind each race, not distance) ===")
+    for description, fraction in bearing_checks(assembly):
+        ok = fraction > 0.99
+        print(f"  {description:<32}{100 * fraction:>6.1f}% {'OK' if ok else 'NOT SUPPORTED'}")
         if not ok:
-            problems.append(f"{cap_name} / {disc_name}: only {overlap:.1f} mm of "
-                            f"bearing engagement")
+            problems.append(f"bearing {description}: only {100 * fraction:.0f}% supported")
+
+    print()
+    print(f"IMU radial offset {P.IMU_RADIAL_OFFSET:.2f} mm (R2 as amended: under 5 mm)")
+    if P.IMU_RADIAL_OFFSET >= 5.0:
+        problems.append(f"IMU offset {P.IMU_RADIAL_OFFSET:.2f} mm")
 
     print()
     if problems:
@@ -237,7 +336,7 @@ def main(argv: list[str]) -> int:
 
     print()
     print("NOT checked here: printed dimensional accuracy. FDM runs holes undersized and")
-    print("walls oversized, so a 2.5 mm designed gap can land near 1.5-3.5 mm in practice.")
+    print("walls oversized, so a 0.5 mm designed running gap can close entirely in practice.")
     return 1 if problems else 0
 
 

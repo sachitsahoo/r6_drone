@@ -34,7 +34,7 @@ def built():
 
 
 def test_every_part_builds_as_a_solid(built) -> None:
-    assert len(built) == 9, "eight parts plus the datum variant of the end cap"
+    assert len(built) == 7, "seven printed parts once direct drive deleted the belt train"
     for name, wp in built.items():
         solid = wp.val()
         assert solid.Volume() > 0.0, f"{name} has no volume"
@@ -56,109 +56,62 @@ def test_casing_shell_outer_diameter_matches_parameters(built) -> None:
     assert math.isclose(bb.zlen, P.CASING_LENGTH, abs_tol=0.01)
 
 
-def test_drive_band_diameter_gives_the_intended_ratio(built) -> None:
-    """8:1 from an 80 mm band and a 10 mm pulley (ADR 0006, R1)."""
-    bb = built["04_chassis_drive_band"].val().BoundingBox()
-    assert math.isclose(bb.xlen, P.DRIVE_BAND_OD, abs_tol=0.01)
-    assert math.isclose(P.DRIVE_RATIO, 8.0, abs_tol=0.01)
+def test_overall_width_matches_adr_0008() -> None:
+    """214 mm wheel face to wheel face, the number ADR 0008's proportions were chosen at."""
+    overall = (P.Z_WHEEL_B + P.WHEEL_WIDTH) - P.Z_WHEEL_A
+    assert math.isclose(overall, P.OVERALL_WIDTH, abs_tol=1e-9)
 
 
-def test_pitch_motor_fits_axially_in_the_annular_pocket() -> None:
-    """The motor is 26 mm LONG, which nothing checked until the real part was looked up.
-
-    Only its diameter had ever been verified. It has to sit between the two chassis discs,
-    inboard of the drive band, with the pulley reaching into the band plane.
-    """
-    import assembly as asm  # noqa: PLC0415
-
-    motor_hi = asm.Z_MOTOR_BRACKET
-    motor_lo = motor_hi - P.PITCH_MOTOR_LENGTH
-    pocket_lo = asm.Z_CHASSIS_DISC_A + P.CHASSIS_DISC_THICKNESS
-    pocket_hi = asm.Z_CHASSIS_DISC_B
-    assert pocket_lo < motor_lo, f"motor starts at {motor_lo}, pocket at {pocket_lo}"
-    assert motor_hi < pocket_hi, f"motor ends at {motor_hi}, pocket ends at {pocket_hi}"
-    assert motor_hi <= asm.Z_DRIVE_BAND, "bracket must sit inboard of the drive band"
+def test_wheel_shaft_passes_through_the_pitch_motor() -> None:
+    """The topology constraint ADR 0010 found: with the motor coaxial at end A, wheel A's
+    drive has nowhere to go except through the motor's centre. A solid-shaft motor makes
+    the layout impossible, so the bore must clear the shaft."""
+    assert P.PITCH_MOTOR_HOLLOW_BORE > P.WHEEL_SHAFT_DIA
+    assert P.END_CAP_A_SHAFT_BORE > P.WHEEL_SHAFT_DIA
 
 
-def test_pitch_motor_does_not_share_an_angle_with_a_trim_boss() -> None:
-    """The bosses project 5 mm inward at 0/60/120/.../300 degrees and the motor is wide."""
-    import assembly as asm  # noqa: PLC0415
-    import math as _math  # noqa: PLC0415
-
-    half_width_deg = _math.degrees(_math.atan2(P.PITCH_MOTOR_BORE / 2,
-                                               P.DRIVE_PULLEY_CENTER_RADIUS))
-    spacing = 360.0 / P.TRIM_BOSS_COUNT
-    offset = asm.MOTOR_ANGULAR_POSITION_DEG % spacing
-    clearance = min(offset, spacing - offset)
-    assert clearance > half_width_deg, (
-        f"motor half-width {half_width_deg:.0f} deg but only {clearance:.0f} deg to the "
-        f"nearest trim boss")
+def test_pitch_motor_fits_in_the_cup() -> None:
+    """Radially inside the cup wall with clearance, and axially between cap A and the cup
+    floor. The first design checked the motor's diameter for months and its 26 mm length
+    never, until the real part was looked up."""
+    assert P.CUP_ID >= P.PITCH_MOTOR_OD + 2 * P.MOTOR_CUP_RADIAL_CLEARANCE - 1e-9
+    assert math.isclose(P.Z_MOTOR_HI - P.Z_MOTOR_LO, P.PITCH_MOTOR_LENGTH)
+    assert P.Z_MOTOR_LO >= P.Z_END_CAP_A + P.END_CAP_A_THICKNESS
+    assert P.CUP_OD < P.CASING_ID, "the cup must sit inside the casing"
 
 
-def test_pitch_motor_body_fits_inside_the_casing() -> None:
-    """The constraint that forced 9:1 down to 8:1.
-
-    The first spec checked only that the 10 mm pulley cleared the shell. The 28 mm motor
-    body is coaxial with that pulley, and at a 90 mm band it poked 1.7 mm through the wall.
-    """
-    assert P.PITCH_MOTOR_OUTER_RADIUS < P.CASING_ID / 2 - 1.0, (
-        f"motor reaches r={P.PITCH_MOTOR_OUTER_RADIUS:.1f} mm against a wall at "
-        f"{P.CASING_ID / 2:.1f} mm")
-    assert P.PITCH_MOTOR_INNER_RADIUS > P.CHASSIS_FRAME_OD / 2, (
-        "motor body fouls the chassis frame on its inner side")
+def test_trim_bosses_are_clear_of_the_camera_station() -> None:
+    """One boss shares the 0-degree angle with the camera. In the first design it was
+    only clear because it happened to pass through the lens hole."""
+    camera_lo = P.Z_CAMERA - P.CAMERA_MOUNT_PLATE_AXIAL / 2
+    camera_hi = P.Z_CAMERA + P.CAMERA_MOUNT_PLATE_AXIAL / 2
+    boss_lo = P.Z_TRIM_BOSSES - P.TRIM_BOSS_OD / 2
+    boss_hi = P.Z_TRIM_BOSSES + P.TRIM_BOSS_OD / 2
+    assert boss_hi < camera_lo or boss_lo > camera_hi
 
 
-def test_standoff_holes_sit_in_material_on_every_part_that_has_them() -> None:
-    """This bug appeared twice: STANDOFF_RADIUS was a literal that collided with the drive
-    band's outer radius whenever the band diameter changed, running the M3 holes off the
-    edge of the part. It is now derived; this asserts the derivation stays valid."""
-    hole_outer = P.STANDOFF_RADIUS + P.M3_CLEARANCE / 2
-    hole_inner = P.STANDOFF_RADIUS - P.M3_CLEARANCE / 2
-
-    assert hole_outer < P.DRIVE_BAND_OD / 2, (
-        f"standoff holes reach r={hole_outer:.1f} mm, past the drive band's "
-        f"{P.DRIVE_BAND_OD / 2:.1f} mm rim")
-    assert hole_inner > P.CHASSIS_FRAME_OD / 2, (
-        f"standoff holes reach r={hole_inner:.1f} mm, inside the frame bore")
-
-    # And inside the chassis disc's spoke region.
-    hub_outer = P.AXIS_BOSS_OD / 2 + 4.0
-    rim_inner = P.CHASSIS_OD / 2 - 6.0
-    assert hub_outer < hole_inner and hole_outer < rim_inner, \
-        "standoff holes fall outside the chassis disc's spokes"
+def test_camera_mount_corners_stay_inside_the_bore() -> None:
+    """At a 65 mm bore a 26 mm-wide plate's corners reach the wall long before its face
+    does, so its radius is solved from the corner. This guards that derivation."""
+    corner = math.hypot(P.CAMERA_MOUNT_INNER_RADIUS + P.CAMERA_MOUNT_PLATE_THICKNESS,
+                        P.CAMERA_MOUNT_PLATE_TANGENTIAL / 2)
+    assert corner <= P.CASING_ID / 2 - P.RUNNING_CLEARANCE + 1e-9
 
 
 def test_end_cap_rim_is_thinner_than_its_hub() -> None:
-    """The 6 mm hub thickness exists only to give the bearing a 4 mm seat plus a shoulder.
-
-    Running it out to the rim put ~12 g per cap at r=65 -- the largest radius in the
-    rotating assembly, and so the most expensive place in the machine to spend mass.
-    """
+    """Cap B's 6 mm hub thickness exists only to give the bearing a 4 mm seat plus a
+    shoulder. Mass at the rim is the most expensive mass in the rotating assembly."""
     assert P.END_CAP_RIM_THICKNESS < P.END_CAP_THICKNESS
     assert P.END_CAP_THICKNESS - P.BEARING_WIDTH >= 1.5, "no shoulder left under the bearing"
+    assert P.END_CAP_A_THICKNESS - P.END_CAP_A_GROOVE_DEPTH >= 1.5, \
+        "no shoulder left under cap A's bearing"
 
 
 def test_end_cap_is_thicker_than_its_bearing_seat() -> None:
     """A 4 mm cap with a 4 mm seat was bored straight through, leaving no shoulder."""
     assert P.END_CAP_THICKNESS > P.BEARING_WIDTH
+    assert P.END_CAP_A_THICKNESS > P.END_CAP_A_GROOVE_DEPTH
     assert P.END_CAP_BOSS_CLEARANCE_BORE > P.AXIS_BOSS_OD, "cap would rub on the boss"
-
-
-def test_chassis_clears_the_casing_wall(built) -> None:
-    assert math.isclose(P.CASING_ID - P.CHASSIS_OD, 2 * P.ROTATIONAL_CLEARANCE, abs_tol=1e-9)
-    assert P.ROTATIONAL_CLEARANCE >= 2.0, "owner's stated minimum"
-
-
-def test_chassis_od_stays_inside_the_owners_stated_range() -> None:
-    """CHASSIS_OD is derived from CASING_OD and CASING_WALL, so thinning the wall moves it.
-
-    It is currently 125 mm, exactly at the top of the owner's stated 115-125 range. Thinning
-    the wall again to save mass would push it out, which is a decision rather than a free
-    optimisation -- and the last wall change drifted the docs for several commits unnoticed.
-    """
-    assert 115.0 <= P.CHASSIS_OD <= 125.0, (
-        f"CHASSIS_OD is {P.CHASSIS_OD:.1f} mm, outside the owner's stated 115-125 range; "
-        f"it follows from CASING_OD {P.CASING_OD} and CASING_WALL {P.CASING_WALL}")
 
 
 def test_wheel_is_larger_than_the_casing(built) -> None:
@@ -177,11 +130,13 @@ def test_printed_mass_leaves_room_for_the_rest_of_the_robot(built) -> None:
         f"leaves only {700 - total:.0f} g for motors, battery, electronics and bearings")
 
 
-def test_rotating_inertia_is_in_the_range_the_torque_budget_assumed(built) -> None:
-    """ADR 0006's actuator recommendation depends on this staying near 1e-3 kg m^2."""
+def test_rotating_inertia_matches_the_direct_drive_budget(built) -> None:
+    """ADR 0008's case for direct drive -- 22.5 mN m, 0.21 A, a 12x margin on the driver --
+    was computed for 0.133e-3 kg m^2 before this geometry existed. Torque scales linearly
+    with I, so a drift past 0.20e-3 eats a third of that margin and should be noticed."""
     inertia = sum(build.inertia_kg_m2(built[name].val(), P.ABS_DENSITY) * qty
                   for name, qty in build.ROTATING.items())
-    assert 0.3e-3 < inertia < 2.0e-3, f"I = {inertia * 1e3:.3f}e-3 kg m^2 is outside the budget"
+    assert 0.10e-3 < inertia < 0.20e-3, f"I = {inertia * 1e3:.3f}e-3 kg m^2"
 
 
 def test_the_shell_still_dominates_rotating_inertia(built) -> None:
@@ -192,16 +147,24 @@ def test_the_shell_still_dominates_rotating_inertia(built) -> None:
     assert shell / total > 0.70, f"shell is only {100 * shell / total:.0f}% of rotating inertia"
 
 
-def test_imu_bridge_reaches_the_rotation_axis(built) -> None:
-    """R2: the IMU must sit within ~3 mm radially of the axis."""
-    bb = built["06_imu_bridge"].val().BoundingBox()
-    assert bb.xmin <= 3.0, "bridge does not reach the centreline"
-    assert bb.xmax >= P.CASING_ID / 2 - 6.0, "bridge does not reach the casing wall"
+def test_imu_sits_within_5_mm_of_the_axis() -> None:
+    """R2 as amended by ADR 0010. On-axis is impossible with a continuous chassis; the pad
+    rings the spine's waist instead, and the offset is set by the waist's radius."""
+    assert P.IMU_RADIAL_OFFSET < 5.0, f"IMU at r = {P.IMU_RADIAL_OFFSET:.2f} mm"
+    assert P.IMU_PAD_HOLE_DIA > P.SPINE_WAIST_OD, "pad would rub the waist"
+
+
+def test_imu_station_is_on_the_waist_and_clear_of_the_camera() -> None:
+    """The pad's hole only clears the waist, not the full-diameter spine either side."""
+    lo, hi = P.Z_IMU_BRIDGE, P.Z_IMU_BRIDGE + P.IMU_BRIDGE_THICKNESS
+    assert P.Z_WAIST_LO < lo and hi < P.Z_WAIST_HI
+    assert lo > P.Z_CAMERA + P.CAMERA_MOUNT_PLATE_AXIAL / 2
 
 
 def test_end_cap_screw_circle_fits_inside_the_shell(built) -> None:
     assert P.END_CAP_SCREW_RADIUS < P.CASING_ID / 2, "screws would miss the shell flange"
-
+    assert P.END_CAP_SCREW_RADIUS - P.M3_TAP / 2 > P.CASING_ID / 2 - P.SHELL_FLANGE_RADIAL, \
+        "screw tap runs off the flange's inner edge"
 
 
 # ----------------------------------------------------------------- assembly clearances
@@ -212,77 +175,84 @@ def assembly():
     return asm, asm.build_assembly()
 
 
-def test_assembly_has_no_interference_in_any_pair(assembly) -> None:
-    """EXHAUSTIVE, deliberately.
+def test_assembly_has_no_interference_at_any_reachable_angle(assembly) -> None:
+    """EXHAUSTIVE over pairs, and over relative rotation for parts that move.
 
-    An earlier version of this test swept only the hand-picked pairs in asm.CHECKS -- 13 of
-    55 -- and reported clean while four real interferences sat in the other 42: end caps
-    buried in the shell's flanges, a wheel hub inside the chassis boss, and the camera
-    sharing space with the pitch motor. A curated interference check is worse than none,
-    because it reads as a clean bill of health.
+    Two earlier failures this guards against: a hand-picked 13 of 55 pairs that passed
+    while four real interferences sat in the other 42, and a single-pose sweep that passed
+    an IMU bridge driven straight through a chassis standoff.
     """
-    import itertools  # noqa: PLC0415
-
     asm, parts_map = assembly
-    clashes = []
-    for a_name, b_name in itertools.combinations(parts_map, 2):
-        a, b = parts_map[a_name].val(), parts_map[b_name].val()
-        if asm.min_distance_mm(a, b) < 1e-6 and asm.overlaps(a, b):
-            clashes.append(f"{a_name} / {b_name}")
+    clashes = [f"{r.a} / {r.b} ({r.shared_mm3:.0f} mm3)"
+               for r in asm.sweep(parts_map).values() if r.shared_mm3 > 1e-6]
     assert not clashes, f"interference: {clashes}"
 
 
-def test_every_targeted_pair_is_also_in_the_exhaustive_sweep(assembly) -> None:
+def test_rotation_sweep_catches_what_a_single_pose_misses(assembly) -> None:
+    """Regression for the first design's hidden collision. A chassis rod off the axis, on
+    the opposite side from the IMU bridge's arm, clears at the assembled pose and is hit
+    half a turn later. The swept check must see it."""
+    asm, parts_map = assembly
+    bridge = parts_map["imu_bridge"].val()
+    rod = (cq.Workplane("XY", origin=(20.0, 0.0, P.Z_IMU_BRIDGE - 5.0))
+           .circle(1.5).extrude(10.0).val())
+    assert asm.min_distance_mm(bridge, rod) > 1.0, "test setup: must clear at one pose"
+
+    asm.ROTATION_GROUP["_rod"] = "chassis"
+    try:
+        result = asm.check_pair("imu_bridge", "_rod", bridge, rod)
+    finally:
+        del asm.ROTATION_GROUP["_rod"]
+    assert result.method == "swept"
+    assert result.shared_mm3 > 0.0
+
+
+def test_every_targeted_pair_is_in_the_assembly(assembly) -> None:
     """Guards against CHECKS naming a part the assembly does not contain."""
     asm, parts_map = assembly
     for a_name, b_name, _target, _note in asm.CHECKS:
         assert a_name in parts_map and b_name in parts_map
+    assert set(parts_map) == set(asm.ROTATION_GROUP), "every part needs a rotation group"
 
 
-def test_casing_shell_is_hollow_near_the_rotation_axis(built) -> None:
-    """The trim-mass bosses were radial RODS from the axis, not pads on the wall.
+def test_targeted_clearances_hold_over_a_full_turn(assembly) -> None:
+    asm, parts_map = assembly
+    for a_name, b_name, target, note in asm.CHECKS:
+        gap = asm.measured_gap(parts_map, a_name, b_name).gap_mm
+        assert math.isclose(gap, target, abs_tol=0.05), \
+            f"{a_name}/{b_name} ({note}): {gap:.2f} mm, expected {target:.2f}"
+
+
+def test_every_bearing_race_is_supported(assembly) -> None:
+    """A minimum-distance check cannot see this: a boss can be concentric with its cap and
+    still miss it axially, which both of the first two assembly attempts did."""
+    asm, parts_map = assembly
+    for description, fraction in asm.bearing_checks(parts_map):
+        assert fraction > 0.99, f"{description}: {100 * fraction:.0f}% supported"
+
+
+def test_casing_shell_is_hollow_inside_the_trim_bosses(built) -> None:
+    """The trim-mass bosses were once radial RODS from the axis, not pads on the wall.
 
     A YZ workplane extrudes along +X from wherever its origin sits. Starting at x=0 and
-    extruding by the inner radius produced six solid rods spanning the full bore -- 5530
-    mm^3 of material in a part that is supposed to be a tube -- with the tap drilled clean
-    through the impact surface. Visible the moment the assembly was opened in SolidWorks.
+    extruding by the inner radius produced six solid rods spanning the full bore, with the
+    tap drilled clean through the impact surface.
     """
     shell = built["01_casing_shell"].val()
+    probe_r = P.CASING_ID / 2 - P.TRIM_BOSS_HEIGHT - 0.5
     probe = (cq.Workplane("XY", origin=(0, 0, -10))
-             .circle(30.0).extrude(P.CASING_LENGTH + 20).val())
+             .circle(probe_r).extrude(P.CASING_LENGTH + 20).val())
     shared = cq.Workplane(obj=shell).intersect(cq.Workplane(obj=probe)).val().Volume()
-    assert shared < 1.0, f"{shared:.0f} mm3 of shell material inside r=30 mm"
+    assert shared < 1.0, f"{shared:.0f} mm3 of shell material inside r={probe_r} mm"
 
 
 def test_trim_bosses_do_not_pierce_the_impact_surface(built) -> None:
     """Their tapped holes must stay blind: the casing's outer face takes the hits."""
     shell = built["01_casing_shell"].val()
-    # A thin shell just outside the outer wall should see no holes, i.e. the shell's
-    # outer surface area should match a plain cylinder plus the camera aperture only.
     assert P.TRIM_BOSS_HEIGHT - 1.0 < P.TRIM_BOSS_HEIGHT, "tap must be shallower than the boss"
     bb = shell.BoundingBox()
     assert math.isclose(bb.xlen, P.CASING_OD, abs_tol=0.01), \
         "a boss projecting outward would grow the bounding box"
-
-
-def test_rotational_clearance_is_as_designed(assembly) -> None:
-    asm, parts_map = assembly
-    for disc in ("chassis_disc_a", "chassis_disc_b"):
-        gap = asm.min_distance_mm(parts_map["casing_shell"].val(), parts_map[disc].val())
-        assert math.isclose(gap, P.ROTATIONAL_CLEARANCE, abs_tol=0.05), \
-            f"{disc}: {gap:.2f} mm, expected {P.ROTATIONAL_CLEARANCE}"
-
-
-def test_both_bosses_engage_their_bearing_seats(assembly) -> None:
-    """A minimum-distance check cannot see this: a boss can be concentric with its cap and
-    still miss it axially, which both of the first two assembly attempts did."""
-    asm, parts_map = assembly
-    for cap, disc in (("end_cap_a", "chassis_disc_a"), ("end_cap_b", "chassis_disc_b")):
-        cap_bb = parts_map[cap].val().BoundingBox()
-        disc_bb = parts_map[disc].val().BoundingBox()
-        overlap = min(cap_bb.zmax, disc_bb.zmax) - max(cap_bb.zmin, disc_bb.zmin)
-        assert overlap >= P.BEARING_WIDTH, \
-            f"{cap}/{disc}: {overlap:.1f} mm overlap, need {P.BEARING_WIDTH}"
 
 
 def test_wheels_clear_the_rotating_casing(assembly) -> None:

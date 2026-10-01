@@ -53,16 +53,20 @@ class Component:
 # --------------------------------------------------------------- inside the casing
 
 CASING_COMPONENTS: list[Component] = [
-    Component("pitch_motor", "cylinder", (P.PITCH_MOTOR_BORE, P.PITCH_MOTOR_LENGTH),
-              39.0, "LISTING", "2208 gimbal, 28 x 26 mm, 39 g. Confirm OD on arrival: a "
-                               "mislabelled 2804-class part is 35 mm and will not fit."),
+    Component("pitch_motor", "cylinder", (P.PITCH_MOTOR_OD, P.PITCH_MOTOR_LENGTH),
+              P.PITCH_MOTOR_MASS_G, "LISTING",
+              "2208-class gimbal, 28 x 26 mm, 39 g, coaxial at end A (ADR 0008). MUST be "
+              "hollow-shaft with a bore >= 5 mm: wheel A's shaft passes through it "
+              "(ADR 0010). Sourcing not verified. A 2804-class part is 35 mm OD and needs "
+              "a larger cup."),
     Component("pi_zero_2w", "box", (65.0, 30.0, 5.0), 11.0, "LISTING",
               "Pi Zero 2 W board outline is well documented; 5 mm is with nothing stacked."),
     Component("camera_module_3_wide", "box", (25.0, 24.0, 12.5), 5.0, "LISTING",
               "Lens barrel height dominates and varies; measure it."),
     Component("mcu_board", "box", (70.0, 82.0, 20.0), 60.0, "GUESS",
-              "Nucleo-G474RE with headers. This is the biggest thing going in the casing "
-              "and the most likely not to fit -- see the sweep."),
+              "Nucleo-G474RE with headers. DOES NOT FIT the 65 mm bore at any orientation "
+              "(70 mm is wider than the bore). Bench only; the robot needs a smaller "
+              "G474 board."),
     Component("imu_breakout", "box", (20.0, 16.0, 3.0), 2.0, "GUESS",
               "ICM-42688-P breakout. Board outline varies by vendor."),
     Component("encoder_casing", "box", (20.0, 15.0, 3.0), 2.0, "GUESS",
@@ -73,22 +77,25 @@ CASING_COMPONENTS: list[Component] = [
     Component("foc_driver", "box", (25.0, 20.0, 8.0), 5.0, "GUESS",
               "SimpleFOC Mini, or an eventual DRV8313-class stage."),
     Component("power_monitor", "box", (20.0, 16.0, 3.0), 2.0, "GUESS", "INA226 breakout."),
-    Component("battery", "box", (60.0, 32.0, 18.0), 85.0, "GUESS",
-              "3S LiPo, ~1000 mAh. Placement is UNDECIDED: in the casing it adds the "
-              "heaviest single item to the rotating inertia; in the chassis it puts high "
-              "current across the slip ring. See ADR 0005."),
+    Component("battery", "box", (45.0, 25.0, 12.0), 40.0, "GUESS",
+              "ADR 0008: a 60 x 32 x 18 pack does not fit a 70 mm casing; something near "
+              "45 x 25 x 12 does, at a run-time cost nobody has budgeted. Placement is "
+              "UNDECIDED, and the spine leaves the chassis almost no room for it."),
 ]
 
 # ------------------------------------------------------------- inside the chassis
 
 CHASSIS_COMPONENTS: list[Component] = [
-    Component("wheel_motor_left", "cylinder", (12.0, 40.0), 10.0, "GUESS",
-              "N20 gearmotor. Length depends entirely on gear ratio -- measure."),
-    Component("wheel_motor_right", "cylinder", (12.0, 40.0), 10.0, "GUESS", "as above"),
+    Component("wheel_motor_left", "cylinder", (P.WHEEL_MOTOR_OD, P.WHEEL_MOTOR_LENGTH), 10.0,
+              "GUESS", "N20 gearmotor inside the spine. Length depends entirely on gear "
+                       "ratio -- measure, it sets every axial station at both ends."),
+    Component("wheel_motor_right", "cylinder", (P.WHEEL_MOTOR_OD, P.WHEEL_MOTOR_LENGTH), 10.0,
+              "GUESS", "as above"),
     Component("motor_driver", "box", (20.0, 20.0, 3.0), 3.0, "GUESS", "TB6612FNG breakout."),
     Component("slip_ring", "cylinder", (P.SLIP_RING_ENVELOPE_DIA,
                                         P.SLIP_RING_ENVELOPE_LENGTH),
-              20.0, "GUESS", "Capsule slip ring, 8-12 circuits. Not yet selected."),
+              20.0, "GUESS", "FALLBACK ONLY: ADR 0009 proposes a wire loop, since vendor "
+                             "drag specs exceed the whole direct-drive torque budget."),
 ]
 
 ALL_COMPONENTS = CASING_COMPONENTS + CHASSIS_COMPONENTS

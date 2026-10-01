@@ -15,6 +15,8 @@ Numbers are reproducible with `python3 tools/pitch_inertia_budget.py`.
 
 ## R1. Dedicate an axial band for the belt track
 
+> **SUPERSEDED (2026-09-30) by ADR 0008: direct drive, no belt.** Kept for the record.
+
 **Requirement:** a 10–15 mm axial band in which the **chassis diameter is locally reduced to
 80 mm** and carries an outward-facing toothed track. The casing-mounted drive pulley reaches
 inward to engage it.
@@ -86,10 +88,14 @@ tangential acceleration it cannot distinguish from gravity. At a modest 10 rad/s
 | 10 mm | 5.8° |
 | 30 mm | 17.0° |
 
-**The constraint is radial only, so axial displacement is free.** The axis is crowded with the
+> **CORRECTED (2026-09-30) by ADR 0010.** The paragraph below was wrong. The casing turns a
+> full turn relative to the chassis, and the chassis passes every axial station, so no casing
+> part can reach the centreline at any station. The IMU now rings the spine's 5 mm waist at
+> r = 4.75 mm, inside the "5 mm tolerable" limit above.
+
+~~**The constraint is radial only, so axial displacement is free.** The axis is crowded with the
 axle and the slip ring, but the IMU can sit on the centreline at a *different axial station* —
-beside the hub rather than inside it — and still see `r ≈ 0`. This is the cheap way out of what
-looks like an unresolvable packaging conflict.
+beside the hub rather than inside it — and still see `r ≈ 0`.~~
 
 ## R3. Put the pitch motor inside the casing
 
@@ -138,6 +144,9 @@ Designing the bosses in now keeps both options available and costs almost nothin
 balance adjustment into a closed printed shell is awkward.
 
 ## R5. Slip ring on the axis, 8–12 circuits
+
+> **Under review (2026-09-30): ADR 0009 proposes a wire loop instead.** Vendor drag figures
+> for small slip rings exceed the whole direct-drive torque budget.
 
 **Requirement:** axial space on the centreline for a capsule slip ring carrying wheel motor
 power and wheel encoder signals.

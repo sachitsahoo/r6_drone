@@ -10,73 +10,108 @@ Each value is tagged with where it came from, because the difference matters:
              review and change; none of them is backed by analysis.
 
 Cross-references: docs/mechanical-requirements.md (R1-R8),
-docs/decisions/0004-pitch-axis-architecture.md, docs/decisions/0006-pitch-actuator.md.
+docs/decisions/0008-reduced-scale-direct-drive.md (scale and direct drive),
+docs/decisions/0010-direct-drive-axial-layout.md (why the chassis is a spine).
 """
 
 from __future__ import annotations
 
+import math
+
 # ---------------------------------------------------------------------------- casing
 
-CASING_OD = 135.0            # OWNER: range 135-145, bottom chosen (less inertia)
-CASING_WALL = 2.5            # OWNER: range 2.5-3, thin end chosen after the
-                             # first mass build came out 855 g of plastic alone
-CASING_LENGTH = 120.0        # DERIVED: axial budget, docs/mechanical-requirements.md
-CASING_ID = CASING_OD - 2 * CASING_WALL          # DERIVED: 129.0
+CASING_OD = 70.0             # OWNER: ADR 0008, chosen for inertia (I scales ~ r^4 at
+                             # fixed proportions)
+CASING_WALL = 2.5            # OWNER: range 2.5-3, thin end chosen (less inertia)
+CASING_LENGTH = 182.0        # OWNER: ADR 0008, length / wheel diameter ~2.0
+CASING_ID = CASING_OD - 2 * CASING_WALL          # DERIVED: 65.0
 
-ROTATIONAL_CLEARANCE = 2.5   # OWNER: range 2-3
+#: The shell's end walls are too thin for axial tapped holes, so each end carries an
+#: internal flange: this deep axially and this far radially inward.
+SHELL_FLANGE_DEPTH = 4.0     # ASSUMPTION: enough thread for an M3 tap
+SHELL_FLANGE_RADIAL = 4.5    # ASSUMPTION: wide enough to land an M3 tap with ~1 mm each side
 
-# ---------------------------------------------------------------------------- chassis
-
-CHASSIS_OD = CASING_ID - 2 * ROTATIONAL_CLEARANCE   # DERIVED: 124.0, inside owner's 115-125
-CHASSIS_LENGTH = 101.0       # DERIVED: casing length minus drive band minus end clearance
-CHASSIS_DISC_THICKNESS = 4.0 # ASSUMPTION: printed disc stiff enough at 124 mm
-CHASSIS_FRAME_OD = 60.0      # DERIVED (R1): the motor's inner edge sits at radius 33.1, so
-                             # the frame must stay under 62.3 mm OD to clear it
-
-# Drive band: the chassis diameter is locally reduced here and carries the belt (R1).
-# DERIVED: 8:1 with a 10 mm pulley. NOT 90 mm / 9:1 as first specified -- that checked
-# only that the pulley cleared the shell, not the 28 mm motor body coaxial with it, which
-# poked 1.7 mm through the wall. The largest band that fits a 28 mm motor with 2 mm margin
-# is 83.7 mm OD. Caught by cad/assembly.py's clearance report.
-DRIVE_BAND_OD = 80.0
-DRIVE_BAND_WIDTH = 15.0      # DERIVED: axial budget
-
-# --------------------------------------------------------------------- belt and pulley
-
-BELT_WIDTH = 6.0             # ASSUMPTION: GT2 6 mm, the common size
-BELT_BACK_THICKNESS = 1.4    # ASSUMPTION: GT2 nominal
-BELT_TOOTH_HEIGHT = 0.75     # ASSUMPTION: GT2 nominal
-DRIVE_PULLEY_OD = 10.0       # DERIVED: sets the 8:1 ratio
-
-# ------------------------------------------------------------------------------ axis
-
-# The casing rotates on bearings around a hollow boss on each chassis disc. The wheel
-# motor sits on the centreline inside that boss with its shaft protruding outward.
+# ---------------------------------------------------------------- chassis (spine)
 #
-# ASSUMPTION, and the weakest part of this model: how the wheel actually mounts and is
-# driven is not resolved by any analysis so far. Treat the boss and bearing sizes as a
-# placeholder that makes the parts printable, not as a design.
+# ADR 0010: the chassis is a single spine on the axis, not two discs joined by standoffs.
+# The casing turns all the way round relative to the chassis, so every chassis feature
+# sweeps a full ring and casing contents can only live outside the chassis's largest
+# radius at each axial station. Standoffs at r=35 (the old design) would have claimed the
+# whole interior. A spine claims only its own radius.
+
+SPINE_OD = 16.0              # ASSUMPTION: 12 mm N20 body plus a 2 mm printed wall
+SPINE_BORE = 13.0            # ASSUMPTION: clears an N20 motor body (12 mm) by 0.5 each side
+SPINE_END_WALL = 2.0         # ASSUMPTION: closes each wheel motor pocket on its inboard end
+#: The thinned section the IMU ring sits around. In reality a bought 5 mm steel rod or
+#: carbon tube plugged into two printed ends -- a printed 5 mm section would not survive a
+#: throw. Its radius sets the IMU's radial offset, so it is kept as small as is credible.
+SPINE_WAIST_OD = 5.0         # ASSUMPTION: smallest rod that plausibly carries wheel loads
+
+# Wheel motors live inside the spine, one at each end, shafts pointing outboard.
+WHEEL_MOTOR_OD = 12.0        # LISTING: N20 gearmotor body
+WHEEL_MOTOR_LENGTH = 40.0    # GUESS: depends entirely on gear ratio -- measure
+
+# ------------------------------------------------------------- pitch motor (direct)
+#
+# ADR 0008: the motor drives the casing directly, coaxial with the wheel axis. Its stator
+# bolts to the chassis cup at end A and its rotor bell bolts to end cap A.
+#
+# Wheel A's drive shaft has to pass through the motor's centre -- there is nowhere else
+# for it to go (ADR 0010). So this must be a HOLLOW-SHAFT motor.
+
+# 28 mm matches a 2208-class gimbal motor (vendor listings: 28 mm OD, 39-42 g). The more
+# commonly recommended GM2804 is 35 mm OD despite its name, and would force a larger cup.
+PITCH_MOTOR_OD = 28.0
+#: Axial length of the motor body. SpeedyFPV 2208 listing: 26 mm.
+PITCH_MOTOR_LENGTH = 26.0
+PITCH_MOTOR_MASS_G = 39.0
+PITCH_MOTOR_KV = 80.0
+#: ASSUMPTION, and the one to check before buying anything: hollow-shaft gimbal motors exist
+#: but whether a 28 mm one with a >= 5 mm bore is easy to source has NOT been verified.
+PITCH_MOTOR_HOLLOW_BORE = 5.0
+PITCH_MOTOR_ROTOR_BOLT_RADIUS = 6.0     # ASSUMPTION: rotor-bell top bolt circle
+PITCH_MOTOR_STATOR_BOLT_RADIUS = 9.5    # ASSUMPTION: stator base bolt circle
+PITCH_MOTOR_BOLT_COUNT = 4
+
+#: Radial gap between the motor body and the cup wall around it.
+MOTOR_CUP_RADIAL_CLEARANCE = 1.5        # ASSUMPTION: FDM bores run undersize
+CUP_WALL = 2.0                          # ASSUMPTION
+CUP_FLOOR_THICKNESS = 3.0               # ASSUMPTION: carries the stator bolts
+
+# Wheel A's shaft: N20 output extended through the pitch motor's bore to the wheel.
+WHEEL_SHAFT_DIA = 3.0        # LISTING: N20 D-shaft
+#: The N20's own shaft is ~10 mm, so wheel A needs an extension of ~55 mm: a coupler plus
+#: a 3 mm rod. Wheel B, at the other end, reaches its wheel directly.
+
+# ------------------------------------------------------------------- bearings
+#
+# End A: the casing bearing sits on the OUTSIDE of the cup wall, so impact loads on the
+# casing go to the chassis through a real bearing rather than through the gimbal motor's
+# tiny internal ones.
+BEARING_A_ID = 35.0          # ASSUMPTION: 61807 thin-section, 35 x 44 x 5
+BEARING_A_OD = 44.0
+BEARING_A_WIDTH = 5.0
+# End B: unchanged from the first design, on a boss at the spine's end.
 AXIS_BOSS_OD = 20.0          # ASSUMPTION: bearing bore rides on this
-AXIS_BOSS_LENGTH = 12.0      # ASSUMPTION
-AXIS_BOSS_BORE = 13.0        # ASSUMPTION: clears an N20 motor body (12 mm)
 BEARING_OD = 27.0            # ASSUMPTION: 6704ZZ, 20 x 27 x 4
-BEARING_ID = 20.0            # ASSUMPTION
-BEARING_WIDTH = 4.0          # ASSUMPTION
+BEARING_ID = 20.0
+BEARING_WIDTH = 4.0
+
+#: Smallest running gap anywhere between parts that move relative to each other.
+RUNNING_CLEARANCE = 0.5      # ASSUMPTION: same as the first design's cap-to-boss gap
 
 # ----------------------------------------------------------------------------- wheels
 
-# ASSUMPTION, and worth a decision: the wheel OD must exceed the casing OD or the casing
-# drags. Ground clearance under the casing is (WHEEL_OD - CASING_OD) / 2.
-# 170, not 150. At 150 the ground clearance under the casing was 7.5 mm -- 10% of wheel
-# radius -- which is very little for a robot that gets thrown and driven over rubble.
-# Going to 170 costs 13.7 g on the pair (1.7% of the vehicle budget) and takes clearance to
-# 17.5 mm. Wheel inertia rises 47%, but wheel inertia is only ~9% of the effective drive
-# inertia, so the drive motors see about 15% more torque.
-WHEEL_OD = 170.0             # DECIDED 2026-09-30; ground clearance 17.5 mm
-WHEEL_WIDTH = 18.0           # DERIVED: axial budget
-WHEEL_BORE = 3.0             # ASSUMPTION: N20 output shaft
+WHEEL_OD = 105.0             # OWNER: ADR 0008. Ground clearance (105 - 70) / 2 = 17.5 mm,
+                             # the same as the 170 mm wheel gave the 135 mm casing
+#: Overall width is 214 mm (ADR 0008), so each side gets (214 - 182) / 2 = 16 mm for the
+#: wheel plus the gap to the casing.
+OVERALL_WIDTH = 214.0        # OWNER: ADR 0008
+WHEEL_STANDOFF = 4.0         # ASSUMPTION: gap between wheel and casing end
+WHEEL_WIDTH = (OVERALL_WIDTH - CASING_LENGTH) / 2 - WHEEL_STANDOFF   # DERIVED: 12.0
+WHEEL_BORE = WHEEL_SHAFT_DIA # DERIVED
 WHEEL_ORING_CROSS_SECTION = 3.0   # ASSUMPTION: O-ring tread (R7 trick)
-WHEEL_HUB_OD = 20.0          # ASSUMPTION
+WHEEL_HUB_OD = 16.0          # ASSUMPTION
 WHEEL_SPOKE_COUNT = 5        # ASSUMPTION: cosmetic and mass reduction
 
 # ------------------------------------------------------------------------------ camera
@@ -87,15 +122,28 @@ CAMERA_MOUNT_HOLE_SPACING_X = 21.0   # ASSUMPTION: confirm against the module dr
 CAMERA_MOUNT_HOLE_SPACING_Y = 12.5   # ASSUMPTION
 CAMERA_MOUNT_HOLE_DIA = 2.2      # ASSUMPTION: M2 clearance
 CAMERA_MOUNT_PLATE_THICKNESS = 3.0
+#: Along the axis, and tangential, once mounted. The tangential one is what limits how
+#: far out the plate can sit: its corners are what reach the wall first.
+CAMERA_MOUNT_PLATE_AXIAL = 30.0      # ASSUMPTION
+CAMERA_MOUNT_PLATE_TANGENTIAL = 26.0 # ASSUMPTION: Camera Module 3 board is 25 x 24
+CAMERA_LENS_HOLE_DIA = 10.0          # ASSUMPTION
 
 # --------------------------------------------------------------------------------- IMU
 
-# R2: radial offset under 3 mm. The constraint is radial only, so the bridge reaches the
-# centreline at an axial station clear of the hub.
+# R2 (amended by ADR 0010): the IMU cannot sit ON the axis, because the chassis passes every
+# axial station (see the spine note above). It sits on a pad with a hole around the spine's
+# waist instead, and the requirement is "under 5 mm radially, error budgeted".
 IMU_PAD_SIZE = 16.0
 IMU_BRIDGE_THICKNESS = 3.0
 IMU_BRIDGE_WIDTH = 12.0
 IMU_MOUNT_HOLE_DIA = 2.2         # ASSUMPTION: M2 clearance
+IMU_WAIST_CLEARANCE = 0.75       # ASSUMPTION: radial gap between pad hole and spine waist
+#: Half the ICM-42688-P package (2.5 x 3 mm LGA). The sensing element is near its centre.
+IMU_PACKAGE_HALF = 1.5           # LISTING: TDK datasheet package outline
+IMU_PAD_HOLE_DIA = SPINE_WAIST_OD + 2 * IMU_WAIST_CLEARANCE          # DERIVED: 6.5
+#: Where the sensor actually sits, if it is placed right at the hole's edge. This needs a
+#: custom ring breakout -- off-the-shelf breakouts put the chip mid-board.
+IMU_RADIAL_OFFSET = IMU_PAD_HOLE_DIA / 2 + IMU_PACKAGE_HALF          # DERIVED: 4.75
 
 # ------------------------------------------------------------------- fasteners, fixtures
 
@@ -104,65 +152,31 @@ M3_TAP = 2.5
 M2_CLEARANCE = 2.2
 
 TRIM_BOSS_COUNT = 6             # R4
-TRIM_BOSS_RADIUS = 55.0         # R4
 TRIM_BOSS_OD = 7.0
 TRIM_BOSS_HEIGHT = 5.0
 
-PENDULUM_DATUM_RADIUS = 50.0    # R8: known offset for the inertia measurement
+PENDULUM_DATUM_RADIUS = 27.5    # R8: known offset for the inertia measurement, on cap B's rim
+PENDULUM_DATUM_ANGLE_DEG = 30.0 # DERIVED: midway between two cap screws
 PENDULUM_DATUM_DIA = 3.2
 
-SLIP_RING_ENVELOPE_DIA = 15.0   # R5
+SLIP_RING_ENVELOPE_DIA = 15.0   # R5. Fallback only: ADR 0009 proposes a wire loop instead
 SLIP_RING_ENVELOPE_LENGTH = 25.0
 
-# 6 mm, not 4: the bearing seat is 4 mm deep, so a 4 mm cap was bored straight through and
-# left no shoulder for the bearing to seat against. Caught by cad/assembly.py.
+# End cap B: rim, hub and spokes, stepped in thickness. 6 mm is needed only at the hub,
+# for a 4 mm bearing seat plus a 2 mm shoulder.
 END_CAP_THICKNESS = 6.0
-#: The rim and spokes only carry screw loads, so they are thinner than the hub. The 6 mm
-#: above is needed solely where the bearing seats: a 4 mm seat plus a 2 mm shoulder. Running
-#: that thickness out to r=65 put ~7 g per cap at the largest radius in the rotating
-#: assembly, which is the most expensive place in the machine to spend mass.
 END_CAP_RIM_THICKNESS = 4.0
-
-# REMOVED: a labyrinth lip that shrouded the chassis disc. It was added to stop the open
-# wheels flinging grit into the 2.5 mm pitch gap, but that gap is already enclosed -- the
-# cap's own rim closes the casing bore at each end, the shielded bearing closes the central
-# bore, and the cap bolts to the shell so there is no relative motion at the rim to seal.
-# The lip guarded a joint that does not open. Meanwhile the camera aperture is 252 mm^2 of
-# hole straight through the shell, so the interior is not sealed by anything. If debris
-# ingress turns out to matter, the aperture is where to solve it -- a window, not a lip.
 #: Clearance bore through the cap's shoulder, so it passes the boss without rubbing.
-END_CAP_BOSS_CLEARANCE_BORE = 21.0
+END_CAP_BOSS_CLEARANCE_BORE = AXIS_BOSS_OD + 2 * RUNNING_CLEARANCE   # DERIVED: 21.0
 END_CAP_SCREW_COUNT = 6
-END_CAP_SCREW_RADIUS = 61.0     # DERIVED: inside the 64.5 mm inner wall
+END_CAP_SCREW_RADIUS = CASING_ID / 2 - SHELL_FLANGE_RADIAL / 2      # DERIVED: mid-flange
 
-STANDOFF_COUNT = 4              # ASSUMPTION: M3 standoffs joining the chassis discs
-# Computed, not chosen. This was a literal twice, and twice it collided with the drive
-# band's outer radius after the band diameter changed -- the M3 holes ran off the edge of
-# the part both times. Deriving it from the band and frame kills the whole class of bug:
-# midway between the frame it bolts to and the band's rim.
-STANDOFF_RADIUS = (CHASSIS_FRAME_OD / 2 + DRIVE_BAND_OD / 2) / 2
-
-MOTOR_BRACKET_THICKNESS = 4.0
-# 28 mm matches a **2208** gimbal motor (vendor listings: 28 mm OD, 39-42 g, 3 mm shaft).
-# It does NOT match the more commonly recommended iPower GM2804 / GBM2804H, whose "2804"
-# names the 28 x 04 mm STATOR -- its actual outer diameter is 35 mm, confirmed across four
-# vendor listings. GM3506 is 40 mm. Either forces the drive band and chassis frame smaller:
-#
-#   motor OD 28 -> band 80, frame 60, 8.0:1   (the current design)
-#   motor OD 35 -> band 75, frame 50, 7.5:1
-#   motor OD 40 -> band 70, frame 40, 7.0:1
-#
-# So this value was right by luck, not by design. See ADR 0006's candidate list.
-PITCH_MOTOR_BORE = 28.0
-#: Axial length of the motor body. Confirmed from the SpeedyFPV 2208 listing: 26 mm.
-#: This was never modelled or checked -- only the diameter was. It fits with 46 mm to
-#: spare in the annular pocket, but nothing was verifying that until the real part
-#: was looked up.
-PITCH_MOTOR_LENGTH = 26.0
-PITCH_MOTOR_MASS_G = 39.0
-PITCH_MOTOR_KV = 80.0
-PITCH_MOTOR_BOLT_RADIUS = 14.5  # ASSUMPTION
-PITCH_MOTOR_BOLT_COUNT = 4
+# End cap A (motor end): thicker, because it holds a 5 mm bearing seat around the cup wall
+# with a shoulder under it, and the motor's rotor bolts to its inboard face.
+END_CAP_A_THICKNESS = 8.0       # ASSUMPTION: 5.5 mm seat + 2.5 mm shoulder
+#: Annulus outside the bearing housing: carries only screw loads, so it runs thinner.
+END_CAP_A_HOUSING_WALL = 3.0    # ASSUMPTION: material around the bearing's outer race
+END_CAP_A_SHAFT_BORE = PITCH_MOTOR_HOLLOW_BORE                       # DERIVED
 
 # --------------------------------------------------------------------------- materials
 
@@ -174,21 +188,59 @@ PRINT_DENSITY = ABS_DENSITY     # what the reports assume; ABS is 18% lighter th
                                 # PETG, which is a free lever on rotating inertia
 
 
-# ------------------------------------------------- derived drive geometry (do not edit)
+# ------------------------------------------- derived cup geometry (do not edit)
 
-BELT_TOTAL_THICKNESS = BELT_BACK_THICKNESS + BELT_TOOTH_HEIGHT
+#: The cup wall's OD is the end-A bearing's bore; its ID clears the motor.
+CUP_OD = BEARING_A_ID
+CUP_ID = CUP_OD - 2 * CUP_WALL
+assert CUP_ID >= PITCH_MOTOR_OD + 2 * MOTOR_CUP_RADIAL_CLEARANCE - 1e-9, \
+    "the cup wall would rub the motor body"
 
-#: Radius at which the drive pulley's axis sits, riding on the belt bonded to the band.
-DRIVE_PULLEY_CENTER_RADIUS = (DRIVE_BAND_OD / 2) + BELT_TOTAL_THICKNESS + (DRIVE_PULLEY_OD / 2)
+#: Groove in end cap A's inboard face: the bearing's outer race at its outer edge, the cup
+#: wall plus a running gap at its inner edge, and half a millimetre deeper than the bearing
+#: so the cup tip does not touch the groove floor.
+END_CAP_A_GROOVE_INNER_R = CUP_ID / 2 - RUNNING_CLEARANCE
+END_CAP_A_GROOVE_OUTER_R = BEARING_A_OD / 2
+END_CAP_A_GROOVE_DEPTH = BEARING_A_WIDTH + RUNNING_CLEARANCE
 
-#: Reduction from motor to casing.
-DRIVE_RATIO = DRIVE_BAND_OD / DRIVE_PULLEY_OD
+# --------------------------------------- axial layout, z from casing face A (do not edit)
+#
+# Every station below follows from the parts' own lengths. The first design's layout was a
+# hand-placed PROPOSAL and collided with itself four times as parts changed; deriving it
+# removes that class of bug. End A is the motor end.
 
-#: Radial extent of the pitch motor body, coaxial with the pulley. Both must clear the
-#: casing wall outboard and the chassis frame inboard.
-PITCH_MOTOR_OUTER_RADIUS = DRIVE_PULLEY_CENTER_RADIUS + PITCH_MOTOR_BORE / 2
-PITCH_MOTOR_INNER_RADIUS = DRIVE_PULLEY_CENTER_RADIUS - PITCH_MOTOR_BORE / 2
+Z_END_CAP_A = SHELL_FLANGE_DEPTH                         # cap A seats on the flange: 4
+Z_MOTOR_LO = Z_END_CAP_A + END_CAP_A_THICKNESS           # rotor bell on cap A: 12
+Z_MOTOR_HI = Z_MOTOR_LO + PITCH_MOTOR_LENGTH             # stator base: 38
+Z_CUP_TIP = Z_MOTOR_LO - BEARING_A_WIDTH                 # cup wall fills the bearing: 7
+Z_CUP_FLOOR_HI = Z_MOTOR_HI + CUP_FLOOR_THICKNESS        # 41
+Z_WHEEL_MOTOR_A_LO = Z_CUP_FLOOR_HI                      # 41
+Z_WHEEL_MOTOR_A_HI = Z_WHEEL_MOTOR_A_LO + WHEEL_MOTOR_LENGTH        # 81
+Z_WAIST_LO = Z_WHEEL_MOTOR_A_HI + SPINE_END_WALL         # 83
 
-#: Motor bracket, sized to span the annular pocket without touching either wall.
-MOTOR_BRACKET_RADIAL_SPAN = 32.0
-MOTOR_BRACKET_TANGENTIAL_SPAN = 40.0
+Z_SPINE_END = CASING_LENGTH                              # boss B flush with the shell: 182
+Z_WHEEL_MOTOR_B_HI = Z_SPINE_END                         # shaft exits the boss end
+Z_WHEEL_MOTOR_B_LO = Z_WHEEL_MOTOR_B_HI - WHEEL_MOTOR_LENGTH        # 142
+Z_WAIST_HI = Z_WHEEL_MOTOR_B_LO - SPINE_END_WALL         # 140
+Z_END_CAP_B = CASING_LENGTH - SHELL_FLANGE_DEPTH - END_CAP_THICKNESS   # 172
+#: Boss B reaches inboard of cap B's bearing seat by this much, so it is a boss and not a
+#: lip. ASSUMPTION.
+AXIS_BOSS_INBOARD_OVERHANG = 6.0
+Z_BOSS_B_LO = Z_END_CAP_B - AXIS_BOSS_INBOARD_OVERHANG   # 166
+
+Z_CAMERA = CASING_LENGTH / 2                             # 91
+#: The IMU sits on the waist, clear of the camera mount's axial span. ASSUMPTION within
+#: those limits; the test suite checks both.
+Z_IMU_BRIDGE = 118.0
+#: Trim bosses sit at the casing's balance station, away from the camera (which shares the
+#: 0-degree angle with one boss). ASSUMPTION: anywhere axially over the thick spine works.
+Z_TRIM_BOSSES = 55.0
+
+Z_WHEEL_A = -WHEEL_WIDTH - WHEEL_STANDOFF                # -16
+Z_WHEEL_B = CASING_LENGTH + WHEEL_STANDOFF               # 186
+
+#: Radial position of the camera mount's inner face. Its corners are the first thing to
+#: reach the wall, so solve for the corner touching the bore minus a running gap.
+CAMERA_MOUNT_INNER_RADIUS = (
+    math.sqrt((CASING_ID / 2 - RUNNING_CLEARANCE) ** 2 - (CAMERA_MOUNT_PLATE_TANGENTIAL / 2) ** 2)
+    - CAMERA_MOUNT_PLATE_THICKNESS)

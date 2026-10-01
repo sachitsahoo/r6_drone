@@ -278,6 +278,61 @@ a peripheral-backed implementation in <code>firmware/stm32/</code>, not an
 <code>#ifdef</code> in <code>core</code>.</p>
 </details>
 
+<h2>CAD refactor — 70 &times; 182, direct drive (ADR 0008, ADR 0010)</h2>
+
+<details>
+<summary>The chassis became a spine; the IMU moved off the axis<span class="tag">off-spec</span></summary>
+<p>The task as stated was "delete the belt train, put the motor on the axis, re-run the
+sweep". Placing the motor showed that no casing part can reach the axis while a continuous
+chassis passes every axial station and the casing turns a full relative turn. That
+contradicts ADR 0005 and R2. The owner approved a spine chassis, a hollow-shaft motor at end
+A and an IMU ring at r = 4.75 mm in conversation. Recorded as ADR 0010 (Proposed).</p>
+</details>
+
+<details>
+<summary>The single-pose sweep hid a real collision<span class="tag">bug</span></summary>
+<p>In the first design the IMU bridge crossed r = 35 mm at z = 40, where a chassis standoff
+sat. The sweep never saw it because the standoffs were holes, not rods, and it checked one
+pose. The sweep now checks parts in different rotation groups over a full turn at 5&deg;,
+after an exact (r, z) disjointness test proves most pairs clear. A regression test builds the
+failure case and asserts the sweep catches it.</p>
+</details>
+
+<details>
+<summary>Belt-era tests replaced, not weakened<span class="tag">judgment</span></summary>
+<p>Eight tests described parts that no longer exist: the drive band ratio, the motor's
+annular pocket and trim-boss angle, the pulley-offset motor radius, standoff holes, the
+chassis OD range, disc rotational clearance, and disc boss engagement. Each was replaced
+with its direct-drive equivalent (shaft through hollow bore, motor in cup, bearing races
+supported, clearances over a full turn). The inertia window moved from ADR 0006's ~1e-3 to
+ADR 0008's 0.10&ndash;0.20e-3. The owner's 115&ndash;125 mm chassis OD range has no
+counterpart: there is no chassis disc any more.</p>
+</details>
+
+<details>
+<summary>Axial layout derived instead of hand-placed<span class="tag">design</span></summary>
+<p>The first layout was a list of hand-placed z values that collided with itself four
+times as parts changed. Every station is now computed in <code>parameters.py</code> from
+part lengths, so changing the N20's measured length moves everything downstream.</p>
+</details>
+
+<details>
+<summary>Small fixes found during the rescale<span class="tag">bug</span></summary>
+<p>The trim boss at 0&deg; and the camera mount shared an angle and an axial station, and
+were only clear because the boss passed through the lens hole. The bosses moved to
+z = 55 mm. The camera mount's radius is now solved from its corner, which is what reaches a
+65 mm bore first. <code>bought_parts.py</code> referenced a renamed constant; nothing imports
+it, so no test caught it.</p>
+</details>
+
+<details open>
+<summary>Open — the tangential term dominates the IMU error<span class="tag">question</span></summary>
+<p>In chat I said the IMU's offset only matters during tumbles. That only accounted for the
+centripetal term. The tangential term <code>alpha r</code> at 200 rad/s<sup>2</sup> and
+4.75 mm is about 5.5&deg;, during hard corrections. It can be removed analytically, since
+alpha is the derivative of the gyro rate, but that is an estimator change for the owner.</p>
+</details>
+
 <h2>Open questions</h2>
 
 <details>

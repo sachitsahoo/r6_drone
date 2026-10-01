@@ -18,7 +18,7 @@ Some measurements unblock design decisions; most just improve accuracy. The ones
 
 | Measure | Goes to | Why it gates |
 |---|---|---|
-| **Pitch motor outer diameter** | `PITCH_MOTOR_BORE` | Must be under **31.7 mm** or the drive band and chassis frame both shrink. A mislabelled 2804-class part is 35 mm. This is the single riskiest number. |
+| **Pitch motor hollow bore + OD** | `PITCH_MOTOR_HOLLOW_BORE`, `PITCH_MOTOR_OD` | The bore must pass wheel A's 3 mm shaft with clearance (ADR 0010) -- a solid-shaft motor makes the layout impossible. OD sets the cup, and the cup's OD is the end-A bearing's bore. A 2804-class part is 35 mm. Single riskiest part to buy. |
 | **Printed shell mass** | reported by `cad/build.py` | The shell is ~73% of the rotating inertia. Every torque figure in `docs/theory/` is an estimate until this is weighed. |
 | **Casing CoM offset + pendulum period** | `docs/theory/` | Inverting `f = sqrt(mgd/I)/2pi` converts the whole torque budget from estimate to measurement. Use the R8 datum hole. **ADR 0006 cannot be Accepted without this.** |
 | **Camera horizontal FOV + resolution** | ADR 0006 finding 3 | The backlash-to-pixels figure (1 deg ~ 21 px) assumes ~90 deg across 1920 px. If the Wide module is meaningfully different, the argument that disqualifies a geared actuator changes size. |
@@ -27,22 +27,20 @@ Some measurements unblock design decisions; most just improve accuracy. The ones
 
 ## Mechanical
 
-- [ ] Pitch motor: OD, length, mass, **mounting bolt circle radius and count**
-      -> `PITCH_MOTOR_BORE`, `PITCH_MOTOR_LENGTH`, `PITCH_MOTOR_BOLT_RADIUS`,
-      `PITCH_MOTOR_BOLT_COUNT`. The bolt pattern is a pure guess right now (4 at r=14.5).
-- [ ] Pitch motor shaft: diameter and usable length -> sets how the pulley mounts
+- [ ] Pitch motor: OD, length, mass, hollow bore, **both bolt circles (rotor bell and
+      stator base) and their counts** -> `PITCH_MOTOR_OD`, `PITCH_MOTOR_LENGTH`,
+      `PITCH_MOTOR_HOLLOW_BORE`, `PITCH_MOTOR_ROTOR_BOLT_RADIUS`,
+      `PITCH_MOTOR_STATOR_BOLT_RADIUS`, `PITCH_MOTOR_BOLT_COUNT`. Both patterns are guesses.
 - [ ] N20 gearmotors: body diameter, **total length including gearbox**, shaft diameter and
-      length, mass -> `AXIS_BOSS_BORE`, `bought_parts.wheel_motor_*`. Gearbox length varies
-      enormously with ratio and drives the whole axis stack.
-- [ ] Bearings: confirm OD / ID / width against 6704ZZ (20 x 27 x 4)
-      -> `BEARING_OD`, `BEARING_ID`, `BEARING_WIDTH`, and `AXIS_BOSS_OD` follows
-- [ ] GT2 belt: pitch, width, total thickness, tooth height
-      -> `BELT_WIDTH`, `BELT_BACK_THICKNESS`, `BELT_TOOTH_HEIGHT`. These feed
-      `DRIVE_PULLEY_CENTER_RADIUS`, so they move the motor position.
-- [ ] Drive pulley: OD (pitch diameter, not flange), bore -> `DRIVE_PULLEY_OD`, and the
-      ratio follows
-- [ ] Slip ring: OD, length, circuit count, per-circuit current rating
-      -> `SLIP_RING_ENVELOPE_*`. Current rating matters if the battery ends up in the chassis.
+      length, mass -> `WHEEL_MOTOR_OD`, `WHEEL_MOTOR_LENGTH`, `SPINE_BORE`. Gearbox length
+      varies enormously with ratio and sets every axial station at both ends of the spine.
+- [ ] Bearings: confirm 6704ZZ (20 x 27 x 4) at end B and 61807 (35 x 44 x 5) at end A
+      -> `BEARING_*`, `BEARING_A_*`. The cup wall and boss follow.
+- [ ] Spine waist rod: OD and material -> `SPINE_WAIST_OD`. It sets the IMU's radial
+      offset directly (`IMU_RADIAL_OFFSET`), so thinner is better until it bends.
+- [ ] Wheel A shaft extension and coupler: diameter, length (~55 mm needed)
+- [ ] Slip ring, only if ADR 0009's wire loop is rejected: OD, length, circuit count, and
+      **friction torque** -> `SLIP_RING_ENVELOPE_*`. Datasheet drag exceeds the budget.
 
 ## Electronics
 

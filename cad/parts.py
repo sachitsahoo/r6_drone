@@ -1,12 +1,16 @@
 """Parametric solids for the Recon UGV mechanical parts.
 
 Every dimension comes from parameters.py; there are no literals here beyond counts and
-trivial fractions. Eight parts, built from four shape types -- tube, disc, flat plate,
-cylinder -- exactly as docs/mechanical-requirements.md describes.
+trivial fractions. Seven parts, built from four shape types -- tube, disc, flat plate,
+solid of revolution.
+
+Direct drive (ADR 0008) deleted four parts from the first design: the drive band, the
+pulley, the belt tensioner slots and the motor bracket. The chassis discs and standoffs went
+too, replaced by a single spine on the axis (ADR 0010).
 
 This is a STARTING POINT, not a finished design. Several dimensions in parameters.py are
-tagged ASSUMPTION because the design needed a number and no analysis supplies one; the
-wheel hub interface in particular is a placeholder. Read that file before printing anything.
+tagged ASSUMPTION because the design needed a number and no analysis supplies one. Read that
+file before printing anything.
 
 Run `python3 cad/build.py` to export STEP and STL and print mass properties.
 """
@@ -29,25 +33,35 @@ def _ring_points(radius: float, count: int, phase_deg: float = 0.0) -> list[tupl
     ]
 
 
+def _revolve_profile(points_rz: list[tuple[float, float]]) -> cq.Workplane:
+    """Solid of revolution about Z from a closed (radius, z) outline.
+
+    On the XZ workplane local x is global X and local y is global Z, so the outline is drawn
+    in (r, z) directly and revolved about the local y axis, which is the global Z axis.
+    """
+    return (cq.Workplane("XZ").polyline(points_rz).close()
+            .revolve(360.0, (0, 0, 0), (0, 1, 0)))
+
+
 # --------------------------------------------------------------------------- part 1
 
 def casing_shell() -> cq.Workplane:
     """The rotating outer casing: a tube, plus an aperture and mounting features.
 
     Shape: cylinder minus cylinder. Features: camera aperture, internal end flanges for
-    the end cap screws, trim mass bosses (R4), and the pendulum datum hole (R8).
+    the end cap screws, and trim mass bosses (R4).
     """
     r_out = P.CASING_OD / 2
     r_in = P.CASING_ID / 2
     length = P.CASING_LENGTH
+    flange_depth = P.SHELL_FLANGE_DEPTH
 
     shell = cq.Workplane("XY").circle(r_out).circle(r_in).extrude(length)
 
-    # Internal flanges at both ends: the 3 mm wall is too thin for axial tapped holes, so
+    # Internal flanges at both ends: the wall is too thin for axial tapped holes, so
     # thicken it locally rather than thickening the whole shell (which would cost inertia
     # at the largest radius -- see R6).
-    flange_depth = 4.0
-    flange_r_in = r_in - 4.5
+    flange_r_in = r_in - P.SHELL_FLANGE_RADIAL
     for z in (0.0, length - flange_depth):
         flange = (cq.Workplane("XY", origin=(0, 0, z))
                   .circle(r_in).circle(flange_r_in).extrude(flange_depth))
@@ -61,28 +75,25 @@ def casing_shell() -> cq.Workplane:
                  .extrude(direction * flange_depth))
         shell = shell.cut(holes)
 
-    # Camera aperture, cut radially through the wall at mid-length.
-    aperture = (cq.Workplane("YZ", origin=(0, 0, length / 2))
+    # Camera aperture, cut radially through the wall at the camera station.
+    aperture = (cq.Workplane("YZ", origin=(0, 0, P.Z_CAMERA))
                 .rect(P.CAMERA_APERTURE_WIDTH, P.CAMERA_APERTURE_HEIGHT)
                 .extrude(r_out + 1.0))
     shell = shell.cut(aperture)
 
     # Trim mass bosses (R4): radial pads on the inner wall with tapped holes, so the
     # balanced-vs-bottom-heavy decision stays open after assembly.
-    # A YZ workplane extrudes along +X from wherever its origin sits, so starting at x=0
-    # and extruding by r_in produced a solid ROD from the rotation axis out to the wall --
-    # six of them, 5530 mm^3 of material in what is supposed to be a hollow tube, with the
-    # tap drilled clean through the impact surface. Start the plane just inside the wall
-    # instead, and keep the tap blind so nothing pierces the shell.
-    boss_z = length / 2
+    # A YZ workplane extrudes along +X from wherever its origin sits, so the plane starts
+    # just inside the wall -- starting at x=0 once produced six solid rods across the bore.
+    # The tap stays blind so nothing pierces the impact surface.
     boss_x0 = r_in - P.TRIM_BOSS_HEIGHT
     for x, y in _ring_points(1.0, P.TRIM_BOSS_COUNT):          # unit vector per position
         angle = math.degrees(math.atan2(y, x))
-        pad = (cq.Workplane("YZ", origin=(boss_x0, 0, boss_z))
+        pad = (cq.Workplane("YZ", origin=(boss_x0, 0, P.Z_TRIM_BOSSES))
                .circle(P.TRIM_BOSS_OD / 2)
                .extrude(P.TRIM_BOSS_HEIGHT)
                .rotate((0, 0, 0), (0, 0, 1), angle))
-        tap = (cq.Workplane("YZ", origin=(boss_x0, 0, boss_z))
+        tap = (cq.Workplane("YZ", origin=(boss_x0, 0, P.Z_TRIM_BOSSES))
                .circle(P.M3_TAP / 2)
                .extrude(P.TRIM_BOSS_HEIGHT - 1.0)      # blind: does not reach the wall
                .rotate((0, 0, 0), (0, 0, 1), angle))
@@ -93,18 +104,57 @@ def casing_shell() -> cq.Workplane:
 
 # --------------------------------------------------------------------------- part 2
 
-def casing_end_cap(with_datum: bool = False) -> cq.Workplane:
-    """Rim, hub and spokes, stepped in thickness. Two needed.
+def casing_end_cap_a() -> cq.Workplane:
+    """The motor-end cap: the pitch motor's rotor bolts to it, and it rides on the cup.
 
-    Shape: disc. Features: bearing seat in the hub, screw holes matching the shell's
-    flanges, and on one cap the pendulum datum hole (R8).
+    Shape: disc, stepped. z = 0 is the outboard face, which seats against the shell flange.
+    Features: an annular groove in the inboard face holding the 61807 bearing's outer race
+    (the cup wall enters the groove and carries the inner race), the rotor bolt circle, and
+    a centre bore that wheel A's shaft passes through.
 
-    Built as rim + hub + spokes because a solid 130 mm disc weighs 63 g, and it sits at the
-    largest radius in the rotating assembly -- the worst place in the machine to put mass.
+    This is where the motor's torque enters the casing, so the hub inside the groove is the
+    torque path: rotor bell -> bolts -> hub -> shoulder under the groove -> rim -> shell.
+    """
+    r_out = P.CASING_ID / 2
+    t = P.END_CAP_A_THICKNESS
+    rim_t = P.END_CAP_RIM_THICKNESS
+    housing_r = P.END_CAP_A_GROOVE_OUTER_R + P.END_CAP_A_HOUSING_WALL
 
-    Stepped because the 6 mm thickness is needed *only* at the hub, where the bearing needs
-    a 4 mm seat plus a shoulder. The rim and spokes carry screw loads and nothing else, so
-    they run at 4 mm. Carrying 6 mm out to r=65 cost about 7 g per cap at maximum radius.
+    rim = cq.Workplane("XY").circle(r_out).circle(housing_r).extrude(rim_t)
+    body = cq.Workplane("XY").circle(housing_r).extrude(t)
+    cap = rim.union(body)
+
+    cap = cap.cut(
+        cq.Workplane("XY", origin=(0, 0, t - P.END_CAP_A_GROOVE_DEPTH))
+        .circle(P.END_CAP_A_GROOVE_OUTER_R).circle(P.END_CAP_A_GROOVE_INNER_R)
+        .extrude(P.END_CAP_A_GROOVE_DEPTH))
+
+    cap = cap.cut(cq.Workplane("XY").circle(P.END_CAP_A_SHAFT_BORE / 2).extrude(t))
+
+    cap = cap.cut(
+        cq.Workplane("XY")
+        .pushPoints(_ring_points(P.PITCH_MOTOR_ROTOR_BOLT_RADIUS, P.PITCH_MOTOR_BOLT_COUNT,
+                                 phase_deg=45.0))
+        .circle(P.M2_CLEARANCE / 2).extrude(t))
+
+    cap = cap.cut(
+        cq.Workplane("XY")
+        .pushPoints(_ring_points(P.END_CAP_SCREW_RADIUS, P.END_CAP_SCREW_COUNT))
+        .circle(P.M3_CLEARANCE / 2).extrude(rim_t))
+    return cap
+
+
+# --------------------------------------------------------------------------- part 3
+
+def casing_end_cap_b() -> cq.Workplane:
+    """The plain end cap: rim, hub and spokes, stepped in thickness, with the pendulum datum.
+
+    Shape: disc. Features: bearing seat in the hub for the 6704 riding on the spine's boss,
+    screw holes matching the shell's flanges, and the pendulum datum hole (R8).
+
+    Built as rim + hub + spokes because mass at the cap's outer radius is the most expensive
+    mass in the rotating assembly. Stepped because the full thickness is needed only where
+    the bearing seats; the rim and spokes carry screw loads and nothing else.
     """
     r_out = P.CASING_ID / 2
     hub_t = P.END_CAP_THICKNESS
@@ -132,7 +182,7 @@ def casing_end_cap(with_datum: bool = False) -> cq.Workplane:
     cap = cap.cut(
         cq.Workplane("XY", origin=(0, 0, hub_t - P.BEARING_WIDTH))
         .circle(P.BEARING_OD / 2).extrude(P.BEARING_WIDTH))
-    # Clearance bore for the chassis boss, through the remaining shoulder.
+    # Clearance bore for the spine's boss, through the remaining shoulder.
     cap = cap.cut(
         cq.Workplane("XY").circle(P.END_CAP_BOSS_CLEARANCE_BORE / 2).extrude(hub_t))
 
@@ -141,132 +191,81 @@ def casing_end_cap(with_datum: bool = False) -> cq.Workplane:
         .pushPoints(_ring_points(P.END_CAP_SCREW_RADIUS, P.END_CAP_SCREW_COUNT))
         .circle(P.M3_CLEARANCE / 2).extrude(rim_t))
 
-    if with_datum:
-        cap = cap.cut(
-            cq.Workplane("XY")
-            .pushPoints([(P.PENDULUM_DATUM_RADIUS, 0.0)])
-            .circle(P.PENDULUM_DATUM_DIA / 2).extrude(rim_t))
+    cap = cap.cut(
+        cq.Workplane("XY")
+        .pushPoints(_ring_points(P.PENDULUM_DATUM_RADIUS, 1, P.PENDULUM_DATUM_ANGLE_DEG))
+        .circle(P.PENDULUM_DATUM_DIA / 2).extrude(rim_t))
     return cap
-
-
-# --------------------------------------------------------------------------- part 3
-
-def chassis_disc() -> cq.Workplane:
-    """Rim, hub and spokes, with a central boss the casing bearing rides on. Two needed.
-
-    Shape: disc. Spokes are aligned with the standoff positions so the fixing holes land in
-    material. Mass here is off the rotating assembly, so it costs vehicle mass rather than
-    inertia -- but the first build had two of these at 111 g, which the budget cannot afford.
-    """
-    r_out = P.CHASSIS_OD / 2
-    thickness = P.CHASSIS_DISC_THICKNESS
-    rim_inner = r_out - 6.0
-    hub_outer = P.AXIS_BOSS_OD / 2 + 4.0
-    spoke_width = 13.0
-
-    rim = cq.Workplane("XY").circle(r_out).circle(rim_inner).extrude(thickness)
-    hub = cq.Workplane("XY").circle(hub_outer).extrude(thickness)
-
-    spokes = cq.Workplane("XY")
-    for x, y in _ring_points(1.0, P.STANDOFF_COUNT):
-        angle = math.degrees(math.atan2(y, x))
-        spokes = spokes.union(
-            cq.Workplane("XY").rect(r_out * 2, spoke_width).extrude(thickness)
-            .rotate((0, 0, 0), (0, 0, 1), angle))
-    spokes = spokes.intersect(cq.Workplane("XY").circle(rim_inner).extrude(thickness))
-
-    disc = rim.union(hub).union(spokes)
-
-    boss = (cq.Workplane("XY", origin=(0, 0, thickness))
-            .circle(P.AXIS_BOSS_OD / 2).extrude(P.AXIS_BOSS_LENGTH))
-    disc = disc.union(boss)
-    disc = disc.faces(">Z").workplane().circle(P.AXIS_BOSS_BORE / 2).cutThruAll()
-
-    disc = (disc.faces("<Z").workplane()
-            .pushPoints(_ring_points(P.STANDOFF_RADIUS, P.STANDOFF_COUNT))
-            .circle(P.M3_CLEARANCE / 2).cutThruAll())
-    return disc
 
 
 # --------------------------------------------------------------------------- part 4
 
-def chassis_drive_band() -> cq.Workplane:
-    """Short tube at the reduced drive diameter; the GT2 belt bonds onto its outside (R1).
+def chassis_spine() -> cq.Workplane:
+    """The whole chassis: one solid of revolution on the axis, built in casing coordinates.
 
-    Shape: short tube. No teeth: a length of timing belt bonded teeth-outward *is* the
-    toothed rack, which removes the only difficult geometry in the design.
+    Unlike the other parts this is built at its assembled z (casing face A = 0), because
+    every one of its stations is defined in that frame in parameters.py. From end A:
+
+      cup wall    carries the 61807's inner race, and surrounds the pitch motor
+      cup floor   the motor's stator bolts here; its bore lets wheel motor A in
+      pocket A    wheel motor A, shaft outboard through the pitch motor's hollow bore
+      waist       a 5 mm rod; the IMU ring sits around it (ADR 0010)
+      pocket B    wheel motor B, shaft outboard through the boss
+      boss B      carries cap B's 6704
+
+    Why a spine at all (ADR 0010): the casing turns all the way round relative to the
+    chassis, so every chassis feature sweeps a full ring. Anything the chassis has at
+    radius r, at axial station z, forbids casing contents at that r and z. A spine keeps
+    the chassis at the smallest radius possible and leaves the annulus to the casing.
+
+    NOT a printable part as drawn. In reality it is two printed ends joined by a bought rod
+    at the waist; it is one solid here because the interference sweep only cares about the
+    space it occupies.
     """
-    r_out = P.DRIVE_BAND_OD / 2
-    width = P.DRIVE_BAND_WIDTH
+    r_cup_o, r_cup_i = P.CUP_OD / 2, P.CUP_ID / 2
+    r_tube, r_bore = P.SPINE_OD / 2, P.SPINE_BORE / 2
+    r_waist = P.SPINE_WAIST_OD / 2
+    r_boss = P.AXIS_BOSS_OD / 2
 
-    band = (cq.Workplane("XY")
-            .circle(r_out).circle(P.CHASSIS_FRAME_OD / 2)
-            .extrude(width))
+    outline = [
+        (r_cup_i, P.Z_CUP_TIP),
+        (r_cup_o, P.Z_CUP_TIP),
+        (r_cup_o, P.Z_CUP_FLOOR_HI),
+        (r_tube, P.Z_CUP_FLOOR_HI),
+        (r_tube, P.Z_WAIST_LO),
+        (r_waist, P.Z_WAIST_LO),
+        (r_waist, P.Z_WAIST_HI),
+        (r_tube, P.Z_WAIST_HI),
+        (r_tube, P.Z_BOSS_B_LO),
+        (r_boss, P.Z_BOSS_B_LO),
+        (r_boss, P.Z_SPINE_END),
+        (r_bore, P.Z_SPINE_END),
+        (r_bore, P.Z_WHEEL_MOTOR_B_LO),
+        (0.0, P.Z_WHEEL_MOTOR_B_LO),
+        (0.0, P.Z_WHEEL_MOTOR_A_HI),
+        (r_bore, P.Z_WHEEL_MOTOR_A_HI),
+        (r_bore, P.Z_MOTOR_HI),
+        (r_cup_i, P.Z_MOTOR_HI),
+    ]
+    spine = _revolve_profile(outline)
 
-    # Shallow channel to locate the bonded belt axially and stop it walking off.
-    channel_depth = 0.6
-    band = band.cut(
-        cq.Workplane("XY", origin=(0, 0, (width - P.BELT_WIDTH) / 2))
-        .circle(r_out).circle(r_out - channel_depth)
-        .extrude(P.BELT_WIDTH))
-
-    band = (band.faces(">Z").workplane()
-            .pushPoints(_ring_points(P.STANDOFF_RADIUS, P.STANDOFF_COUNT))
-            .circle(P.M3_CLEARANCE / 2).cutThruAll())
-
-    return band
+    stator_bolts = (
+        cq.Workplane("XY", origin=(0, 0, P.Z_MOTOR_HI))
+        .pushPoints(_ring_points(P.PITCH_MOTOR_STATOR_BOLT_RADIUS, P.PITCH_MOTOR_BOLT_COUNT,
+                                 phase_deg=45.0))
+        .circle(P.M2_CLEARANCE / 2).extrude(P.CUP_FLOOR_THICKNESS))
+    return spine.cut(stator_bolts)
 
 
 # --------------------------------------------------------------------------- part 5
 
-def pitch_motor_bracket() -> cq.Workplane:
-    """Flat plate holding the pitch motor in the casing, pulley reaching the drive band.
-
-    Shape: flat plate. Features: motor bore, motor bolt circle, mounting slots for belt
-    tension adjustment.
-    """
-    plate_l = P.MOTOR_BRACKET_RADIAL_SPAN
-    plate_w = P.MOTOR_BRACKET_TANGENTIAL_SPAN
-    t = P.MOTOR_BRACKET_THICKNESS
-
-    plate = cq.Workplane("XY").rect(plate_l, plate_w).extrude(t)
-    plate = plate.edges("|Z").fillet(4.0)
-
-    plate = plate.faces(">Z").workplane().circle(P.PITCH_MOTOR_BORE / 2).cutThruAll()
-    plate = (plate.faces(">Z").workplane()
-             .pushPoints(_ring_points(P.PITCH_MOTOR_BOLT_RADIUS, P.PITCH_MOTOR_BOLT_COUNT,
-                                      phase_deg=45.0))
-             .circle(P.M2_CLEARANCE / 2).cutThruAll())
-
-    # Trim to the casing's inner curve and the chassis frame's outer curve. A plain
-    # rectangle at this radius has CORNERS that poke through the shell even when its flat
-    # faces clear it -- the first assembly check caught exactly that. The part stays
-    # centred on its own origin; the trim cylinders are offset by the pulley radius.
-    outer_trim = (cq.Workplane("XY", origin=(-P.DRIVE_PULLEY_CENTER_RADIUS, 0, 0))
-                  .circle(P.CASING_ID / 2 - 1.0).extrude(t))
-    plate = plate.intersect(outer_trim)
-
-    inner_trim = (cq.Workplane("XY", origin=(-P.DRIVE_PULLEY_CENTER_RADIUS, 0, 0))
-                  .circle(P.CHASSIS_FRAME_OD / 2 + 1.0).extrude(t))
-    plate = plate.cut(inner_trim)
-
-    # Slots, not holes: belt tension needs adjustment (ADR 0006).
-    for x in (-plate_l / 2 + 4.0, plate_l / 2 - 4.0):
-        slot = (cq.Workplane("XY", origin=(x, 0, 0))
-                .slot2D(10.0, P.M3_CLEARANCE, 90.0).extrude(t))
-        plate = plate.cut(slot)
-
-    return plate
-
-
-# --------------------------------------------------------------------------- part 6
-
 def imu_bridge() -> cq.Workplane:
-    """Flat strip reaching from the casing wall to the rotation centreline (R2).
+    """Flat strip from the casing wall to a pad that rings the spine's waist (R2).
 
-    Shape: flat strip. The IMU must sit within ~3 mm radially of the axis: a 30 mm offset
-    corrupts the gravity reference by 17 degrees at only 10 rad/s. The constraint is radial
-    only, so this reaches the centreline at an axial station clear of the hub.
+    Shape: flat strip. The IMU wants to be on the rotation axis -- an accelerometer offset
+    radially sees centripetal acceleration it cannot tell from gravity -- but the chassis
+    spine occupies the axis at every station (ADR 0010). So the pad has a hole the waist
+    passes through, and the IMU sits at the hole's edge, IMU_RADIAL_OFFSET from the axis.
     """
     reach = P.CASING_ID / 2 - 2.0
     t = P.IMU_BRIDGE_THICKNESS
@@ -282,7 +281,9 @@ def imu_bridge() -> cq.Workplane:
            .rect(P.IMU_PAD_SIZE, P.IMU_PAD_SIZE).extrude(t))
     bridge = arm.union(pad)
 
-    # IMU screws straddling the axis, so the sensor body sits centred on it.
+    bridge = bridge.cut(cq.Workplane("XY").circle(P.IMU_PAD_HOLE_DIA / 2).extrude(t))
+
+    # Breakout screws straddling the axis.
     offset = P.IMU_PAD_SIZE / 2 - 3.0
     bridge = (bridge.faces(">Z").workplane()
               .pushPoints([(-offset, -offset), (offset, offset)])
@@ -296,15 +297,17 @@ def imu_bridge() -> cq.Workplane:
     return bridge
 
 
-# --------------------------------------------------------------------------- part 7
+# --------------------------------------------------------------------------- part 6
 
 def camera_mount() -> cq.Workplane:
     """Flat plate carrying the camera module behind the shell aperture.
 
-    Shape: flat plate. Features: four module screw holes, a lens clearance hole.
+    Shape: flat plate. Features: four module screw holes, a lens clearance hole. Built
+    flat; the assembly stands it up against the wall with its axial side along Z.
     """
     t = P.CAMERA_MOUNT_PLATE_THICKNESS
-    plate = cq.Workplane("XY").rect(30.0, 26.0).extrude(t)
+    plate = (cq.Workplane("XY")
+             .rect(P.CAMERA_MOUNT_PLATE_AXIAL, P.CAMERA_MOUNT_PLATE_TANGENTIAL).extrude(t))
     plate = plate.edges("|Z").fillet(3.0)
 
     holes = [(x, y)
@@ -313,24 +316,22 @@ def camera_mount() -> cq.Workplane:
     plate = (plate.faces(">Z").workplane().pushPoints(holes)
              .circle(P.CAMERA_MOUNT_HOLE_DIA / 2).cutThruAll())
 
-    plate = plate.faces(">Z").workplane().circle(5.0).cutThruAll()
+    plate = plate.faces(">Z").workplane().circle(P.CAMERA_LENS_HOLE_DIA / 2).cutThruAll()
     return plate
 
 
-# --------------------------------------------------------------------------- part 8
+# --------------------------------------------------------------------------- part 7
 
 def wheel() -> cq.Workplane:
     """Rim, hub and a thin spoke web, with an O-ring tread groove. Two needed.
 
     Shape: cylinder. The O-ring is the tread (R7 trick): no tread pattern to model, and it
-    is replaceable when it wears.
+    is replaceable when it wears. Built as a thin rim carrying the tread, a small hub, and a
+    recessed web between them, because a near-solid wheel was once close to half the
+    vehicle's mass budget.
 
-    A near-solid 150 mm wheel weighs 160 g, and the first mass build had two of them at
-    321 g -- by itself close to half the entire vehicle budget. Built as a thin rim carrying
-    the tread, a small hub, and a recessed web between them.
-
-    NOTE: WHEEL_OD is an ASSUMPTION. It must exceed CASING_OD or the casing drags; ground
-    clearance is (WHEEL_OD - CASING_OD) / 2, currently 7.5 mm.
+    WHEEL_OD must exceed CASING_OD or the casing drags; ground clearance is
+    (WHEEL_OD - CASING_OD) / 2.
     """
     r_out = P.WHEEL_OD / 2
     width = P.WHEEL_WIDTH
@@ -368,12 +369,10 @@ def wheel() -> cq.Workplane:
 
 ALL_PARTS = {
     "01_casing_shell": casing_shell,
-    "02_casing_end_cap": lambda: casing_end_cap(with_datum=False),
-    "02b_casing_end_cap_with_datum": lambda: casing_end_cap(with_datum=True),
-    "03_chassis_disc": chassis_disc,
-    "04_chassis_drive_band": chassis_drive_band,
-    "05_pitch_motor_bracket": pitch_motor_bracket,
-    "06_imu_bridge": imu_bridge,
-    "07_camera_mount": camera_mount,
-    "08_wheel": wheel,
+    "02_casing_end_cap_a": casing_end_cap_a,
+    "03_casing_end_cap_b": casing_end_cap_b,
+    "04_chassis_spine": chassis_spine,
+    "05_imu_bridge": imu_bridge,
+    "06_camera_mount": camera_mount,
+    "07_wheel": wheel,
 }

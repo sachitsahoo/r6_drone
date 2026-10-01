@@ -1,6 +1,8 @@
 # 0005 — IMU on the rotating casing
 
-- **Status:** Accepted (2026-09-30)
+- **Status:** Accepted (2026-09-30). **Mounting geometry amended by
+  [0010](0010-direct-drive-axial-layout.md)**: on-axis placement is impossible with a
+  continuous chassis; the IMU sits 4.75 mm off the axis, around the spine's waist.
 - **Related:** [0004](0004-pitch-axis-architecture.md) (the casing rotates about the wheel axis)
 
 ## Context
@@ -119,8 +121,10 @@ tangential term is comparable: an aggressive 200 rad/s^2 correction at 15 mm pro
 
 Two mitigations, and they are not exclusive:
 
-1. **Mechanical**: mount the IMU as close to the wheel axis as the packaging allows. Every
-   millimetre removed is a quadratic reduction in the centripetal term.
+1. **Mechanical**: mount the IMU as close to the wheel axis as the packaging allows. Both
+   terms are linear in the offset (quadratic only in rate), so halving the offset halves
+   the error. *(Corrected 2026-09-30: this previously said "quadratic". And "on the axis"
+   is not reachable at all — see ADR 0010.)*
 2. **Analytical**: subtract the known kinematic terms using the measured offset, rate, and
    angular acceleration. This requires the offset to be *measured*, which belongs in
    `docs/bringup/`, and it is part of the estimator design, which is owner-reviewed.

@@ -33,29 +33,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import parameters as P
 import parts
 
-# Which parts rotate with the casing. This is what the pitch actuator has to accelerate,
-# and therefore what ADR 0006's torque budget is about.
+# Which parts rotate with the casing. This is what the pitch motor has to accelerate
+# directly -- with no reduction there is no n^2 cushion (ADR 0008) -- and therefore what
+# the 22.5 mN m torque budget is about.
 ROTATING = {
     "01_casing_shell": 1,
-    "02_casing_end_cap": 1,
-    "02b_casing_end_cap_with_datum": 1,
-    "05_pitch_motor_bracket": 1,
-    "06_imu_bridge": 1,
-    "07_camera_mount": 1,
+    "02_casing_end_cap_a": 1,
+    "03_casing_end_cap_b": 1,
+    "05_imu_bridge": 1,
+    "06_camera_mount": 1,
 }
 
-# Everything printed, with quantities, for the vehicle mass budget.
+# Everything printed, with quantities, for the vehicle mass budget. The spine is counted
+# as if printed solid; in reality its waist is a bought rod (see parts.chassis_spine).
 QUANTITIES = {
     "01_casing_shell": 1,
-    "02_casing_end_cap": 1,
-    "02b_casing_end_cap_with_datum": 1,
-    "03_chassis_disc": 2,
-    "04_chassis_drive_band": 1,
-    "05_pitch_motor_bracket": 1,
-    "06_imu_bridge": 1,
-    "07_camera_mount": 1,
-    "08_wheel": 2,
+    "02_casing_end_cap_a": 1,
+    "03_casing_end_cap_b": 1,
+    "04_chassis_spine": 1,
+    "05_imu_bridge": 1,
+    "06_camera_mount": 1,
+    "07_wheel": 2,
 }
+
+#: ADR 0008's figure for the 70 x 182 casing, computed before this geometry existed.
+ADR_0008_INERTIA_KG_M2 = 0.133e-3
 
 
 def volume_mm3(shape: cq.Shape) -> float:
@@ -129,12 +131,15 @@ def main(argv: list[str]) -> int:
     print(f"  {'TOTAL':<34}{rot_mass:>8.1f} g   I = {rot_inertia * 1e3:>7.3f} e-3 kg m^2")
     print()
 
-    print("=== versus the estimate in docs/theory/pitch-axis-inertia-and-torque.md ===")
-    print(f"  estimated: 174 g / 0.647e-3 (light) to 370 g / 1.534e-3 (heavy) kg m^2")
-    print(f"  measured from geometry: {rot_mass:.0f} g / {rot_inertia * 1e3:.3f}e-3 kg m^2")
+    print("=== versus ADR 0008 ===")
+    print(f"  ADR 0008 (70 x 182): {ADR_0008_INERTIA_KG_M2 * 1e3:.3f}e-3 kg m^2")
+    print(f"  from this geometry:  {rot_inertia * 1e3:.3f}e-3 kg m^2 "
+          f"({rot_inertia / ADR_0008_INERTIA_KG_M2:.2f}x)")
     print()
-    print("  Note: the pitch motor itself is not modelled and rides in the casing (R3).")
-    print("  Add its contribution before trusting the torque budget.")
+    print("  Plastic only. NOT included: the pitch motor's rotor bell, the camera, Pi, MCU,")
+    print("  battery or anything else the casing carries. The motor's rotor is coaxial and")
+    print("  small (r <= 14 mm), so it adds little; the electronics sit near the wall and")
+    print("  will add a lot. The torque budget is not trustworthy until they are included.")
     return 0
 
 
