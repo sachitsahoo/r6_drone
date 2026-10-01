@@ -3,8 +3,9 @@
 Phase 1: repo skeleton, build system, CI, protocol schema and codec, minimal simulator.
 Plan written 2026-09-30. Spec of record: ../CLAUDE.md
 
-**Slices 1–4 complete and verified 2026-09-30.** The `firmware/hal/` interfaces were approved
-and implemented 2026-10-01, which unblocks slice 5 (simulator), the last Phase 1 item.
+**Slices 1–5 complete.** 1–4 verified 2026-09-30; the `firmware/hal/` interfaces were
+approved and implemented 2026-10-01; slice 5 (minimal simulator) landed 2026-10-01. Phase 1
+is done once CI confirms it.
 
 **Safety design inputs already decided by the owner** (for the state machine proposal):
 wheels coast on comms timeout, escalating to brake if the link stays down long enough
@@ -107,12 +108,45 @@ Write a design proposal before any code. Must cover:
 
 ## 5. Minimal simulator  [proceed directly, after 4]
 
-- [ ] 5.1 Simulated HAL implementations behind `firmware/hal/` interfaces (interfaces done; fakes in `tests/cpp/hal_fakes.hpp`)
-- [ ] 5.2 Placeholder plant model — enough to close a loop, no real dynamics yet.
+- [x] 5.1 Simulated HAL implementations behind `firmware/hal/` interfaces (interfaces done; fakes in `tests/cpp/hal_fakes.hpp`)
+- [x] 5.2 Placeholder plant model — enough to close a loop, no real dynamics yet.
       Real parameters come from system identification on hardware, much later.
-- [ ] 5.3 First SIL test: core runs against simulated HAL, frames round-trip through the codec
+- [x] 5.3 First SIL test: core runs against simulated HAL, frames round-trip through the codec
 
 **Done when:** a SIL test passes in CI with no hardware attached.
+
+**Done locally 2026-10-01:** 102 C++ tests (28 new: 25 sim unit + 3 SIL), 203 Python, purity
+guard and STM32 build all green. CI confirmation pending on push. Loop closing deferred to
+the first approved controller (see implementation-notes.html, slice 5).
+
+### Slice 5 plan (written 2026-10-01)
+
+Goal: a host-only `recon_sim` library that implements every `firmware/hal/` interface
+against virtual time and a placeholder plant, plus SIL tests that push real `core` code
+(the frame codec) through it. **No control law**: velocity PID, FOC, estimation and the
+safety machine are owner-reviewed and unapproved, so nothing here closes a feedback loop.
+"Close a loop" in 5.2 is therefore deferred to the first approved controller; the plant
+is tested open-loop against its own analytic response.
+
+- `sim/sim/sim_clock.hpp` — virtual `Clock`, advanced only by the test (wraps at 2^32).
+- `sim/sim/sim_serial_link.{hpp,cpp}` — two `SerialPort` endpoints joined by a byte pipe
+  rate-limited to 460 800 baud (docs/bringup/uart-link.md), fixed TX/RX buffers, RX
+  overflow counted like a UART, seeded deterministic bit-error injection.
+- `sim/sim/wheel_plant.{hpp,cpp}` — first-order duty -> wheel speed, exact discretisation,
+  coast/brake decay, encoder counts with 2^32 wrap. `SimWheelMotor` clamps and applies an
+  output limit per the interface contract. All constants are placeholders (gear ratio not
+  chosen; no system ID), passed in, never hard-coded in core.
+- `sim/sim/static_sensors.hpp` — IMU (level, still), absolute encoder, power monitor,
+  pitch stage: settable constant samples. No pitch dynamics until the FOC design exists.
+- `sim/sim/sim_world.hpp` — steps clock, link and plants at a fixed dt.
+- Tests: unit tests per component; `test_sil_link.cpp` — DriveCommands at 50 Hz across
+  the link decoded through `hal::SerialPort&` by `FrameDecoder`; same under bit errors
+  (no wrong payload ever accepted, every loss counted); StateTelemetry back to the operator
+  built from the simulated encoder; timestamps across the clock wrap.
+
+Alternatives considered: Python plant (rejected — the point is running C++ `core`
+unmodified); reuse `hal_fakes.hpp` (rejected — fakes deliberately have no physics or
+clamping); real-time threads (rejected — non-deterministic tests).
 
 ---
 

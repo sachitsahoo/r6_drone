@@ -18,9 +18,11 @@ add_executable(core_tests
   test_frame_codec.cpp
   test_generated_messages.cpp
   test_hal_fakes.cpp
+  test_sim.cpp
+  test_sil_link.cpp
 )
 
-target_link_libraries(core_tests PRIVATE recon_core GTest::gtest_main)
+target_link_libraries(core_tests PRIVATE recon_core recon_sim GTest::gtest_main)
 
 # Warnings-as-errors on our test code, but not on GoogleTest's own sources.
 # -fno-exceptions is deliberately NOT applied here: GoogleTest is built with

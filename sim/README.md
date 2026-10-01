@@ -23,9 +23,29 @@ software-in-the-loop (SIL) test can exercise a real control law with no hardware
   placeholder model that closes a loop is useful; a detailed model built from guessed
   constants is false confidence.
 
+## What is here
+
+| File | Implements | Notes |
+|---|---|---|
+| `sim/sim_clock.hpp` | `hal::Clock` | Virtual time; start it near 2^32 to test the wrap |
+| `sim/sim_serial_link.hpp/.cpp` | `hal::SerialPort` x2 | 460 800 baud 8N1 line, 256 B buffers, RX overflow, seeded bit errors |
+| `sim/wheel_plant.hpp/.cpp` | `hal::WheelMotor` + `hal::WheelEncoder` | First-order duty -> speed, exact discretisation, coast/brake, wrapping counter |
+| `sim/static_sensors.hpp` | `Imu`, `AbsoluteEncoder`, `PowerMonitor`, `PitchPowerStage` | Settable constant samples stamped with virtual time; no dynamics yet |
+| `sim/sim_world.hpp` | — | Owns one of everything and steps them together |
+
+The library is host-only but compiled with the firmware language subset
+(`-fno-exceptions -fno-rtti`) and allocates nothing.
+
 ## Known limitations
 
-- Empty as of Phase 1.
+- **No control law runs here yet.** The plant is checked open-loop against its analytic
+  solution; closing a loop waits for an approved motor-control design.
+- Every wheel-plant constant is a placeholder (see `sim/wheel_plant.hpp`). The gear ratio
+  is not chosen and nothing has been measured.
+- The output limit saturates rather than scales; see the open question in
+  `implementation-notes.html`.
+- No pitch dynamics: the IMU reports a level, still casing and the power stage only records
+  duties. These arrive with the FOC and estimator designs.
 - No camera or video simulation. Visual-stability evaluation needs real optics.
 - Contact, impact, and tipping dynamics are out of scope for now.
 

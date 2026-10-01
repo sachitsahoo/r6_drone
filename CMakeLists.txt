@@ -99,6 +99,7 @@ add_subdirectory(firmware/core)
 
 if("${TARGET}" STREQUAL "host")
   enable_testing()
+  add_subdirectory(sim)
   add_subdirectory(tests/cpp)
 else()
   # The target build compiles firmware/core and the firmware/hal interfaces to prove

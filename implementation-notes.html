@@ -439,6 +439,50 @@ approved rule that <code>latest()</code> returns the last completed reading and 
 a transfer. Corrected to ISR-safe; the I2C happens inside the implementation.</p>
 </details>
 
+<h2>Slice 5 — minimal simulator (2026-10-01)</h2>
+
+<details>
+<summary>The placeholder plant is tested open-loop; no loop is closed<span class="tag">off-spec</span></summary>
+<p>The todo item said the plant should be "enough to close a loop". Every loop worth closing
+(velocity PID, FOC, the stabilizer) is owner-reviewed and has no approved design, and the
+primer forbids writing a control law without one. So the plant is checked against its own
+analytic first-order solution, and the SIL tests drive a wheel at a fixed duty. Closing the
+first loop is the first approved controller's job.</p>
+</details>
+
+<details>
+<summary>SimWheel's output limit saturates; it does not scale<span class="tag">open question</span></summary>
+<p><code>hal::WheelMotor</code> says the implementation "clamps out-of-range values, then
+applies the per-build output limit". That could mean saturating at &plusmn;limit or scaling
+by limit. The sim saturates: duty 0.1 under a 0.3 limit is applied as 0.1. That reads most
+naturally as a <em>limit</em>, and it keeps small commands linear. The STM32 implementation
+must make the same choice, so the owner should confirm it before that implementation is
+written.</p>
+</details>
+
+<details>
+<summary>SimWheel implements both WheelMotor and WheelEncoder<span class="tag">design</span></summary>
+<p>They are two views of one shaft, so a single object makes the plant state impossible to
+desynchronise. <code>core</code> still receives two separate interface references, as it
+will on the robot. Multiple inheritance of two interfaces with no data needs no RTTI.</p>
+</details>
+
+<details>
+<summary>Serial link models line rate, buffers and bit errors, and nothing else<span class="tag">design</span></summary>
+<p>460 800 baud 8N1 with integer credit accounting, so throughput does not depend on step
+size. An idle line does not bank credit. TX and RX buffers are 256 B placeholders. Errors
+flip one bit in a byte with a set probability, from a seeded xorshift64 so runs repeat
+exactly. Not modelled: framing errors, line breaks, Pi-side relay latency or UDP loss.</p>
+</details>
+
+<details>
+<summary>Every plant constant is a placeholder<span class="tag">limitation</span></summary>
+<p>No-load speed 31.4 rad/s, time constants 50/500/50 ms, 1400 counts/rev. The gear ratio is
+not chosen and nothing has been measured. The values only give the plant a plausible shape.
+They are named and commented in <code>sim/sim/wheel_plant.hpp</code> and must be replaced by
+system identification.</p>
+</details>
+
 <h2>Open questions</h2>
 
 <details>
