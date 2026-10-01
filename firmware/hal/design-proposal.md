@@ -1,7 +1,8 @@
 # firmware/hal — interface design proposal
 
-**Status: PROPOSED — awaiting owner approval. Do not implement.** Owner-reviewed because these
-interfaces are the contract for motor control, the IMU and safety.
+**Status: APPROVED by the owner, 2026-10-01, and implemented** in `firmware/hal/hal/*.hpp`.
+Owner-reviewed because these interfaces are the contract for motor control, the IMU and
+safety. The owner's answers to the three questions are recorded at the end.
 
 ## Goal
 
@@ -203,11 +204,11 @@ Interfaces have no behaviour, so the tests are of their users:
   resolution. If µs proves too coarse for the 20 kHz FOC loop, a cycle-counter method can be
   added then.
 
-## Questions for the owner
+## Owner decisions (2026-10-01)
 
-1. **Approve the split** of the pitch drive into `PitchPowerStage` and `AbsoluteEncoder`?
-   It follows from ADRs 0007 and 0011, but it is the biggest structural choice here.
-2. **`WheelMotor::stop`: coast or brake as the default** on comms timeout? Coast lets a thrown
-   robot roll; brake holds it on a slope. Safety-relevant, so yours to pick. I'd suggest coast.
-3. **Hardware watchdog interface now or with the safety design?** I'd suggest with the safety
-   design.
+1. **Pitch drive split into `PitchPowerStage` and `AbsoluteEncoder`: approved.**
+2. **Wheel stop on comms timeout: coast, escalating to brake if the link stays down long
+   enough.** Coast lets a thrown robot keep rolling; brake holds it on a slope once it is
+   clearly not coming back. The interface provides both modes; the escalation delay is set in
+   the safety state machine design, which is owner-reviewed.
+3. **Hardware watchdog: designed with the safety state machine**, not now.

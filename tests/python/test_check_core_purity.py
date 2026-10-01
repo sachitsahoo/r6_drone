@@ -106,3 +106,17 @@ def test_reported_line_numbers_survive_comment_stripping(tmp_path: Path) -> None
 def test_real_repository_core_is_clean() -> None:
     """The actual firmware/core/ in this repo must pass. This is the CI gate."""
     assert guard.check_tree(REPO_ROOT / "firmware" / "core") == []
+
+
+def test_hal_violations_are_caught_by_main(tmp_path: Path) -> None:
+    """core includes hal's headers, so a vendor header in hal would reach core one include
+    away. main() must check hal as well as core."""
+    write_core_file(tmp_path, "clean.hpp", "#pragma once\n")
+    hal_dir = tmp_path / "firmware" / "hal" / "hal"
+    hal_dir.mkdir(parents=True)
+    (hal_dir / "leaky.hpp").write_text('#pragma once\n#include "stm32g4xx_hal.h"\n')
+    assert guard.main(["check_core_purity.py", str(tmp_path)]) == 1
+
+
+def test_real_repository_hal_is_clean() -> None:
+    assert guard.check_tree(REPO_ROOT / "firmware" / "hal") == []

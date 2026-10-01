@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce the firmware/core/ portability firewall and allocation ban.
+"""Enforce the portability firewall and allocation ban on firmware/core/ and firmware/hal/.
 
 CLAUDE.md states two hard rules that nothing in the compiler checks:
 
@@ -12,6 +12,9 @@ Both are conventions until something enforces them, and both are cheap to
 violate by accident and expensive to unwind later -- vendor headers spread, and
 a single std::string in a control path reintroduces the heap. CI runs this on
 every push.
+
+firmware/hal/ is held to the same rules: core includes its headers, so a vendor
+header there would reach core one include away.
 
 Usage:
     python3 tools/check_core_purity.py [ROOT]
@@ -103,6 +106,11 @@ def check_tree(core_dir: Path) -> list[str]:
     return violations
 
 
+#: Directories held to the firewall, relative to the repository root. core is required; hal
+#: is checked whenever it exists.
+CHECKED_DIRS = (("firmware", "core"), ("firmware", "hal"))
+
+
 def main(argv: list[str]) -> int:
     root = Path(argv[1]) if len(argv) > 1 else Path(__file__).resolve().parents[1]
     core_dir = root / "firmware" / "core"
@@ -111,20 +119,24 @@ def main(argv: list[str]) -> int:
         print(f"error: {core_dir} does not exist", file=sys.stderr)
         return 1
 
-    violations = check_tree(core_dir)
+    violations: list[str] = []
+    for parts in CHECKED_DIRS:
+        directory = root.joinpath(*parts)
+        if directory.is_dir():
+            violations.extend(check_tree(directory))
 
     if violations:
-        print(f"firmware/core purity check FAILED: {len(violations)} violation(s)\n")
+        print(f"firmware purity check FAILED: {len(violations)} violation(s)\n")
         for violation in violations:
             print(violation)
         print(
-            "\nfirmware/core must stay vendor-free and allocation-free (CLAUDE.md,"
-            "\n'Hard rules for firmware' 1 and 2). Platform code belongs in"
+            "\nfirmware/core and firmware/hal must stay vendor-free and allocation-free"
+            "\n(CLAUDE.md, 'Hard rules for firmware' 1 and 2). Platform code belongs in"
             "\nfirmware/stm32/ behind a firmware/hal/ interface."
         )
         return 1
 
-    print("firmware/core purity check passed")
+    print("firmware/core and firmware/hal purity check passed")
     return 0
 
 

@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.venv/**)",
+      "Read(./venv/**)",
+      "Read(./build/**)",
+      "Read(./build-*/**)",
+      "Read(./.git/**)",
+      "Read(./.hypothesis/**)",
+      "Read(./.pytest_cache/**)",
+      "Read(**/__pycache__/**)",
+      "Read(**/*.egg-info/**)",
+      "Read(./cad/out/**)",
+      "Read(./cad/out.zip)",
+      "Read(./protocol/generated/**)",
+      "Read(**/*.stl)",
+      "Read(**/*.step)",
+      "Read(**/*.zip)",
+      "Read(**/*.o)",
+      "Read(**/*.a)",
+      "Read(**/*.so)",
+      "Read(**/*.elf)",
+      "Read(**/*.bin)",
+      "Read(**/*.hex)",
+      "Read(**/*.map)",
+      "Read(**/*.su)",
+      "Read(**/*.d)",
+      "Read(**/*.pyc)",
+      "Read(**/*.log)",
+      "Read(./logs/**)",
+      "Read(**/.DS_Store)",
+      "Read(**/compile_commands.json)"
+    ]
+  }
+}

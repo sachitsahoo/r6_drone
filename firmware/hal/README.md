@@ -2,8 +2,20 @@
 
 ## What it does
 
-Declares the abstract interfaces through which portable code touches hardware:
-`Motor`, `Encoder`, `Imu`, `PowerMonitor`, `Clock`, `SerialPort`.
+Declares the abstract interfaces through which portable code touches hardware. Eight, one
+header each in [`hal/`](hal/), designed in [`design-proposal.md`](design-proposal.md)
+(approved 2026-10-01):
+
+| Interface | Hardware |
+|---|---|
+| `Clock` | microsecond timebase |
+| `SerialPort` | UART to the Pi |
+| `Imu` | ICM-42688-P on the casing |
+| `AbsoluteEncoder` | the single pitch encoder (ADR 0011) |
+| `WheelEncoder` | N20 quadrature encoders |
+| `WheelMotor` | TB6612FNG channels |
+| `PitchPowerStage` | SimpleFOCMini / DRV8313 (ADR 0007) |
+| `PowerMonitor` | INA226 |
 
 ## How it fits the architecture
 
@@ -13,6 +25,11 @@ declared here; implementations live in [`../stm32/`](../stm32/) for the real rob
 
 ## Key design decisions
 
+- **Protected, non-virtual destructors.** Nothing is deleted through a base pointer, and a
+  virtual destructor would reference `operator delete`, which the no-heap build must not
+  need. `compile_check.cpp` enforces this with `static_assert`s on both targets.
+- **Non-blocking; every sample carries `timestamp_us` and `valid`.** The HAL never invents a
+  value when a sensor fails; `core` decides what to do.
 - **Interfaces are abstract base classes**, not templates. Compile-time polymorphism would
   avoid a vtable dispatch, but it pushes platform types into `core` signatures and makes the
   firewall harder to police. The dispatch cost is one indirect call per peripheral access at
@@ -27,14 +44,20 @@ declared here; implementations live in [`../stm32/`](../stm32/) for the real rob
 
 ## Known limitations
 
-- Empty as of Phase 1. The interface design is proposed in
-  [`design-proposal.md`](design-proposal.md), awaiting owner approval.
-- The pitch actuator interface is not designed yet. The actuator is now chosen — direct-drive
-  DM3505 with our own FOC (ADRs 0007 and 0008 accepted, 0011 proposed) — so
-  the interface will be "set three phase duty cycles" plus **one** absolute encoder shared by
-  FOC and estimation. Next to be proposed.
+- No implementations yet. `sim/` provides the first (slice 5); `firmware/stm32/` comes with
+  the timer, DMA and interrupt work, which is owner-reviewed separately.
+- No hardware watchdog interface: owner decision, it is designed with the safety state
+  machine.
+- `Clock` has microsecond resolution only. If that proves too coarse for timing the FOC loop
+  (hard rule 4), a cycle-counter method gets added then.
 
 ## How to test
 
-Interfaces have no behavior, so they are not tested directly. They are exercised through
-test doubles in [`../../tests/cpp/`](../../tests/cpp/) and through the simulator.
+Interfaces have no behaviour, so they are not tested directly:
+
+- `compile_check.cpp` builds every header under the firmware flags on host **and** stm32,
+  and `static_assert`s the design rules (abstract, no virtual destructor, trivially copyable
+  samples, `float` only).
+- [`../../tests/cpp/hal_fakes.hpp`](../../tests/cpp/hal_fakes.hpp) has a fake per interface;
+  `test_hal_fakes.cpp` pins their behaviour, since every core test will stand on them.
+- `tools/check_core_purity.py` keeps vendor headers and allocation out of this directory.

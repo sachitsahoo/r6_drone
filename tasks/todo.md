@@ -3,8 +3,12 @@
 Phase 1: repo skeleton, build system, CI, protocol schema and codec, minimal simulator.
 Plan written 2026-09-30. Spec of record: ../CLAUDE.md
 
-**Slices 1–4 complete and verified 2026-09-30.** Slice 5 (simulator) is blocked on the
-`firmware/hal/` interfaces, which are owner-reviewed.
+**Slices 1–4 complete and verified 2026-09-30.** The `firmware/hal/` interfaces were approved
+and implemented 2026-10-01, which unblocks slice 5 (simulator), the last Phase 1 item.
+
+**Safety design inputs already decided by the owner** (for the state machine proposal):
+wheels coast on comms timeout, escalating to brake if the link stays down long enough
+(delay to be set there); the hardware watchdog (IWDG) is designed alongside it.
 
 Mechanical work beyond Phase 1 has also happened: ADRs 0004–0012, a torque budget
 (`tools/pitch_inertia_budget.py`), and a parametric CAD model in `cad/` at the 70 x 182
@@ -19,8 +23,7 @@ Each is written to be accepted as-is; open items listed in each are parameters, 
 - [ ] ADR 0010 — spine chassis, IMU 3.8 mm beside the axis
 - [ ] ADR 0011 — DM3505 (SparkFun ROB-27477), one off-axis encoder, stator on the casing
 - [ ] ADR 0012 — 3S battery, every board in the casing
-- [ ] `firmware/hal/design-proposal.md` — the eight HAL interfaces; three questions at the end.
-      **Unblocks slice 5 (simulator).**
+- [x] `firmware/hal/design-proposal.md` — approved 2026-10-01 and implemented.
 - [ ] Protocol proposals 2–7 (`protocol/design-proposal.md`): 6 assigns `0x03` as a target-angle
       command; 7 adds the wire loop's turn count. 3–5 and 7 batch with the estimator design.
 
@@ -104,7 +107,7 @@ Write a design proposal before any code. Must cover:
 
 ## 5. Minimal simulator  [proceed directly, after 4]
 
-- [ ] 5.1 Simulated HAL implementations behind `firmware/hal/` interfaces
+- [ ] 5.1 Simulated HAL implementations behind `firmware/hal/` interfaces (interfaces done; fakes in `tests/cpp/hal_fakes.hpp`)
 - [ ] 5.2 Placeholder plant model — enough to close a loop, no real dynamics yet.
       Real parameters come from system identification on hardware, much later.
 - [ ] 5.3 First SIL test: core runs against simulated HAL, frames round-trip through the codec

@@ -17,6 +17,7 @@ add_executable(core_tests
   test_cobs.cpp
   test_frame_codec.cpp
   test_generated_messages.cpp
+  test_hal_fakes.cpp
 )
 
 target_link_libraries(core_tests PRIVATE recon_core GTest::gtest_main)

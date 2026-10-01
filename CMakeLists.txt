@@ -94,13 +94,15 @@ add_custom_command(
 
 add_custom_target(protocol_generated DEPENDS ${RECON_GENERATED_FILES})
 
+add_subdirectory(firmware/hal)
 add_subdirectory(firmware/core)
 
 if("${TARGET}" STREQUAL "host")
   enable_testing()
   add_subdirectory(tests/cpp)
 else()
-  # The target build compiles firmware/core to prove portability. It does not yet
+  # The target build compiles firmware/core and the firmware/hal interfaces to prove
+  # portability. It does not yet
   # link a flashable image: startup code, linker script, and firmware/stm32/ do
   # not exist (Phase 1).
   message(STATUS "Recon UGV: target build compiles firmware/core only; no image is linked yet")

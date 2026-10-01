@@ -40,4 +40,4 @@ every task rather than cleanup afterward.
 - `theory/` has the pitch-axis budget only; no controller has been designed yet.
 - `bringup/` has the UART link plan and the component measurement checklist, but no
   hardware has been powered.
-- `learning/` has the protocol walkthrough only.
+- `learning/` has the protocol and HAL walkthroughs.

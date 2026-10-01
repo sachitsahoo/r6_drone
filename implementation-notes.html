@@ -405,6 +405,40 @@ A second option the owner found, the EM3215, was rejected: 6&ndash;8 V only, and
 even at stall.</p>
 </details>
 
+<h2>firmware/hal — interfaces (2026-10-01)</h2>
+
+<details>
+<summary>Header layout: <code>firmware/hal/hal/*.hpp</code><span class="tag">decision</span></summary>
+<p>Includes read <code>"hal/clock.hpp"</code>, matching <code>core</code>'s
+<code>"time/timestamp.hpp"</code> style, with <code>firmware/hal</code> as the include root.
+That needs the doubled directory name. The alternative, <code>firmware/</code> as the root,
+would also expose <code>core/</code> headers by a second path.</p>
+</details>
+
+<details>
+<summary>The design rules are enforced by <code>static_assert</code>, not by convention<span class="tag">scope +</span></summary>
+<p><code>compile_check.cpp</code> builds on host and stm32 under the firmware flags and asserts
+that every interface is abstract with no virtual destructor, that samples are trivially
+copyable, and that sample fields are <code>float</code>. Checked that the destructor assert
+actually fires on a violating class. The purity guard was also extended from
+<code>core</code> to <code>hal</code>, with a test.</p>
+</details>
+
+<details>
+<summary>Fakes do not clamp<span class="tag">judgment</span></summary>
+<p>Clamping out-of-range commands is each real implementation's contract. A fake that
+clamped would hide a core bug that sends a duty of 1.7, so the fakes record exactly what
+they were given. Fakes also start invalid (samples) and disabled (power stage), so a core test
+cannot pass without supplying data.</p>
+</details>
+
+<details>
+<summary>PowerMonitor::latest made ISR-safe, against the first draft<span class="tag">off-spec</span></summary>
+<p>The first draft of the header called it "not ISR-safe, I2C". That contradicted the
+approved rule that <code>latest()</code> returns the last completed reading and never starts
+a transfer. Corrected to ISR-safe; the I2C happens inside the implementation.</p>
+</details>
+
 <h2>Open questions</h2>
 
 <details>

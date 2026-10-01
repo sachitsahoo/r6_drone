@@ -10,6 +10,9 @@ add_library(recon_core STATIC
 # The generated protocol header must exist before anything here compiles.
 add_dependencies(recon_core protocol_generated)
 
+# core reaches hardware only through these interfaces.
+target_link_libraries(recon_core PUBLIC recon_hal)
+
 target_include_directories(recon_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${RECON_GENERATED_DIR}

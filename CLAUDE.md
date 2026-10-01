@@ -45,7 +45,8 @@ absolute.
 ```
 firmware/core/     Portable C++ — control, kinematics, estimation, protocol, safety.
                    NO vendor headers. Compiles for host and target.
-firmware/hal/      Abstract interfaces: Motor, Encoder, Imu, PowerMonitor, Clock, SerialPort
+firmware/hal/      Abstract interfaces: Clock, SerialPort, Imu, AbsoluteEncoder, WheelEncoder,
+                   WheelMotor, PitchPowerStage, PowerMonitor
 firmware/stm32/    STM32 HAL implementations, ISRs, timers, DMA, startup, main loop
 sim/               Physics model + simulated HAL implementations running firmware/core
 protocol/          Message schema (single source of truth) + code generators
