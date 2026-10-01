@@ -49,16 +49,16 @@ SPI lines. The encoder follows the same rule: sensor on the casing side, magnet 
 The motor's position is otherwise set by the topology: coaxial at end A, hollow-shaft, with
 wheel A's shaft running through it (ADR 0010).
 
-## R4. Trim mass bosses — now required, not optional
+## R4. Trim mass bosses, at known radii
 
 **Requirement:** six M3 bosses on the shell's inner wall, every 60°, at the trim station
-(`Z_TRIM_BOSSES`), for adding mass after assembly. **The sideways centre-of-mass offset must
-be trimmed to 2 mm or less.**
+(`Z_TRIM_BOSSES`), for adding mass after assembly. **Trimming the sideways centre-of-mass
+offset to 2 mm or less is recommended.**
 
 **Why:** holding gravity is the largest term in the torque budget (ADR 0011). Untrimmed, at
-10 mm sideways, the GM2804H runs at **106% of its rated torque** and puts about 2.2 W into a
-closed plastic shell for as long as the camera holds level. Trimmed to 2 mm, it runs at 49–71%
-and dissipates about 0.1 W.
+10 mm sideways, the DM3505 runs at 43% of its rated torque and dissipates about 0.5 W for as
+long as the camera holds level. Trimmed to 2 mm, that drops to 20–29% and about 0.02 W. Not
+needed to stay within rating, but it is cheap margin for the drag terms nobody has measured.
 
 The *vertical* offset — balanced versus bottom-heavy — is a separate, still-open control
 decision. A bottom-heavy casing has a pendulum resonance of about 1.9 Hz at 10 mm, inside the
@@ -81,7 +81,7 @@ phase leads (R3).
 **Requirement:** get impact stiffness from ribs, and keep the wall between them as thin as
 printing allows.
 
-**Why:** the shell is **71% of the rotating inertia** (107 g at r ≈ 33 mm). A gram removed
+**Why:** the shell is **67% of the rotating inertia** (107 g at r ≈ 33 mm). A gram removed
 from the wall saves about three times the inertia of a gram removed from a board at
 r ≈ 20 mm. Not done yet: the shell is still a plain 2.5 mm tube.
 
@@ -91,8 +91,8 @@ r ≈ 20 mm. Not done yet: the shell is still a plain 2.5 mm tube.
 bearings between casing and chassis at both ends.
 
 **Why:** the aperture is a deliberate weak point in the surface that takes the hits, so its edge
-needs reinforcing. Real bearings matter because at a ~17–24 mN m budget a sliding fit would
-use up much of it. End A uses a 6708ZZ on the cup wall, so impacts bypass the gimbal motor's
+needs reinforcing. Real bearings matter because at an ~18–26 mN m budget a sliding fit would
+use up much of it. End A uses a 6709ZZ on the cup wall, so impacts bypass the gimbal motor's
 own small bearings. End B uses a 6704ZZ on the spine's boss.
 
 ## R8. A datum feature for measuring inertia and balance
@@ -122,7 +122,7 @@ Seven printed parts. `cad/parts.py` is the source; this is the overview.
 The spine is drawn as one solid, but it is built as two printed ends joined by a bought rod at
 the waist (M5 threaded rod or a 5 mm tube).
 
-**Bought, not modelled:** the GM2804H, 6708ZZ and 6704ZZ bearings, the waist rod, wheel A's
+**Bought, not modelled:** the DM3505, 6709ZZ and 6704ZZ bearings, the waist rod, wheel A's
 3 mm shaft extension and coupler, O-ring treads, screws and heat-set inserts.
 `cad/bought_parts.py` holds envelopes for the electronics; `docs/bom.md` is the shopping list.
 
@@ -132,7 +132,7 @@ the waist (M5 threaded rod or a 5 mm tube).
   lengths, so measuring a real N20 and changing one number moves everything downstream.
 - **The interference sweep checks every relative angle**, not one pose. Parts that turn
   relative to each other can collide at an angle the assembled pose never shows.
-- **Print a short axial slice first:** through end cap A, the cup and the 6708, to test the
+- **Print a short axial slice first:** through end cap A, the cup and the 6709, to test the
   bearing fits and the 0.5 mm running gaps before committing to a full print. FDM can close a
   0.5 mm gap entirely.
 - Skip fillets and cosmetics until it works.
@@ -143,6 +143,6 @@ Feeds `tools/pitch_inertia_budget.py` and `cad/`. The checklist is
 `docs/bringup/component-measurements.md`.
 
 1. Weigh the shell and every casing component.
-2. Find the centre of mass both ways with the R8 datum; trim the sideways offset to ≤ 2 mm.
+2. Find the centre of mass both ways with the R8 datum; trim the sideways offset, ideally to ≤ 2 mm.
 3. Time the pendulum swing, and invert it for the real inertia.
 4. Measure the wire loop's spring torque per turn, and how many turns it tolerates.

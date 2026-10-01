@@ -61,33 +61,37 @@ WHEEL_MOTOR_LENGTH = 40.0    # GUESS: depends entirely on gear ratio -- measure
 # Wheel A's drive shaft has to pass through the motor's centre -- there is nowhere else
 # for it to go (ADR 0010). So this must be a HOLLOW-SHAFT motor.
 
-# iPower GM2804 (ADR 0011). iFlight listing, 2026-09-30.
+# Mercury Motor DM3505, sold by SparkFun as ROB-27477 (ADR 0011). Datasheet:
+# cdn.sparkfun.com/assets/3/3/d/4/5/27477_27478_Datasheet.pdf. Buy the version WITHOUT the
+# encoder case: the bundled AS5048A/AS5600 reads on-axis, where wheel A's shaft runs.
 #
 # Orientation: the STATOR bolts to end cap A (casing) and the ROTOR to the cup floor
 # (chassis). The windings are on the stator, so this keeps the three phase leads inside the
 # casing with the power stage -- the reason R3 exists. Bolted the other way, the phase leads
-# would have to cross the wire loop. Chosen because it is a real,
-# stocked hollow-shaft gimbal motor: a 28 mm 2208-class part with a bore that passes a shaft
-# could not be found. 35 mm is its OD despite the "28" in the name (that is the stator).
-PITCH_MOTOR_OD = 35.0                   # LISTING: "Phi 35 +/- 0.05 mm"
-#: Axial length. The listing gives 25 mm for the encoder variant "with encoder housing";
-#: the plain motor is assumed no longer. LISTING
-PITCH_MOTOR_LENGTH = 25.0
-PITCH_MOTOR_MASS_G = 51.0               # LISTING (encoder variant)
-#: "Hollow shaft ID Phi 6.5 +0.05/0". The GBM2804H variant lists 5 mm -- buy the GM2804H.
-PITCH_MOTOR_HOLLOW_BORE = 6.5           # LISTING
-PITCH_MOTOR_POLE_PAIRS = 7              # LISTING: 12N14P
-#: Rotor-bell bolt circle, into the cup floor. Must clear the floor's 13 mm bore (wheel
-#: motor A goes in through it), which the test suite checks. ASSUMPTION: measure.
-PITCH_MOTOR_ROTOR_BOLT_RADIUS = 8.0
-#: Stator base bolt circle, into end cap A. M2, per the listing's Q&A. ASSUMPTION: measure.
-PITCH_MOTOR_STATOR_BOLT_RADIUS = 9.5
+# would have to cross the wire loop.
+PITCH_MOTOR_OD = 40.0                   # LISTING: drawing, "phi 40"
+PITCH_MOTOR_LENGTH = 16.0               # LISTING: drawing, without encoder case
+PITCH_MOTOR_MASS_G = 58.3               # LISTING
+#: Rotor-face bore, "phi 8.5" on the drawing. The product photo shows a hollow shaft, but
+#: that the bore runs all the way through the base is NOT stated -- confirm on the part.
+PITCH_MOTOR_HOLLOW_BORE = 8.5           # LISTING (through-bore to confirm)
+PITCH_MOTOR_POLE_PAIRS = 11             # LISTING
+#: Rotor face: 8 x M2.5 on phi 12 and phi 15. The outer circle is used, so the holes clear
+#: the cup floor's bore. LISTING
+PITCH_MOTOR_ROTOR_BOLT_RADIUS = 7.5
+#: Stator base: 4 x M2 and 4 x M2.5 on phi 33.5. LISTING
+PITCH_MOTOR_STATOR_BOLT_RADIUS = 16.75
 PITCH_MOTOR_BOLT_COUNT = 4
+M2_5_CLEARANCE = 2.7
 
 #: Radial gap between the motor body and the cup wall around it.
 MOTOR_CUP_RADIAL_CLEARANCE = 1.0        # ASSUMPTION: FDM bores run undersize
 CUP_WALL = 1.5                          # ASSUMPTION: thin, but it only locates a bearing race
-CUP_FLOOR_THICKNESS = 3.0               # ASSUMPTION: carries the stator bolts
+CUP_FLOOR_THICKNESS = 3.0               # ASSUMPTION: carries the rotor bolts
+#: Bore through the cup floor: passes wheel A's shaft coupler. Smaller than the pocket so the
+#: rotor bolts have material; wheel motor A goes in from the waist end before the rod is
+#: fitted. ASSUMPTION: a 3-to-3 mm coupler is typically ~8 mm OD.
+CUP_FLOOR_BORE = 10.0
 
 # Wheel A's shaft: N20 output extended through the pitch motor's bore to the wheel.
 WHEEL_SHAFT_DIA = 3.0        # LISTING: N20 D-shaft
@@ -99,8 +103,8 @@ WHEEL_SHAFT_DIA = 3.0        # LISTING: N20 D-shaft
 # End A: the casing bearing sits on the OUTSIDE of the cup wall, so impact loads on the
 # casing go to the chassis through a real bearing rather than through the gimbal motor's
 # tiny internal ones.
-BEARING_A_ID = 40.0          # LISTING: 6708ZZ thin-section, 40 x 50 x 6 (simplybearings)
-BEARING_A_OD = 50.0
+BEARING_A_ID = 45.0          # LISTING: 6709ZZ thin-section, 45 x 55 x 6, 25 g (VXB)
+BEARING_A_OD = 55.0
 BEARING_A_WIDTH = 6.0
 # End B: unchanged from the first design, on a boss at the spine's end.
 AXIS_BOSS_OD = 20.0          # ASSUMPTION: bearing bore rides on this
@@ -194,7 +198,8 @@ END_CAP_SCREW_RADIUS = CASING_ID / 2 - SHELL_FLANGE_RADIAL / 2      # DERIVED: m
 # with a shoulder under it, and the motor's stator bolts to its inboard face.
 END_CAP_A_THICKNESS = 9.0       # ASSUMPTION: 6.5 mm seat + 2.5 mm shoulder
 #: Annulus outside the bearing housing: carries only screw loads, so it runs thinner.
-END_CAP_A_HOUSING_WALL = 3.0    # ASSUMPTION: material around the bearing's outer race
+END_CAP_A_HOUSING_WALL = 1.0    # ASSUMPTION: thin, because the cap screws sit just outside;
+                                # the screw holes and the groove share this ring
 END_CAP_A_SHAFT_BORE = PITCH_MOTOR_HOLLOW_BORE                       # DERIVED
 
 # --------------------------------------------------------------------------- materials
@@ -210,8 +215,8 @@ PRINT_DENSITY = ABS_DENSITY     # what the reports assume; ABS is 18% lighter th
 # ------------------------------------------- derived cup geometry (do not edit)
 
 #: The cup wall's OD is the end-A bearing's bore; its ID clears the motor.
-CUP_OD = BEARING_A_ID                    # 40
-CUP_ID = CUP_OD - 2 * CUP_WALL           # 37: the 35 mm motor plus 1 mm each side
+CUP_OD = BEARING_A_ID                    # 45
+CUP_ID = CUP_OD - 2 * CUP_WALL           # 42: the 40 mm motor plus 1 mm each side
 assert CUP_ID >= PITCH_MOTOR_OD + 2 * MOTOR_CUP_RADIAL_CLEARANCE - 1e-9, \
     "the cup wall would rub the motor body"
 

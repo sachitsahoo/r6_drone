@@ -30,9 +30,9 @@ drive** pitch actuator, no gearbox or belt.
 Proposed, awaiting owner approval (ADRs 0007, 0009–0012) — treat as the working design, but
 do not build on them as settled:
 - Chassis is a single **spine** on the axis; nothing on the casing can reach the axis (0010).
-- Pitch motor: iPower **GM2804H** hollow-shaft gimbal motor, stator on the casing, wheel A's
+- Pitch motor: **DM3505** (SparkFun ROB-27477) hollow-shaft gimbal motor, stator on the casing, wheel A's
   shaft through its bore. **One** absolute encoder, read off-axis, serves both FOC and
-  estimation (0011). Sideways CoM offset must be trimmed to ≤ 2 mm (0011).
+  estimation (0011). Trimming the sideways CoM offset to ≤ 2 mm is recommended (0011).
 - FOC: bought DRV8313 power stage, our own voltage-mode FOC on the G474 (0007).
 - Wiring crosses the joint in a wire loop, about ±3 turns, with a software unwind (0009).
 - Power: 3S LiPo; battery and every board ride in the casing (0012).

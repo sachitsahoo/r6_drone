@@ -79,15 +79,16 @@ def test_pitch_inertia_budget_physics_is_self_consistent() -> None:
     assert math.isclose(budget.backlash_pixels(2.0, 90.0, 1920),
                         2 * budget.backlash_pixels(1.0, 90.0, 1920), rel_tol=1e-9)
 
-    # The headline finding of the current budget (ADR 0011): an untrimmed 10 mm sideways
-    # CoM offset puts the GM2804 at or past its rated torque, and trimming to 2 mm brings
-    # it back under. If a change breaks either half, the balance requirement needs revisiting.
+    # The headline finding of the current budget (ADR 0011): the DM3505 stays well inside its
+    # rating even with an untrimmed 10 mm sideways CoM offset, which is why trimming is
+    # recommended rather than required. If a change pushes the untrimmed case past 60% of
+    # rated, the balance requirement in R4 needs revisiting -- it was required with the
+    # smaller GM2804H, which ran at 106%.
     model = budget.build_model()
-    untrimmed = budget.budget(model, 0.010, 0.0).total_N_m
-    trimmed = budget.budget(model, budget.TRIMMED_HORIZONTAL_OFFSET_M,
-                            budget.BOTTOM_HEAVY_VERTICAL_OFFSET_M).total_N_m
-    assert untrimmed > 0.95 * budget.MOTOR_RATED_TORQUE_N_M
-    assert trimmed < 0.75 * budget.MOTOR_RATED_TORQUE_N_M
+    untrimmed = budget.budget(model, 0.010, budget.BOTTOM_HEAVY_VERTICAL_OFFSET_M).total_N_m
+    assert untrimmed < 0.60 * budget.MOTOR_RATED_TORQUE_N_M
+    holding_current = budget.motor_current_A(budget.gravity_torque_N_m(model.total_mass_kg, 0.010))
+    assert budget.copper_loss_W(holding_current) < 1.0, "untrimmed holding heat over 1 W"
 
     # The shell is still the largest single contributor once electronics are included.
     shell_fraction = model.shell_inertia_kg_m2 / model.total_inertia_kg_m2

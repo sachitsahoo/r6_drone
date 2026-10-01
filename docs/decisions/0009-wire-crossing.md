@@ -14,7 +14,7 @@ what crosses is only the two wheel motors' leads and their encoder lines: **abou
 conductors**, all low-current or low-rate.
 
 ADR 0008 made this harder by putting the motor on the centreline, and by shrinking the torque
-budget to the point where friction matters. ADR 0011's design point is **16.8–24.3 mN m** at
+budget to the point where friction matters. ADR 0011's design point is **17.8–25.8 mN m** at
 the axis for a trimmed casing.
 
 ## First: the requirement is +/-180 degrees, not continuous rotation
@@ -57,7 +57,7 @@ Truly unbounded rotation. But:
   | Senring M125, OD 12.5 mm | "less than 0.06 N.m" = **60 mN m** |
   | ATO 12.5 mm | 0.05 N.m, +0.01 per 6 circuits = **50-70 mN m** at 12 circuits |
   | Another vendor datasheet | starting torque 2 N.cm = **20 mN m** |
-  | **Axis torque budget (ADR 0011, trimmed)** | **16.8–24.3 mN m** |
+  | **Axis torque budget (ADR 0011, trimmed)** | **17.8–25.8 mN m** |
 
   The most optimistic figure is 0.9x the whole budget; the typical one is 2-3x. And the drag
   is *continuous* — paid whenever the camera holds level, not only while it moves.
@@ -141,7 +141,7 @@ a robot in constant motion that never pauses, degrades gracefully to the table a
 **Option 3: bounded travel with a software unwind.**
 
 The deciding argument is friction, and it is not close. Even small capsule slip rings are
-specified at 20–70 mN m against a 16.8–24.3 mN m budget, paid continuously in a machine whose
+specified at 20–70 mN m against a 17.8–25.8 mN m budget, paid continuously in a machine whose
 purpose is holding a camera steady. The only slip ring the spine still allows has a larger
 contact radius and so more drag. **There is no practical fallback**, which is a reason to
 measure the loop early (below) rather than a reason to hesitate.

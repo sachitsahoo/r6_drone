@@ -17,7 +17,7 @@ already chosen constrain it tightly, and that ADR 0008's battery guess didn't sa
 |---|---|---|
 | SimpleFOCMini v1 (DRV8313) | **8 V minimum**, 30 V maximum (board) | ADR 0007 |
 | TB6612FNG | **13.5 V maximum** recommended (15 V absolute) | datasheet; confirm |
-| GM2804H | 2–3S | ADR 0011 |
+| DM3505 | 12 V nominal | ADR 0011 |
 
 | Pack | Range | |
 |---|---|---|

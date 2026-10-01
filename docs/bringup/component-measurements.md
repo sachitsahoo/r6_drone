@@ -14,9 +14,9 @@ change moves everything downstream, and the sweep checks every pair at every rea
 
 | Measure | Goes to | Why it gates |
 |---|---|---|
-| **GM2804H hollow bore, both bolt circles** | `PITCH_MOTOR_HOLLOW_BORE`, `PITCH_MOTOR_*_BOLT_RADIUS` | The bore must pass wheel A's 3 mm shaft (listed 6.5 mm). The rotor bolts must land outside the cup floor's 13 mm bore. Both circles are guesses (ADR 0011). |
+| **DM3505 through-bore** | `PITCH_MOTOR_HOLLOW_BORE` | The datasheet gives ⌀8.5 on the rotor face; confirm it runs through the base, since wheel A's shaft must pass (ADR 0011). Also confirm both bolt circles (⌀15 rotor, ⌀33.5 base). |
 | **Encoder fit** | ADR 0011 | The MA732-class sensor and ring magnet have to fit beside the motor. If the bundled AS5048A variant turns out to leave the bore open, that is simpler. |
-| **Casing centre of mass, both directions** | `docs/theory/` | The sideways offset must be trimmed to ≤ 2 mm (R4). Untrimmed, the motor runs past its rating. Use the R8 datum. |
+| **Casing centre of mass, both directions** | `docs/theory/` | Trim the sideways offset, ideally to ≤ 2 mm (R4); it sets the holding heat. Use the R8 datum. |
 | **Pendulum period** | `tools/pitch_inertia_budget.py` | Inverting `f = sqrt(mgd/I)/2pi` turns the torque budget into a measurement. |
 | **Wire loop: turns tolerated + spring torque per turn** | ADR 0009 | Sets the unwind policy's limits and how much of the torque budget the loop takes. |
 
@@ -24,16 +24,17 @@ change moves everything downstream, and the sweep checks every pair at every rea
 
 ## Mechanical
 
-- [ ] GM2804H: OD, length, mass, hollow bore, rotor and stator bolt circles
-      -> `PITCH_MOTOR_*`. Check it is the GM2804H (6.5 mm bore), not the GBM2804H (5 mm).
+- [ ] DM3505 (no encoder case): OD, length, mass, through-bore, rotor and stator bolt circles
+      -> `PITCH_MOTOR_*`.
 - [ ] N20 gearmotors (12 V, with encoders): body diameter, **total length including
       gearbox**, shaft diameter and length, mass -> `WHEEL_MOTOR_OD`, `WHEEL_MOTOR_LENGTH`,
       `SPINE_BORE`. Length varies with gear ratio and sets every axial station.
-- [ ] Bearings: confirm 6708ZZ (40 × 50 × 6) at end A and 6704ZZ (20 × 27 × 4) at end B
+- [ ] Bearings: confirm 6709ZZ (45 × 55 × 6) at end A and 6704ZZ (20 × 27 × 4) at end B
       -> `BEARING_A_*`, `BEARING_*`.
 - [ ] Spine waist rod (M5 threaded rod or 5 mm tube): OD -> `SPINE_WAIST_OD`. It sets the IMU's
       radial offset directly.
-- [ ] Wheel A shaft extension and coupler: diameter, length (~57 mm needed).
+- [ ] Wheel A shaft extension and coupler: diameter, length (~48 mm needed), coupler OD
+      (must pass the cup floor's 10 mm bore -> `CUP_FLOOR_BORE`).
 - [ ] O-rings: cross-section and inside diameter against the wheel groove.
 
 ## Electronics
@@ -52,8 +53,8 @@ change moves everything downstream, and the sweep checks every pair at every rea
 
 ## Masses
 
-Weigh everything. The rotating budget assumes 250 g (141 g plastic, 109 g motor stator and
-electronics), and most of the component masses are guesses.
+Weigh everything. The rotating budget assumes 267 g (140 g plastic, 127 g motor stator,
+bearing races and electronics), and most of the component masses are guesses.
 
 ---
 

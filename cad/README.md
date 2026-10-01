@@ -46,8 +46,8 @@ axis, which is why the IMU lies beside the waist instead (ADR 0010).
 
 **Read the ASSUMPTION tags in `parameters.py` before printing anything.** The weakest are:
 
-- **The GM2804H's bolt circles** — the motor itself is a listed part (ADR 0011), but both of
-  its bolt patterns are guesses. Measure before printing end cap A or the spine.
+- **The DM3505's through-bore** — the datasheet gives ⌀8.5 on the rotor face but not that it
+  runs through the base. Confirm on the part before printing end cap A or the spine.
 - **`SPINE_WAIST_OD = 5`** — a bought rod (M5 threaded rod or 5 mm tube) carrying all the
   wheel loads. Sets the IMU offset.
 - **`IMU_CHIP_SIDE_HEIGHT = 1.0`** — the tallest part on the breakout's chip side. Also sets
@@ -60,9 +60,9 @@ axis, which is why the IMU lies beside the waist instead (ADR 0010).
 
 - First design: **855 g** of plastic against a 700–900 g vehicle target, cut to 398 g by
   rebuilding discs as rim-hub-and-spoke. Current design: **212 g**.
-- Current rotating plastic: **141 g, I = 0.137e-3 kg m^2**, within 3% of ADR 0008's hand
-  figure. With the motor stator and electronics (`tools/pitch_inertia_budget.py`): 250 g,
-  0.171e-3, of which the shell is 71%.
+- Current rotating plastic: **140 g, I = 0.136e-3 kg m^2**, within 2% of ADR 0008's hand
+  figure. With the motor stator, bearing races and electronics
+  (`tools/pitch_inertia_budget.py`): 267 g, 0.180e-3, of which the shell is 67%.
 - The first design's sweep checked one pose and passed an IMU bridge that went through a
   chassis standoff. That is what the rotation-aware sweep and its regression test are for.
 

@@ -108,7 +108,7 @@ def casing_end_cap_a() -> cq.Workplane:
     """The motor-end cap: the pitch motor's stator bolts to it, and it rides on the cup.
 
     Shape: disc, stepped. z = 0 is the outboard face, which seats against the shell flange.
-    Features: an annular groove in the inboard face holding the 6708 bearing's outer race
+    Features: an annular groove in the inboard face holding the 6709 bearing's outer race
     (the cup wall enters the groove and carries the inner race), the stator bolt circle, and
     a centre bore that wheel A's shaft passes through.
 
@@ -136,12 +136,14 @@ def casing_end_cap_a() -> cq.Workplane:
         cq.Workplane("XY")
         .pushPoints(_ring_points(P.PITCH_MOTOR_STATOR_BOLT_RADIUS, P.PITCH_MOTOR_BOLT_COUNT,
                                  phase_deg=45.0))
-        .circle(P.M2_CLEARANCE / 2).extrude(t))
+        .circle(P.M2_5_CLEARANCE / 2).extrude(t))
 
+    # Through the full thickness: at this motor size the screw circle falls partly inside
+    # the full-thickness housing, so a rim-depth hole would be blind.
     cap = cap.cut(
         cq.Workplane("XY")
         .pushPoints(_ring_points(P.END_CAP_SCREW_RADIUS, P.END_CAP_SCREW_COUNT))
-        .circle(P.M3_CLEARANCE / 2).extrude(rim_t))
+        .circle(P.M3_CLEARANCE / 2).extrude(t))
     return cap
 
 
@@ -207,8 +209,8 @@ def chassis_spine() -> cq.Workplane:
     Unlike the other parts this is built at its assembled z (casing face A = 0), because
     every one of its stations is defined in that frame in parameters.py. From end A:
 
-      cup wall    carries the 6708's inner race, and surrounds the pitch motor
-      cup floor   the motor's rotor bell bolts here; its bore lets wheel motor A in
+      cup wall    carries the 6709's inner race, and surrounds the pitch motor
+      cup floor   the motor's rotor bell bolts here; its bore passes wheel A's coupler
       pocket A    wheel motor A, shaft outboard through the pitch motor's hollow bore
       waist       a 5 mm rod; the IMU ring sits around it (ADR 0010)
       pocket B    wheel motor B, shaft outboard through the boss
@@ -245,7 +247,9 @@ def chassis_spine() -> cq.Workplane:
         (0.0, P.Z_WHEEL_MOTOR_B_LO),
         (0.0, P.Z_WHEEL_MOTOR_A_HI),
         (r_bore, P.Z_WHEEL_MOTOR_A_HI),
-        (r_bore, P.Z_MOTOR_HI),
+        (r_bore, P.Z_CUP_FLOOR_HI),
+        (P.CUP_FLOOR_BORE / 2, P.Z_CUP_FLOOR_HI),
+        (P.CUP_FLOOR_BORE / 2, P.Z_MOTOR_HI),
         (r_cup_i, P.Z_MOTOR_HI),
     ]
     spine = _revolve_profile(outline)
@@ -254,7 +258,7 @@ def chassis_spine() -> cq.Workplane:
         cq.Workplane("XY", origin=(0, 0, P.Z_MOTOR_HI))
         .pushPoints(_ring_points(P.PITCH_MOTOR_ROTOR_BOLT_RADIUS, P.PITCH_MOTOR_BOLT_COUNT,
                                  phase_deg=45.0))
-        .circle(P.M2_CLEARANCE / 2).extrude(P.CUP_FLOOR_THICKNESS))
+        .circle(P.M2_5_CLEARANCE / 2).extrude(P.CUP_FLOOR_THICKNESS))
     return spine.cut(rotor_bolts)
 
 

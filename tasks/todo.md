@@ -17,7 +17,7 @@ Each is written to be accepted as-is; open items listed in each are parameters, 
 - [ ] ADR 0007 — bought power stage, own voltage-mode FOC. **Unblocks the pitch HAL interface.**
 - [ ] ADR 0009 — wire loop with software unwind (the only option the spine leaves)
 - [ ] ADR 0010 — spine chassis, IMU 3.8 mm beside the axis
-- [ ] ADR 0011 — GM2804H, one off-axis encoder, sideways CoM trimmed to <= 2 mm
+- [ ] ADR 0011 — DM3505 (SparkFun ROB-27477), one off-axis encoder, stator on the casing
 - [ ] ADR 0012 — 3S battery, every board in the casing
 - [ ] Protocol proposals 2–7 (`protocol/design-proposal.md`): 6 assigns `0x03` as a target-angle
       command; 7 adds the wire loop's turn count. 3–5 and 7 batch with the estimator design.
@@ -115,7 +115,7 @@ Write a design proposal before any code. Must cover:
 
 Motor control, pitch stabilization, state estimation, safety state machine, watchdog, STM32
 timer/IRQ/DMA config. All owner-reviewed, all blocked on Phase 1's test harness existing.
-The pitch actuator is chosen (direct drive, ADR 0008; GM2804H, ADR 0011 proposed); its HAL
+The pitch actuator is chosen (direct drive, ADR 0008; DM3505, ADR 0011 proposed); its HAL
 interface waits on ADR 0007.
 
 Out of scope per CLAUDE.md: ROS 2, autonomy, SLAM, LiDAR, custom PCB, self-righting.

@@ -54,8 +54,8 @@ The motor's stator bolts to end cap A and its rotor bell to the cup floor. That 
 windings and their phase leads stay in the casing with the power stage and never cross the
 wire loop. Wheel A's drive
 shaft has nowhere to go except **through the motor's centre**, so the motor must be
-hollow-shaft. ADR 0011 selects the GM2804H (35 mm, 6.5 mm bore). The casing's end-A bearing,
-a **6708ZZ (40 × 50 × 6)**, sits on the outside of the cup wall, so impact loads go through a
+hollow-shaft. ADR 0011 selects the DM3505 (40 mm, 8.5 mm bore). The casing's end-A bearing,
+a **6709ZZ (45 × 55 × 6)**, sits on the outside of the cup wall, so impact loads go through a
 real bearing rather than through the gimbal motor's small internal ones. End B keeps a 6704ZZ
 on the spine's boss.
 
@@ -111,11 +111,11 @@ change, so owner-reviewed. This ADR only establishes that the term exists and is
 - **ADR 0005's placement stands; its mounting geometry does not.** It now reads "beside the
   spine's waist, 3.8 mm". Its claim that every millimetre gives a *quadratic* reduction was
   wrong: both terms are linear in r and quadratic only in rate.
-- **Wheel A needs a ~57 mm shaft extension** (3 mm rod plus a coupler), since the N20's own
+- **Wheel A needs a ~48 mm shaft extension** (3 mm rod plus a coupler), since the N20's own
   shaft is ~10 mm and wheel motor A sits behind the pitch motor.
 - **The chassis carries nothing but the wheel motors.** ADR 0012 puts every board and the
   battery in the casing.
-- Measured from the geometry: 141 g of rotating plastic at **0.137e-3 kg m²**, within 3% of
+- Measured from the geometry: 140 g of rotating plastic at **0.136e-3 kg m²**, within 2% of
   ADR 0008's 0.133e-3. The budget with electronics is in ADR 0011.
 
 ## What remains open after acceptance

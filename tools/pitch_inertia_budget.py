@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Inertia and torque budget for the pitch axis, at the current design point.
 
-Feeds docs/theory/pitch-axis-inertia-and-torque.md and ADR 0011 (pitch motor). Offline
+Feeds docs/theory/pitch-axis-inertia-and-torque.md and ADR 0011 (pitch motor, DM3505). Offline
 analysis only -- nothing here runs on the robot.
 
 The design point is ADR 0008's 70 x 182 mm casing, direct drive, with ADR 0010's spine
@@ -28,24 +28,22 @@ G = 9.81  # m/s^2
 
 #: From `python3 cad/build.py --report`, 2026-09-30: shell, both end caps, IMU bridge and
 #: camera mount, in ABS. Re-copy these whenever the CAD changes.
-CAD_ROTATING_PLASTIC_KG = 0.1408
-CAD_ROTATING_PLASTIC_INERTIA_KG_M2 = 0.137e-3
+CAD_ROTATING_PLASTIC_KG = 0.1402
+CAD_ROTATING_PLASTIC_INERTIA_KG_M2 = 0.136e-3
 #: The shell alone, same source. It is the reason mass at the wall is expensive.
 CAD_SHELL_INERTIA_KG_M2 = 0.121e-3
 
 # ------------------------------------------------------------------ the pitch motor
 #
-# iPower GM2804 (ADR 0011). Vendor listing, iFlight, 2026-09-30.
-#: "Load torque 0.35 kg.cm" at "load current 0.8 A". Taken as the rated continuous point.
-MOTOR_RATED_TORQUE_N_M = 0.35 * 9.81 / 100          # 34.3 mN m
-MOTOR_RATED_CURRENT_A = 0.8
-#: Torque per amp from the rated point rather than from KV. KV gives ~0.057 N m/A, but the
-#: KV-to-Kt conversion depends on winding and measurement conventions that a listing does
-#: not state, and the rated point is an actual operating condition. It is also the more
-#: pessimistic of the two, which is the right direction for a budget.
-MOTOR_KT_N_M_PER_A = MOTOR_RATED_TORQUE_N_M / MOTOR_RATED_CURRENT_A   # 0.043
-#: "Motor internal resistance 9 ohm". Assumed phase-to-phase, so 4.5 ohm per phase in a wye.
-MOTOR_RESISTANCE_PHASE_TO_PHASE_OHM = 9.0
+# Mercury DM3505, SparkFun ROB-27477 (ADR 0011). Datasheet 27477_27478, 2026-09-30.
+#: "Nominal torque 0.09 N.m" at "Nominal current 1.1 A". Taken as the rated continuous point.
+MOTOR_RATED_TORQUE_N_M = 0.09
+MOTOR_RATED_CURRENT_A = 1.1
+#: "Torque constant 0.08 Nm/A" -- stated directly, so no KV conversion is needed. The rated
+#: point implies 0.082, which agrees.
+MOTOR_KT_N_M_PER_A = 0.08
+#: "Phase to phase resistance 6.34 ohm", so 3.17 ohm per phase in a wye.
+MOTOR_RESISTANCE_PHASE_TO_PHASE_OHM = 6.34
 #: Power stage limit, ADR 0007 (DRV8313 on SimpleFOCMini v1).
 DRIVER_CURRENT_LIMIT_A = 2.5
 
@@ -68,8 +66,10 @@ class PointMass:
 #: part: boards lie as chords in the 65 mm bore, so their centroids sit around r = 20 mm.
 #: All radii are ESTIMATES until the electronics are placed in cad/assembly.py.
 CASING_CONTENTS: list[PointMass] = [
-    PointMass("pitch motor stator + windings", 0.030, 0.010,
-              "~60% of the 51 g motor; GUESS. Stator on the casing, ADR 0011"),
+    PointMass("pitch motor stator + windings", 0.033, 0.012,
+              "~55% of the 58 g DM3505; GUESS. Stator on the casing, ADR 0011"),
+    PointMass("bearing outer races (6709, 6704)", 0.015, 0.024,
+              "about half of 25 g + 5 g; GUESS"),
     PointMass("battery, 3S 300 mAh", 0.025, 0.018, "BetaFPV listing 24.8 g; ADR 0012"),
     PointMass("Pi Zero 2 W", 0.011, 0.022, "listing"),
     PointMass("MCU board, small G474", 0.008, 0.022, "GUESS; board not chosen"),
@@ -253,7 +253,7 @@ def report() -> None:
     print("=== DESIGN POINT: 10 deg in 100 ms, 3 m/s^2 chassis acceleration ===")
     print(f"  motor rated {MOTOR_RATED_TORQUE_N_M * 1000:.1f} mN m at "
           f"{MOTOR_RATED_CURRENT_A} A (Kt {MOTOR_KT_N_M_PER_A * 1000:.0f} mN m/A)")
-    cases = (("untrimmed, 10 mm sideways (ADR 0008's assumption)", 0.010, 0.0),
+    cases = (("untrimmed, 10 mm sideways", 0.010, 0.0),
              ("trimmed to 2 mm, balanced", TRIMMED_HORIZONTAL_OFFSET_M, 0.0),
              ("trimmed to 2 mm, bottom-heavy 10 mm",
               TRIMMED_HORIZONTAL_OFFSET_M, BOTTOM_HEAVY_VERTICAL_OFFSET_M))

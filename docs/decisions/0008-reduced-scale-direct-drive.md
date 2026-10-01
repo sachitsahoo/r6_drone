@@ -3,11 +3,11 @@
 - **Status:** Accepted (2026-09-30). Both decisions stand. **Amended by
   [0011](0011-pitch-motor-and-encoder.md)** and [0012](0012-power-and-electronics-placement.md),
   marked inline:
-  - the motor is a GM2804H (35 mm, hollow shaft), not a 2208, because ADR 0010 found the
+  - the motor is a DM3505 (40 mm, hollow shaft), not a 2208, because ADR 0010 found the
     shaft must pass through it
-  - the 22.5 mN m budget omitted the electronics; ADR 0011 recomputes it (16.8–24.3 mN m
-    trimmed, 36.4 untrimmed) and makes balance trimming a requirement
-  - "thermal evaporates" was wrong: ~2 W untrimmed, ~0.1 W trimmed
+  - the 22.5 mN m budget omitted the electronics; ADR 0011 recomputes it (17.8–25.8 mN m
+    trimmed, 38.8 untrimmed, against the DM3505's 90 rated)
+  - "thermal evaporates" was overstated: ~0.5 W held untrimmed, ~0.02 W trimmed
   - the battery is a 3S 300 mAh slim pack, 60.5 × 16 × 11.5 (ADR 0012)
 - **Supersedes:** [0006](0006-pitch-actuator.md) (belt/capstan reduction)
 - **Related:** [0004](0004-pitch-axis-architecture.md), [0009](0009-wire-crossing.md)
@@ -59,8 +59,8 @@ shrink with the robot:
 
 > **Amended (ADR 0011):** 22.5 mN m was I·α for a 10° correction in 100 ms plus a 10 mm
 > sideways CoM offset, with the contents guessed at 35% of the shell. With the real
-> electronics it is 36.4 mN m untrimmed. The motor is now a GM2804H at 43 mN m/A (its rated
-> point), so trimmed it draws 0.39–0.57 A: still direct drive, 4.4–6.4x margin.
+> electronics it is 38.8 mN m untrimmed. The motor is now a DM3505 at 0.08 N m/A, so
+> trimmed it draws 0.22–0.32 A: still direct drive, 7.7–11.2x driver margin.
 
 So the reduction goes from necessary to pointless, and direct drive now wins on every axis
 ADR 0006 argued:
@@ -70,8 +70,8 @@ ADR 0006 argued:
 - **Thermal**: ADR 0006's strongest argument for the belt was that direct drive needed
   0.600 A against 0.075 A, and 64x the I^2R inside a sealed printed casing. At this scale
   direct drive needs 0.21 A, so that argument evaporates.
-  *(Corrected by ADR 0011: it does not evaporate, it becomes conditional. A 9 Ω gimbal motor
-  holding an untrimmed casing dissipates ~2 W; trimmed, ~0.1 W.)*
+  *(Corrected by ADR 0011: it does not evaporate, but it stays modest. The DM3505 holding an
+  untrimmed casing dissipates ~0.5 W; trimmed, ~0.02 W.)*
 - **Parts**: deletes the drive band, the pulley, the tensioner and the motor bracket.
 - **Packaging**: frees the annular pocket that the motor and belt occupied.
 

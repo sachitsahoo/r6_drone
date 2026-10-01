@@ -81,14 +81,21 @@ def test_pitch_motor_fits_in_the_cup() -> None:
 
 
 def test_motor_bolt_circles_land_in_material() -> None:
-    """The rotor bolts go into the cup floor, which has a 13 mm bore so wheel motor A can be
-    inserted through it; the stator bolts go into cap A around the shaft bore. A bolt circle
-    that falls inside either bore has nothing to thread into."""
-    m2 = P.M2_CLEARANCE / 2
-    assert P.PITCH_MOTOR_ROTOR_BOLT_RADIUS - m2 > P.SPINE_BORE / 2
-    assert P.PITCH_MOTOR_ROTOR_BOLT_RADIUS + m2 < P.CUP_ID / 2
-    assert P.PITCH_MOTOR_STATOR_BOLT_RADIUS - m2 > P.END_CAP_A_SHAFT_BORE / 2
-    assert P.PITCH_MOTOR_STATOR_BOLT_RADIUS + m2 < P.END_CAP_A_GROOVE_INNER_R
+    """The rotor bolts go into the cup floor around its coupler bore; the stator bolts go into
+    cap A around the shaft bore, inside the bearing groove. A bolt circle that falls inside a
+    bore, or into the groove, has nothing to thread into."""
+    hole = P.M2_5_CLEARANCE / 2
+    assert P.PITCH_MOTOR_ROTOR_BOLT_RADIUS - hole > P.CUP_FLOOR_BORE / 2
+    assert P.PITCH_MOTOR_ROTOR_BOLT_RADIUS + hole < P.CUP_ID / 2
+    assert P.PITCH_MOTOR_STATOR_BOLT_RADIUS - hole > P.END_CAP_A_SHAFT_BORE / 2
+    assert P.PITCH_MOTOR_STATOR_BOLT_RADIUS + hole < P.END_CAP_A_GROOVE_INNER_R
+
+
+def test_cap_a_screws_clear_the_bearing_groove() -> None:
+    """At 40 mm the motor pushes the 6709's groove out to r = 27.5, close to the cap screw
+    circle at r = 30.25. A screw hole breaking into the groove would leave the bearing's
+    outer race unsupported on that side."""
+    assert P.END_CAP_SCREW_RADIUS - P.M3_CLEARANCE / 2 > P.END_CAP_A_GROOVE_OUTER_R + 0.5
 
 
 def test_trim_bosses_are_clear_of_the_camera_station() -> None:
@@ -142,7 +149,7 @@ def test_printed_mass_leaves_room_for_the_rest_of_the_robot(built) -> None:
 
 
 def test_rotating_inertia_matches_the_direct_drive_budget(built) -> None:
-    """ADR 0011's budget (16.8-24.3 mN m trimmed, against the GM2804H's 34.3 rated) is built
+    """ADR 0011's budget (17.8-25.8 mN m trimmed, against the DM3505's 90 rated) is built
     on this plastic inertia plus the electronics. The slew term scales linearly with I, so a
     drift past 0.20e-3 moves the design point noticeably and should be caught here first."""
     inertia = sum(build.inertia_kg_m2(built[name].val(), P.ABS_DENSITY) * qty

@@ -55,8 +55,8 @@ class Component:
 CASING_COMPONENTS: list[Component] = [
     Component("pitch_motor", "cylinder", (P.PITCH_MOTOR_OD, P.PITCH_MOTOR_LENGTH),
               P.PITCH_MOTOR_MASS_G, "LISTING",
-              "iPower GM2804H-100T, hollow shaft 6.5 mm ID, 12N14P, 9 ohm (ADR 0011). Not "
-              "the GBM2804H variant, whose bore is 5 mm."),
+              "Mercury DM3505, SparkFun ROB-27477, without encoder case: 40 x 16 mm, 8.5 mm "
+              "bore, 11 pole pairs, 6.34 ohm, 0.09 N m nominal (ADR 0011)."),
     Component("pi_zero_2w", "box", (65.0, 30.0, 5.0), 11.0, "LISTING",
               "Pi Zero 2 W board outline is well documented; 5 mm is with nothing stacked."),
     Component("camera_module_3_wide", "box", (25.0, 24.0, 12.5), 5.0, "LISTING",

@@ -35,7 +35,7 @@ than a camera assembly.
 
 ### The actuator trade-off inverts
 
-> **Decided since:** direct drive (ADR 0008) once the robot shrank, with the GM2804H gimbal
+> **Decided since:** direct drive (ADR 0008) once the robot shrank, with the DM3505 gimbal
 > motor (ADR 0011). The reasoning below is why that took an inertia budget to settle.
 
 The earlier framing weighed a geared servo against an FOC gimbal BLDC, leaning toward the

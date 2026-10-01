@@ -2,7 +2,7 @@
 
 - **Status:** **PROPOSED — awaiting owner approval. Do not implement.**
   Revised 2026-09-30 for direct drive: the operating point below was first written for
-  ADR 0006's belt and has been recomputed for the GM2804H.
+  ADR 0006's belt and has been recomputed for the DM3505.
 - **Related:** [0008](0008-reduced-scale-direct-drive.md) (direct drive),
   [0011](0011-pitch-motor-and-encoder.md) (the motor and its single encoder),
   [0012](0012-power-and-electronics-placement.md) (the 3S supply this stage needs)
@@ -54,17 +54,17 @@ point that complexity is unnecessary. Figures from ADR 0011's budget, for a trim
 
 | | Value |
 |---|---|
-| Current at the design point | **0.39–0.57 A** (16.8–24.3 mN m at the rated-point Kt, 43 mN m/A) |
-| Driver rating | 2.5 A — **4.4–6.4x margin** |
-| Electrical frequency at peak slew | **3.9 Hz** (7 pole pairs, casing at 3.5 rad/s, no reduction) |
-| A 20 kHz FOC loop oversamples that by | **over 5000x** |
+| Current at the design point | **0.22–0.32 A** (17.8–25.8 mN m at Kt = 0.08 N m/A) |
+| Driver rating | 2.5 A — **7.7–11.2x margin** |
+| Electrical frequency at peak slew | **6.1 Hz** (11 pole pairs, casing at 3.5 rad/s, no reduction) |
+| A 20 kHz FOC loop oversamples that by | **over 3000x** |
 | TIM1 resolution at 20 kHz from 170 MHz | 8500 counts, **13.1 bits** |
 
-Direct drive made the electrical frequency *eight times lower* than under the belt (31 Hz),
+Direct drive made the electrical frequency *five times lower* than under the belt (31 Hz),
 which makes commutation timing even less demanding. It also made the current several times
 higher, which is the half that needs watching: see the consequences.
 
-Gimbal motors are deliberately high-resistance — the GM2804H is 9 Ω — so at half an amp a
+Gimbal motors are deliberately high-resistance — the DM3505 is 6.3 Ω — so at a third of an amp a
 current loop regulates little that the winding resistance does not already set. **Voltage-mode FOC**, where a voltage vector is
 applied at the correct electrical angle without measuring current, is the standard approach
 for gimbal motors and is what SimpleFOC itself defaults to for them.

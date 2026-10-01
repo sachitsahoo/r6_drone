@@ -26,7 +26,7 @@ Nothing in Phase 1 needs hardware. Wave 1 starts when firmware first touches rea
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| iPower **GM2804H-100T** gimbal motor | 1 | verified | 35 mm, hollow 6.5 mm ID, 12N14P, 9 Ω, ~$28 bare. Not the GBM2804H (5 mm bore). ADR 0011 |
+| **Mercury DM3505 gimbal motor, without encoder** — SparkFun ROB-27477 | 1 | verified | 40 × 16 mm, 8.5 mm bore, 0.09 N m nominal, 12 V, $34.95 SparkFun / $41.88 DigiKey. ADR 0011. Confirm the bore runs through |
 | Pitch encoder: MA732-class board + diametric ring magnet | 1 | **open** | Has to read off-axis (ADR 0011). Sizes to match on purchase |
 | SimpleFOCMini v1 (DRV8313) | 1 | decided | ADR 0007. v2.3 adds current sensing, worth considering for research reasons |
 | 3S LiPo, 300 mAh, slim | 1 + spare | verified | BetaFPV 45C: 60.5 × 16 × 11.5 mm, 24.8 g. ADR 0012 |
@@ -42,15 +42,15 @@ Nothing in Phase 1 needs hardware. Wave 1 starts when firmware first touches rea
 | Item | Qty | Status | Notes |
 |---|---|---|---|
 | Small STM32G474 board | 1 | **open** | Must fit a 65 mm bore; the Nucleo cannot |
-| 6708ZZ bearing, 40 × 50 × 6 | 1 | verified | End A, on the cup wall |
+| 6709ZZ bearing, 45 × 55 × 6 | 1 | verified | End A, on the cup wall |
 | 6704ZZ bearing, 20 × 27 × 4 | 1 | decided | End B, on the spine boss |
 | M5 threaded rod, or 5 mm brass/aluminium tube | ~100 mm | decided | Spine waist. Tube if wheel motor A's wires run through it |
-| 3 mm rod + 3-to-3 mm coupler | ~60 mm | decided | Wheel A's shaft extension (~57 mm) |
+| 3 mm rod + 3-to-3 mm coupler | ~50 mm | decided | Wheel A's shaft extension (~48 mm). Coupler must pass a 10 mm bore |
 | O-rings, 3 mm cross-section, ~100 mm ID | 2 + spares | decided | Wheel treads; size from the groove |
 | M3 screws for the end caps | 12 | decided | |
-| M2 screws (motor 8, camera 4, IMU 2) | 14 | decided | Bolt circles still guesses |
+| M2.5 screws (motor, 8) and M2 screws (camera 4, IMU 2) | 14 | decided | Motor patterns from the DM3505 drawing |
 | M3 heat-set inserts | ~20 | decided | Not yet in the CAD, which taps plastic directly |
-| Trim masses: M3 screws, nuts, brass | assorted | decided | **Required**: the sideways CoM must be trimmed to ≤ 2 mm (ADR 0011) |
+| Trim masses: M3 screws, nuts, brass | assorted | decided | Recommended: trimming the sideways CoM to ≤ 2 mm cuts holding heat (ADR 0011) |
 | Silicone-insulated stranded wire, 28–30 AWG | 1 spool | decided | For the wire loop (ADR 0009) |
 | XT30 or similar battery connector, JST-PH leads | a few | — | |
 | Power / kill switch | 1 | decided | Required by CLAUDE.md before motors run |
@@ -69,11 +69,10 @@ Calipers and a 0.1 g scale are needed for the measurement checklist
 
 ## Sources for "verified"
 
-- GM2804H: [iFlight GM2804 with encoder](https://shop.iflight.com/ipower-gm2804-gimbal-motor-with-as5048a-encoder-pro288)
-  (35 mm OD, 25 mm height, 51 g, 6.5 mm ID, 12N14P, 9 Ω, 0.35 kg·cm), and the
-  [rcdrone gimbal motor list](https://rcdrone.top/collections/gimbal-motor) (bare-motor price).
+- DM3505: [SparkFun ROB-27477](https://www.sparkfun.com/products/27477),
+  [DigiKey](https://www.digikey.com/en/products/detail/sparkfun-electronics/ROB-27477/26523949),
+  [datasheet](https://cdn.sparkfun.com/assets/3/3/d/4/5/27477_27478_Datasheet.pdf).
 - Hollow-shaft encoder approach: [SimpleFOC community thread](https://community.simplefoc.com/t/recommended-absolute-encoder-mounting-for-hollow-shaft-motor/1677).
-- 6708ZZ: [Simply Bearings](https://www.simplybearings.co.uk/products/6708-zz-eu). Also confirms
-  that 61807 is 35 × 47 × 7, not the 35 × 44 × 5 an earlier draft used.
+- 6709ZZ: [VXB](https://vxb.com/products/6709zz-thin-section-shielded-ball-bearing-45x55x6).
 - 3S 300 mAh: [BetaFPV](https://betafpv.com/products/300mah-3s-45c-lipo-battery-s-version-2pcs).
 - ICM-42688-P package, 2.5 × 3 × 0.91 mm LGA-14: [LCSC](https://support.lcsc.com/product-detail/Attitude-Sensor-Gyroscope_TDK-InvenSense-ICM-42688-P_C1850418.html).
