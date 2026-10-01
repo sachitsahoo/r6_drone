@@ -120,10 +120,13 @@ check at every 30 degrees.
   angle. **One encoder serves both** FOC and the estimator (ADR 0011). It has to be read
   off-axis, because wheel A's shaft runs through the motor.
 
-## What must be settled before this is accepted
+## What remains open after acceptance
 
-1. Confirm the motor's pole pair count on arrival (listed as 12N14P, i.e. 7).
-2. Decide whether current sensing is worth the larger board, on research grounds rather than
-   control grounds.
-3. Agree the PWM frequency and dead-time, which is STM32 timer configuration and therefore
-   owner-reviewed in its own right.
+None of these needs hardware in hand, and none changes the decision.
+
+1. **Pole pairs:** settled. The DM3505 datasheet gives 11 (ADR 0011).
+2. **PWM frequency and dead-time:** STM32 timer configuration, owner-reviewed in its own right
+   when that code is written.
+3. **v1 or v2.3:** whether to buy the SimpleFOCMini with current sensing, on research grounds
+   (see the consequences). The control loop doesn't need it. The hardware interface will
+   leave room for an optional current reading, so the board can be chosen at purchase time.
