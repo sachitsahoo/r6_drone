@@ -180,7 +180,9 @@ params:
     range: [100, 2000]
     default: 500
     writable: true
-    source: ADR 0014 Q3 — about 10 closed-loop time constants (tau_cl = 20 ms, ADR 0013).
+    source: >
+      ADR 0014 Q3 — 500 ms = 25 closed-loop time constants (tau_cl = 20 ms, ADR 0013); the
+      ADR text says "about 10", an arithmetic slip corrected in its 2026-10-01 callout.
     description: >
       How long a wheel's output may stay saturated while not turning (or turning against
       its duty) before WHEEL_STALL latches.

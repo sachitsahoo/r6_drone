@@ -3,7 +3,12 @@
 - **Status:** **ACCEPTED** by the owner, 2026-10-01: all six questions answered with the
   recommendation (see "Owner decisions" at the end). Owner-reviewed area: safety state
   machine, watchdog, plus protocol schema changes (new fault codes, Nack reasons, params) and
-  one new HAL interface. Not yet implemented.
+  one new HAL interface.
+- **Implemented 2026-10-01** in `firmware/core/safety/` (pure logic only; the STM32 IWDG and
+  timer glue is proposed separately in ADR 0015). Four points this ADR left open were decided
+  at implementation and are listed in `implementation-notes.html` (Phase 2.2) for owner review.
+- **Corrected 2026-10-01:** 500 ms is 25 closed-loop time constants, not "about 10" (see the
+  callout under WHEEL_STALL). The decision is unchanged.
 - **Inputs already decided by the owner:** wheels **coast** on a comms timeout and escalate
   to **brake** if the link stays down long enough (`firmware/hal/hal/wheel_motor.hpp`);
   the hardware watchdog (IWDG) is designed together with this machine (`tasks/todo.md`).
@@ -129,6 +134,8 @@ Why each one, and why these numbers:
   - 500 ms is about 10 closed-loop time constants (τ_cl = 20 ms, ADR 0013), so no
     legitimate transient from rest lasts that long at the limit. 1 rad/s is about 2 encoder
     counts per 10 ms window, safely above the 0.449 rad/s resolution.
+    > **Corrected 2026-10-01:** 500 / 20 = **25** time constants, not about 10. The argument
+    > only gets stronger; the value stays. Derivation: `docs/theory/safety-state-machine.md` §4.2.
 - **ENCODER_FAULT latches on the first glitch.** ADR 0013's plausibility check needs a jump
   of more than 22 counts in 1 ms. A hardware quadrature counter (timer encoder mode) can't
   produce that from a few noisy edges; it means a wiring or ground fault. The loop already

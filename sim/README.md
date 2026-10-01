@@ -28,8 +28,9 @@ software-in-the-loop (SIL) test can exercise a real control law with no hardware
 | File | Implements | Notes |
 |---|---|---|
 | `sim/sim_clock.hpp` | `hal::Clock` | Virtual time; start it near 2^32 to test the wrap |
-| `sim/sim_serial_link.hpp/.cpp` | `hal::SerialPort` x2 | 460 800 baud 8N1 line, 256 B buffers, RX overflow, seeded bit errors |
-| `sim/wheel_plant.hpp/.cpp` | `hal::WheelMotor` + `hal::WheelEncoder` | First-order duty -> speed, exact discretisation, coast/brake, wrapping counter; optional constant load and extra viscous drag (slope / carpet cases) |
+| `sim/sim_serial_link.hpp/.cpp` | `hal::SerialPort` x2 | 460 800 baud 8N1 line, 256 B buffers, RX overflow, seeded bit errors, `set_cut()` for a link loss |
+| `sim/wheel_plant.hpp/.cpp` | `hal::WheelMotor` + `hal::WheelEncoder` | First-order duty -> speed, exact discretisation, coast/brake, wrapping counter; optional constant load and extra viscous drag (slope / carpet cases); test-only encoder faults: `encoder_reversed`, `freeze_encoder()` (ADR 0014 WHEEL_STALL); `braking()` |
+| `sim/sim_watchdog.hpp` | `hal::Watchdog` | Records feeds, reports expiry against virtual time (latched), boots "after a watchdog reset" on request; resets nothing |
 | `sim/static_sensors.hpp` | `Imu`, `AbsoluteEncoder`, `PowerMonitor`, `PitchPowerStage` | Settable constant samples stamped with virtual time; no dynamics yet |
 | `sim/sim_world.hpp` | — | Owns one of everything and steps them together |
 
@@ -45,6 +46,9 @@ The library is host-only but compiled with the firmware language subset
 - Every wheel-plant constant is a placeholder (see `sim/wheel_plant.hpp`). The gear ratio
   is not chosen and nothing has been measured.
 - The output limit saturates rather than scales (owner decision, ADR 0013 question 3).
+- `SimWatchdog` cannot reset the simulated MCU; tests check `expired()` instead. A frozen
+  encoder that is unfrozen jumps to the true count, which a real counter (having missed the
+  edges) would not.
 - No pitch dynamics: the IMU reports a level, still casing and the power stage only records
   duties. These arrive with the FOC and estimator designs.
 - No camera or video simulation. Visual-stability evaluation needs real optics.

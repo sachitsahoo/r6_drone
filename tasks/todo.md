@@ -27,6 +27,8 @@ Each is written to be accepted as-is; open items listed in each are parameters, 
 - [x] `firmware/hal/design-proposal.md` — approved 2026-10-01 and implemented.
 - [x] ADR 0013 — wheel velocity loop. **Accepted 2026-10-01**, all five as recommended.
 - [x] ADR 0014 — safety state machine, comms watchdog, IWDG. **Accepted 2026-10-01**, all six as recommended.
+- [ ] ADR 0015 — MCU loop timing, IWDG driver, safety glue (5 questions). **Proposed 2026-10-01.**
+- [ ] ADR 0014 implementation interpretations (4, each with a recommendation): implementation-notes.html, Phase 2.2
 - [ ] Protocol proposals 2–7 (`protocol/design-proposal.md`): 6 assigns `0x03` as a target-angle
       command; 7 adds the wire loop's turn count. 3–5 and 7 batch with the estimator design.
 
@@ -152,58 +154,7 @@ clamping); real-time threads (rejected — non-deterministic tests).
 
 ---
 
-## Phase 2.1 — wheel velocity loop (ADR 0013, accepted 2026-10-01)
-
-**Done 2026-10-01.** 159 C++ / 207 Python green, STM32 build OK. Amended mid-way: the SIL step
-test exposed 12% overshoot from feedforward; owner set `kff = 0` (ADR 0013 amendment).
-Open: owner may want a reserved `kd` slot (recommended no).
-
-- [x] Schema: 7 drive params at 0x0100+; `unit_suffix` maps `m/s^2` -> `_m_s2`; generator
-      emits C++ `param_defaults::` so core initialises from the schema (no copied numbers)
-- [x] `core/control/geometry.hpp` (wheel radius, track width) + Python drift test vs `cad/parameters.py`
-- [x] Tests first, then `core/control/`: wheel_speed_estimator, wheel_velocity_controller,
-      diff_drive, rate_limiter, drive_loop
-- [x] `SimWheel`: constant load (duty-equivalent) + extra viscous drag, for the carpet case
-- [x] SIL: step response (settle 5% < 100 ms, overshoot < 5%), turn in place, carpet case
-      zero steady error, gains ±50% stable, not-ARMED never writes motors
-- [x] Docs: theory/wheel-velocity-loop.md, learning/wheel-velocity-loop.md, core README,
-      implementation-notes
-- Not here: wiring ParamSet to the live config (no param table in core yet), who calls
-  step() at 1 kHz (STM32 timer design), LoopTiming transmission (telemetry scheduler).
-
-## Phase 2.2 — safety state machine (ADR 0014, accepted 2026-10-01)
-
-Plan written 2026-10-01. CI green on `e3a5296` before starting. Owner: no reserved `kd` slot.
-
-Goal: the pure safety logic from ADR 0014, closed against the sim in SIL, with no STM32 glue.
-
-Approach (tests first, then code):
-- [ ] Schema: FaultCode WHEEL_STALL=8, WATCHDOG_RESET=9, WIRE_LOOP_LIMIT=10 (reserved);
-      NackReason ARM_INTERLOCK=10, FAULT_ACTIVE=11; params 0x0200-0x0203. Python test: every
-      FaultCode fits a `fault_flags` bit (1..16); param count 11 -> 15.
-- [ ] `hal/watchdog.hpp` (`feed()`, `reset_was_watchdog()`), added to compile_check;
-      `sim/sim_watchdog.hpp` records feeds, reports expiry against the sim clock, can boot "after
-      a watchdog reset".
-- [ ] `core/safety/`: `WheelStallDetector`, `SafetySupervisor` (inputs struct -> outputs struct,
-      no HAL calls), `CheckInMonitor` (atomic mask, ISR-safe check-in).
-- [ ] `SimWheel`: `encoder_reversed` param, `freeze_encoder()`, `braking()` accessor;
-      `SimSerialLink::set_cut()`.
-- [ ] Tests: transition table (4 states x 11 events, completeness enforced), interlocks,
-      watchdog 199/200/201 ms + uint32 wrap + Heartbeat-in-ARMED, escalation, clearing,
-      CheckInMonitor, SIL (link cut, frozen encoder, reversed encoder, carpet full stick,
-      watchdog-reset boot, IWDG starves when a loop stops checking in).
-- [ ] Docs: theory/safety-state-machine.md, learning/safety-state-machine.md, core + sim + hal
-      READMEs, implementation-notes.html, lessons.
-- [ ] Prove: ctest, pytest, STM32 build. Commit at checkpoints (owner pushes).
-
-Alternatives considered: supervisor reads HAL directly (rejected: ADR wants every transition
-table-testable); stall detection inside DriveLoop (rejected: DriveLoop never stops motors itself,
-ADR 0013); LOOP_OVERRUN measured by the glue (rejected: the supervisor is stepped by the motor
-loop, so the gap between its own steps *is* the loop gap, and that keeps it pure).
-
-Not here (owner-reviewed, propose separately): STM32 IWDG/RCC_CSR driver, timer/ISR layout,
-the glue that decodes frames into `SafetyInputs` (incl. stale-timestamp rejection) and applies
-outputs to DriveLoop / WheelMotor / PitchPowerStage, param table wiring.
+Phase 2.1 (ADR 0013) and Phase 2.2 (ADR 0014) are done: see `completed.md`.
 
 ## Not now — deliberately deferred
 

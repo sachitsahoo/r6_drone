@@ -35,7 +35,12 @@ identical code compiles three ways:
 |---|---|---|
 | `time/` | Wraparound-safe `elapsed_us` | hard rule 7 |
 | `protocol/` | COBS, CRC-32, frame encoder and garbage-tolerant decoder | ADR 0002 |
+| `safety/` | `SafetySupervisor` (DISARMED / ARMED / FAULT / ESTOP, arm interlocks, comms watchdog, fault latching, coast-then-brake), `WheelStallDetector`, `CheckInMonitor` (IWDG feed gate, `kIwdgTimeout_ms`) | ADR 0014; [theory](../../docs/theory/safety-state-machine.md); [learning note](../../docs/learning/safety-state-machine.md) |
 | `control/` | Wheel velocity loop: `diff_drive`, `RateLimiter`, `WheelSpeedEstimator`, `WheelVelocityController` (PI, `kff = 0` by default), `DriveLoop` | ADR 0013 (+ amendment); [theory](../../docs/theory/wheel-velocity-loop.md); [learning note](../../docs/learning/wheel-velocity-loop.md) |
+
+`safety/` follows the same pattern as `control/`: pure classes, inputs and outputs as plain
+structs, no HAL calls, so every transition is tested from a table on the laptop. It includes
+`hal/wheel_motor.hpp` only for the `StopMode` enum.
 
 Config defaults come from the generated `protocol::param_defaults`, so a default is written
 once, in `protocol/schema/params.yaml`. `control/geometry.hpp` copies two CAD numbers and is
@@ -45,9 +50,12 @@ guarded by `tests/python/test_geometry_drift.py`.
 
 - Every controller here requires an approved design before implementation
   (see "Owner-reviewed areas" in [`../../CLAUDE.md`](../../CLAUDE.md)).
-- `DriveLoop` is not yet wired to anything. Not decided: who calls `step()` at 1 kHz (STM32
-  timer design), where `armed` comes from (safety state machine), how `ParamSet` reaches
-  `set_config` (no param table yet), and how `LoopTiming` is transmitted.
+- `DriveLoop` and `SafetySupervisor` are not yet wired to anything. The glue is proposed in
+  ADR 0015 and waits on owner review: who calls `step()` at 1 kHz, who decodes frames into
+  `SafetyInputs` (including stale-timestamp rejection, which is not implemented anywhere yet),
+  how `ParamSet` reaches `set_config` (no param table yet), and how `LoopTiming` is sent.
+- `SafetySupervisor` has no detectors for IMU_FAULT, OVERCURRENT or UNDERVOLTAGE (thresholds
+  deferred by ADR 0014), nor for WIRE_LOOP_LIMIT (reserved for ADR 0009).
 - The wheel gains are derived from the placeholder sim plant. They must be re-derived after
   system ID (theory doc, §3.1).
 

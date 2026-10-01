@@ -37,7 +37,9 @@ every task rather than cleanup afterward.
 
 ## Known limitations
 
-- `theory/` has the pitch-axis budget only; no controller has been designed yet.
+- `theory/` has the pitch-axis budget, the wheel velocity loop (ADR 0013) and the safety
+  state machine (ADR 0014). No pitch controller or estimator has been designed yet.
 - `bringup/` has the UART link plan and the component measurement checklist, but no
   hardware has been powered.
-- `learning/` has the protocol and HAL walkthroughs.
+- `learning/` has the protocol, HAL, wheel velocity loop and safety state machine
+  walkthroughs.

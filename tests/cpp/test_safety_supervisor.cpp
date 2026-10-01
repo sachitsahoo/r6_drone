@@ -356,6 +356,12 @@ TEST(SafetyBoot, AWatchdogResetFaultClearsAndThenArmsWithTwoRequests) {
 }
 
 // ------------------------------------------------------------------------ arm interlocks
+//
+// Interlock 2 (no fault latched, ArmInterlock::kFaultLatched) has no test, because no input
+// sequence reaches it: every latch moves DISARMED to FAULT, and both ways back into DISARMED
+// (clearing FAULT or ESTOP) leave zero flags. expect_outputs_consistent() asserts that
+// invariant on every row of the transition table. The check stays in the code as defence in
+// depth, as ADR 0014 lists it, so a future path into DISARMED with a flag still cannot arm.
 
 TEST(SafetyArmInterlock, RefusedWithTheStickDeflected) {
   Rig rig;

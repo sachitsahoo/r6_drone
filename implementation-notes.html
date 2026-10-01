@@ -546,10 +546,144 @@ anti-windup; the HAL limit is a backstop at or above it.</p>
 </details>
 
 <details>
-<summary>Open — reserve a <code>kd</code> slot?<span class="tag">open question</span></summary>
-<p>The owner asked whether a zero <code>kd</code> would exist alongside the zero
-<code>kff</code>. The recommendation is no, because an unfiltered D is noise the moment it is
-non-zero. I proceeded without it; the owner may override.</p>
+<summary>RESOLVED — no <code>kd</code> slot<span class="tag">closed</span></summary>
+<p>Owner, 2026-10-01: not needed. Add one later if hardware ever calls for it, rather than
+carrying an unused parameter now.</p>
+</details>
+
+<h2>Phase 2.2 — safety state machine (ADR 0014, 2026-10-01)</h2>
+
+<p>Pure logic in <code>firmware/core/safety/</code>, tested from a complete state &times; event
+table and closed against the sim in SIL. No STM32 glue: that is ADR 0015, proposed. Four
+points the ADR left open are marked <b>open question</b>. Each has a recommendation and was
+implemented that way, so the owner can accept as-is or change one line.</p>
+
+<details>
+<summary>Open — SafetyStateRequest asking for ESTOP or FAULT<span class="tag">open question</span></summary>
+<p>The ADR covers requests for ARMED and DISARMED only. <code>requested_state</code> can also
+carry ESTOP or FAULT. Implemented: <b>ESTOP acts as an e-stop</b> (a stop is never refused,
+whichever message asks), and <b>FAULT is refused with <code>Nack(RANGE_REJECT)</code></b>,
+because FAULT is entered by detectors only. Alternative: refuse both and make EstopRequest the
+only way in. Recommended: keep as implemented.</p>
+</details>
+
+<details>
+<summary>Open — what "the link is fresh" means for interlock 3<span class="tag">open question</span></summary>
+<p>In DISARMED every valid frame feeds the watchdog, and that includes the arm request itself.
+Counted naively, the interlock could never fail. Implemented: the request's own frame does
+<b>not</b> count, so an arm request out of silence is refused (<code>context = 3</code>). Any
+valid frame in the previous 200 ms satisfies it, and the operator app's 50 Hz Heartbeat
+always does. On arming, the ARMED watchdog starts from the arm request, so the first
+DriveCommand has 200 ms to arrive. Recommended: keep.</p>
+</details>
+
+<details>
+<summary>Open — leaving ESTOP with a fault still active<span class="tag">open question</span></summary>
+<p>The ADR says ESTOP is left "by operator request to DISARMED", and that detectors move ARMED
+or DISARMED to FAULT. It does not say what happens to a detector event during ESTOP.
+Implemented: detectors keep latching flags and sending Fault frames in ESTOP (and in FAULT)
+for visibility, without changing state. The DISARMED request out of ESTOP uses the
+<b>same clear rule as FAULT</b>: flags whose condition is gone are cleared, and if one is still
+active the reply is <code>Nack(FAULT_ACTIVE)</code> and the state stays ESTOP. That keeps
+"DISARMED never holds a flag" true, which the table test asserts on every row. Alternative:
+ESTOP &rarr; FAULT. That would add an edge the ADR doesn't have. Recommended: keep.</p>
+</details>
+
+<details>
+<summary>Open — the Fault frame sent with Nack(ARM_INTERLOCK)<span class="tag">open question</span></summary>
+<p>The ADR says to send "a Fault frame naming the first condition that failed in
+<code>context</code>", but not which <code>fault_code</code>. Implemented:
+<code>fault_code = NONE</code> (an interlock is not a fault, and nothing is latched) and
+<code>context</code> = the ADR's condition number: 2 fault latched, 3 link stale, 4 stick not
+centred (<code>core::ArmInterlock</code>). Condition 1 (not DISARMED) has its own Nack
+reason, <code>NOT_DISARMED</code>, and no Fault frame. Recommended: keep. The operator app
+must treat <code>Fault(NONE)</code> as "arm refused", not as a fault.</p>
+</details>
+
+<details>
+<summary>ADR 0014 arithmetic slip: 500 ms is 25 &tau;<sub>cl</sub>, not 10<span class="tag">correction</span></summary>
+<p>500 / 20 = 25. The conclusion (no legitimate transient lasts that long) only gets stronger.
+Recorded as a dated callout in the accepted ADR, per docs/README.md. The schema
+<code>source</code> note carries the right figure. Lesson added.</p>
+</details>
+
+<details>
+<summary>One tick, fixed order: e-stop, detectors, watchdog, request<span class="tag">design</span></summary>
+<p>Every same-millisecond race resolves in the safe direction: an arm request in the tick a
+fault appears is refused, a clear with the condition still present is refused, and an e-stop
+beats an arm. The inputs carry at most one SafetyStateRequest per tick, and the glue holds
+any extra for the next tick (1 ms). EstopRequest is a separate flag, so it is never queued.</p>
+</details>
+
+<details>
+<summary>Boundaries: comms trips at &ge; 200 ms, LOOP_OVERRUN at &gt; 5000 &micro;s<span class="tag">off-spec</span></summary>
+<p>"No feeding frame for 200 ms" is read as silence &ge; 200 ms, so 199 ms holds and 200 ms
+trips. That matches the ADR's "a lost link brakes 1.0 s after the last command" exactly. The
+ADR writes LOOP_OVERRUN as gap <code>&gt;</code> 5000 &micro;s, so exactly 5000 is tolerated.
+Both boundaries are tested on each side.</p>
+</details>
+
+<details>
+<summary>LOOP_OVERRUN is measured by the supervisor itself<span class="tag">design</span></summary>
+<p>It is stepped once per motor-loop iteration, so the gap between its own steps is the loop
+gap. No timer input is needed, and it stays pure. The first step after boot has no gap.</p>
+</details>
+
+<details>
+<summary>Every timer is bounded by a latch, for the 71.6 min wrap<span class="tag">design</span></summary>
+<p><code>link_fresh_</code> latches false at the timeout and <code>fault_braking_</code> latches
+true at the brake delay. The stall timer resets outside ARMED. So no interval ever measured
+approaches 2<sup>32</sup> &micro;s, even on a robot left DISARMED for hours. Tested by idling
+2<sup>32</sup> &micro;s + 50 ms, at 4 ms ticks, past one stale heartbeat.</p>
+</details>
+
+<details>
+<summary>WHEEL_STALL details the ADR left open<span class="tag">off-spec</span></summary>
+<ul>
+<li>Saturated means <code>|duty| &ge; limit &minus; 1e-4</code>. A limit of 0 never counts as
+saturated.</li>
+<li>An invalid speed estimate breaks the condition and restarts the timer. ENCODER_FAULT covers
+the invalid case.</li>
+<li>Contexts: WHEEL_STALL and ENCODER_FAULT carry a wheel mask (1 left, 2 right),
+COMMS_TIMEOUT the silence in &micro;s, LOOP_OVERRUN the gap in &micro;s, and the rest 0.</li>
+</ul>
+</details>
+
+<details>
+<summary>Pitch enable in FAULT = "COMMS_TIMEOUT is the only flag"<span class="tag">design</span></summary>
+<p>Q6 implemented literally: any second flag, even one latched later, turns the stage off.
+A watchdog-reset boot has the stage off.</p>
+</details>
+
+<details>
+<summary>CheckInMonitor: atomic mask, lock-free asserted<span class="tag">design</span></summary>
+<p><code>check_in()</code> runs in ISRs, so the mask is a <code>std::atomic&lt;uint32_t&gt;</code>
+and the code static_asserts <code>is_always_lock_free</code>. A lock-based fallback could
+deadlock against the main loop. <code>should_feed()</code> lives in a <code>.cpp</code> so the
+STM32 build compiles it. <code>kIwdgTimeout_ms = 50</code> lives in core so the sim and the
+future STM32 driver share one constant.</p>
+</details>
+
+<details>
+<summary>"Rejected and stale frames don't feed the watchdog" is untestable yet<span class="tag">limitation</span></summary>
+<p>The supervisor only ever sees frames the glue has validated, so the property belongs to the
+glue. The decoder half is already tested (bit errors never yield a frame). Stale-timestamp
+rejection is not implemented anywhere yet. It is in the ADR 0015 proposal.</p>
+</details>
+
+<details>
+<summary>Sim additions are test-only fault injectors<span class="tag">tooling</span></summary>
+<p><code>WheelPlantParams::encoder_reversed</code>, <code>SimWheel::freeze_encoder()</code>,
+<code>SimWheel::braking()</code>, <code>SimSerialLink::set_cut()</code> (the transmitter still
+clocks bytes out; nothing arrives), and <code>SimWatchdog</code> (it records instead of
+resetting). The SIL test's <code>Robot</code> class is test glue, not a draft of the firmware
+glue.</p>
+</details>
+
+<details>
+<summary>WIRE_LOOP_LIMIT = 10 is in the schema with no detector<span class="tag">reserved</span></summary>
+<p>Reserved for ADR 0009, so the number cannot be taken by something else. Nothing latches it
+yet.</p>
 </details>
 
 <h2>Open questions</h2>
