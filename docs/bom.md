@@ -28,6 +28,38 @@ The rest of wave 1 is needed when the motor drivers are written.
 | Breadboard + jumper wires | 1 set | — | |
 | 10 kΩ resistors (pull-downs) | ~10 | decided | TB6612 STBY and PWM inputs, so a chip in reset drives nothing (ADR 0014; owner, ADR 0015 Q5: fitted before the first motor is powered). Value is an initial guess; check the breakout doesn't already fit them |
 
+## DigiKey order — checked against listings 2026-10-01
+
+Prices and stock as shown on digikey.com that day; they move. "Marketplace" items ship from
+Pololu, possibly with their own shipping fee.
+
+**Bench kit (order now):**
+
+| Item | DigiKey # | Qty | Each | Notes |
+|---|---|---|---|---|
+| NUCLEO-G474RE | 497-19491-ND | 1 | $20.13 | 2,570 in stock. The "99 weeks" shown is ST's factory lead time, irrelevant while stocked |
+| SparkFun TB6612FNG breakout with headers (14450) | 1568-14450-ND | 1 | $14.94 | VM max 15 V per SparkFun, so 3S (12.6 V full) fits: closes the "TB6612 max VM" item |
+| Pololu #5216: 100:1 HPCB 12 V micro metal gearmotor, 12 CPR encoder, back connector | 2183-5216-ND | 2 | $32.45 | **Gear ratio: owner to confirm.** 330 rpm, 0.75 A stall at 12 V (under the TB6612's 1.2 A); 12 × 100.37 = 1204 counts/rev. Closest to the sim plant (300 rpm, 1400 counts/rev), so ADR 0013's gains carry over best. Marketplace |
+| Pololu #4763: JST SH 6-pin cable, 30 cm, one end bare | 2183-4763-ND | 2 | $3.00 | Encoder lead to breadboard. Marketplace |
+| Stackpole CF14JT10K0: 10 kΩ 1/4 W | CF14JT10K0CT-ND | 10 | ~$0.02 | Pull-downs (ADR 0014/0015 Q5) |
+| Carling 111-16-73 toggle, SPST 6 A 125 V AC/DC | 432-1086-ND | 1 | $12.69 | Kill switch inline with the motor supply; CLAUDE.md requires one before motors run |
+
+Also needed, any source: a breadboard and male-female + male-male Dupont jumpers (the Nucleo
+has header pins). Not checked against a DigiKey listing.
+
+**Wave 2 items DigiKey has (decided, can wait):**
+
+| Item | DigiKey # | Each | Notes |
+|---|---|---|---|
+| SparkFun ROB-27477 DM3505 | 1568-ROB-27477-ND | $41.88 | 17 in stock. **ADR 0011 is still proposed**: accept it before buying |
+| Pololu #2858 D24V22F5, 5 V 2.2 A buck | 2183-2858-ND | $18.95 | Pi power from 3S. Marketplace |
+| Raspberry Pi Camera Module 3 Wide (SC1224) | 2648-SC1224-ND | $35.00 | 7,410 in stock |
+| Adafruit 5211 Pi Zero camera cable, 30 cm | 1528-5211-ND | $3.95 | From a search result, not the product page; length may be long for the casing |
+
+**Not from DigiKey:** Pi Zero 2 W (out of stock there), ICM-42688-P (only a $55.51 Pmod board),
+INA226 (only TI's $58.80 EVM), SimpleFOCMini, 3S LiPo, microSD. Cheaper generic breakouts
+exist elsewhere, and none of these are needed until their designs exist.
+
 ## Wave 2 — after the open items close
 
 | Item | Qty | Status | Notes |
