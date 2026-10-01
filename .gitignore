@@ -38,3 +38,6 @@ logs/
 .vscode/
 .idea/
 compile_commands.json
+
+# graphify knowledge-graph output (local tooling)
+graphify-out/
