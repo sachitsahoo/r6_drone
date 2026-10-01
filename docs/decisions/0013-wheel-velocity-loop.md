@@ -97,6 +97,26 @@ I     += ki * e * dt      only if that does not push u further into saturation
   saturated and the error would push it further in. That is simpler to explain and test than
   back-calculation, and it needs no extra gain.
 
+**When the integrator resets.** Only on leaving `ARMED`. Outside `ARMED` it is held at 0
+and the loop does not run, so a value wound up during a slip or before a fault never drives
+the next arm. In every other case it is kept or frozen:
+
+| Situation | Integrator |
+|---|---|
+| DISARMED / FAULT / ESTOP | reset to 0 |
+| output saturated, error pushing further | frozen (anti-windup) |
+| zero command while ARMED | kept: holds the robot on a slope |
+| direction reversal, surface change | kept: the error drains or rebuilds it |
+| comms timeout | decided by the safety state machine (disarm resets; stop-only keeps) |
+
+Arming therefore starts from zero, and on a slope the robot sags for a few tens of ms while
+the integrator rebuilds. Preloading a stale value is the riskier failure.
+
+`I` is stored in duty units (`I += ki*e*dt`), not as `ki * integral(e)`. Gains can be set
+over the protocol while ARMED (only `ParamCommit` requires DISARMED), and in this form a
+change to `ki` alters only future accumulation. The output does not jump. With `ki = 0`
+the integrator freezes at its current value.
+
 Rejected alternatives:
 - **P only.** Leaves a steady-state error under any load, including the pitch reaction.
 - **Full PID.** The D term is noise here; see above.
