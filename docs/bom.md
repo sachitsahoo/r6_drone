@@ -24,7 +24,7 @@ The rest of wave 1 is needed when the motor drivers are written.
 | ICM-42688-P breakout, SPI | 1 | decided | Pick one with **nothing taller than ~1 mm on the chip side** and room for headers on the back (ADR 0010) |
 | INA226 breakout | 1 | decided | |
 | TB6612FNG breakout | 1 | decided | |
-| N20 gearmotor, **12 V**, magnetic encoder | 2 | decided | 12 V because the supply is 3S (ADR 0012). Gear ratio still to pick |
+| N20 gearmotor, **12 V**, magnetic encoder | 2 | verified | 12 V because the supply is 3S (ADR 0012). **100:1** (owner, 2026-10-01): Pololu #5216, see the DigiKey order |
 | Breadboard + jumper wires | 1 set | — | |
 | 10 kΩ resistors (pull-downs) | ~10 | decided | TB6612 STBY and PWM inputs, so a chip in reset drives nothing (ADR 0014; owner, ADR 0015 Q5: fitted before the first motor is powered). Value is an initial guess; check the breakout doesn't already fit them |
 
@@ -39,7 +39,7 @@ Pololu, possibly with their own shipping fee.
 |---|---|---|---|---|
 | NUCLEO-G474RE | 497-19491-ND | 1 | $20.13 | 2,570 in stock. The "99 weeks" shown is ST's factory lead time, irrelevant while stocked |
 | SparkFun TB6612FNG breakout with headers (14450) | 1568-14450-ND | 1 | $14.94 | VM max 15 V per SparkFun, so 3S (12.6 V full) fits: closes the "TB6612 max VM" item |
-| Pololu #5216: 100:1 HPCB 12 V micro metal gearmotor, 12 CPR encoder, back connector | 2183-5216-ND | 2 | $32.45 | **Gear ratio: owner to confirm.** 330 rpm, 0.75 A stall at 12 V (under the TB6612's 1.2 A); 12 × 100.37 = 1204 counts/rev. Closest to the sim plant (300 rpm, 1400 counts/rev), so ADR 0013's gains carry over best. Marketplace |
+| Pololu #5216: 100:1 HPCB 12 V micro metal gearmotor, 12 CPR encoder, back connector | 2183-5216-ND | 2 | $32.45 | **Gear ratio 100:1: owner confirmed 2026-10-01.** 330 rpm, 0.75 A stall at 12 V (under the TB6612's 1.2 A); 12 × 100.37 = 1204 counts/rev. Closest to the sim plant (300 rpm, 1400 counts/rev), so ADR 0013's gains carry over best. Marketplace |
 | Pololu #4763: JST SH 6-pin cable, 30 cm, one end bare | 2183-4763-ND | 2 | $3.00 | Encoder lead to breadboard. Marketplace |
 | Stackpole CF14JT10K0: 10 kΩ 1/4 W | CF14JT10K0CT-ND | 10 | ~$0.02 | Pull-downs (ADR 0014/0015 Q5) |
 | Carling 111-16-73 toggle, SPST 6 A 125 V AC/DC | 432-1086-ND | 1 | $12.69 | Kill switch inline with the motor supply; CLAUDE.md requires one before motors run |
