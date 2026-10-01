@@ -80,6 +80,17 @@ def test_pitch_motor_fits_in_the_cup() -> None:
     assert P.CUP_OD < P.CASING_ID, "the cup must sit inside the casing"
 
 
+def test_motor_bolt_circles_land_in_material() -> None:
+    """The rotor bolts go into the cup floor, which has a 13 mm bore so wheel motor A can be
+    inserted through it; the stator bolts go into cap A around the shaft bore. A bolt circle
+    that falls inside either bore has nothing to thread into."""
+    m2 = P.M2_CLEARANCE / 2
+    assert P.PITCH_MOTOR_ROTOR_BOLT_RADIUS - m2 > P.SPINE_BORE / 2
+    assert P.PITCH_MOTOR_ROTOR_BOLT_RADIUS + m2 < P.CUP_ID / 2
+    assert P.PITCH_MOTOR_STATOR_BOLT_RADIUS - m2 > P.END_CAP_A_SHAFT_BORE / 2
+    assert P.PITCH_MOTOR_STATOR_BOLT_RADIUS + m2 < P.END_CAP_A_GROOVE_INNER_R
+
+
 def test_trim_bosses_are_clear_of_the_camera_station() -> None:
     """One boss shares the 0-degree angle with the camera. In the first design it was
     only clear because it happened to pass through the lens hole."""
@@ -131,12 +142,30 @@ def test_printed_mass_leaves_room_for_the_rest_of_the_robot(built) -> None:
 
 
 def test_rotating_inertia_matches_the_direct_drive_budget(built) -> None:
-    """ADR 0008's case for direct drive -- 22.5 mN m, 0.21 A, a 12x margin on the driver --
-    was computed for 0.133e-3 kg m^2 before this geometry existed. Torque scales linearly
-    with I, so a drift past 0.20e-3 eats a third of that margin and should be noticed."""
+    """ADR 0011's budget (16.8-24.3 mN m trimmed, against the GM2804H's 34.3 rated) is built
+    on this plastic inertia plus the electronics. The slew term scales linearly with I, so a
+    drift past 0.20e-3 moves the design point noticeably and should be caught here first."""
     inertia = sum(build.inertia_kg_m2(built[name].val(), P.ABS_DENSITY) * qty
                   for name, qty in build.ROTATING.items())
     assert 0.10e-3 < inertia < 0.20e-3, f"I = {inertia * 1e3:.3f}e-3 kg m^2"
+
+
+def test_the_budget_tool_uses_the_current_cad_figures(built) -> None:
+    """tools/pitch_inertia_budget.py copies two CAD results because it must not depend on
+    CadQuery. A stale copy would make the torque budget silently describe an old machine,
+    which is exactly how docs/theory/ ended up describing the belt drive for a day."""
+    sys.path.insert(0, str(REPO_ROOT / "tools"))
+    import pitch_inertia_budget as budget  # noqa: PLC0415
+    sys.path.remove(str(REPO_ROOT / "tools"))
+
+    mass = sum(built[n].val().Volume() * P.ABS_DENSITY * q
+               for n, q in build.ROTATING.items()) * 1e-3
+    inertia = sum(build.inertia_kg_m2(built[n].val(), P.ABS_DENSITY) * q
+                  for n, q in build.ROTATING.items())
+    shell = build.inertia_kg_m2(built["01_casing_shell"].val(), P.ABS_DENSITY)
+    assert math.isclose(budget.CAD_ROTATING_PLASTIC_KG, mass, rel_tol=0.01)
+    assert math.isclose(budget.CAD_ROTATING_PLASTIC_INERTIA_KG_M2, inertia, rel_tol=0.01)
+    assert math.isclose(budget.CAD_SHELL_INERTIA_KG_M2, shell, rel_tol=0.01)
 
 
 def test_the_shell_still_dominates_rotating_inertia(built) -> None:
@@ -148,15 +177,19 @@ def test_the_shell_still_dominates_rotating_inertia(built) -> None:
 
 
 def test_imu_sits_within_5_mm_of_the_axis() -> None:
-    """R2 as amended by ADR 0010. On-axis is impossible with a continuous chassis; the pad
-    rings the spine's waist instead, and the offset is set by the waist's radius."""
+    """R2 as amended by ADR 0010. On-axis is impossible with a continuous chassis; the
+    breakout lies beside the spine's waist, chip side facing it, so the offset is the
+    stack-up from the axis: waist radius + running gap + chip-side height - half the chip."""
     assert P.IMU_RADIAL_OFFSET < 5.0, f"IMU at r = {P.IMU_RADIAL_OFFSET:.2f} mm"
-    assert P.IMU_PAD_HOLE_DIA > P.SPINE_WAIST_OD, "pad would rub the waist"
+    assert P.IMU_CHIP_SIDE_HEIGHT >= P.IMU_PACKAGE_THICKNESS, \
+        "the chip itself is on the chip side, so nothing there can be shorter than it"
 
 
 def test_imu_station_is_on_the_waist_and_clear_of_the_camera() -> None:
-    """The pad's hole only clears the waist, not the full-diameter spine either side."""
-    lo, hi = P.Z_IMU_BRIDGE, P.Z_IMU_BRIDGE + P.IMU_BRIDGE_THICKNESS
+    """The board only clears the waist, not the full-diameter spine either side, so its
+    whole carrier must sit within the waist's axial span."""
+    half = P.IMU_BOARD_LENGTH / 2 + P.IMU_CARRIER_MARGIN
+    lo, hi = P.Z_IMU_BRIDGE - half, P.Z_IMU_BRIDGE + half
     assert P.Z_WAIST_LO < lo and hi < P.Z_WAIST_HI
     assert lo > P.Z_CAMERA + P.CAMERA_MOUNT_PLATE_AXIAL / 2
 

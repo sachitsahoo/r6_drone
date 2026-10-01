@@ -38,8 +38,9 @@ The rationale for each element is in ADR 0002:
   See `design-proposal.md`, ADR 0002 (framing, CRC-32/ISO-HDLC, little-endian, resync),
   ADR 0003 (YAML schema, Python generator), and `docs/learning/protocol.md` for a
   walkthrough.
-- Message `0x03` is reserved and unassigned: the camera pitch command's shape depends on
-  the undecided pitch actuator.
+- Message `0x03` is reserved and unassigned. The actuator is now chosen (direct drive, FOC on
+  the MCU), so it should be a target-angle command; that is proposal 6 in
+  `design-proposal.md`, awaiting owner approval.
 - `FrameDecoder` counts `version_mismatch`, but the approved `LinkStats` message has no
   field for it, so it is observable locally and not transmitted. Adding it is a schema
   change and needs owner review.

@@ -1,6 +1,12 @@
 # 0004 — Pitch axis architecture: the outer casing rotates about the wheel axis
 
-- **Status:** Accepted (2026-09-30)
+- **Status:** Accepted (2026-09-30). **Partly overtaken** — the architecture stands, three
+  of its consequences have since been decided. Each is marked inline:
+  - rotation is about ±3 turns with a software unwind, not unlimited → [0009](0009-wire-crossing.md)
+  - the actuator is a direct-drive gimbal motor → [0008](0008-reduced-scale-direct-drive.md), [0011](0011-pitch-motor-and-encoder.md)
+  - IMU on the casing → [0005](0005-imu-placement.md), beside the axis → [0010](0010-direct-drive-axial-layout.md)
+  The coupling analysis and the self-righting argument are unaffected and remain the core of
+  the research question.
 - **Related:** [0002](0002-protocol-framing-and-codec.md) (the telemetry fields this affects)
 
 ## Context
@@ -19,6 +25,8 @@ and a different answer to where the IMU goes.
 - An **outer casing** carries the camera and electronics and **rotates about the wheel axis**,
   driven by a third actuator coaxial with the drive axle.
 - The casing rotates **continuously** — no mechanical travel limit.
+  *(Refined by ADR 0009: about ±3 turns of travel, with a software unwind. Functionally
+  unbounded; mechanically bounded.)*
 
 So the pitch axis *is* the wheel axis, and the stabilized mass is the whole casing rather
 than a camera assembly.
@@ -26,6 +34,9 @@ than a camera assembly.
 ## Consequences
 
 ### The actuator trade-off inverts
+
+> **Decided since:** direct drive (ADR 0008) once the robot shrank, with the GM2804H gimbal
+> motor (ADR 0011). The reasoning below is why that took an inertia budget to settle.
 
 The earlier framing weighed a geared servo against an FOC gimbal BLDC, leaning toward the
 gimbal motor for smoothness. That reasoning was about the wrong load. Gimbal motors are
@@ -42,6 +53,9 @@ inherited from the earlier discussion. It needs its own ADR, with an inertia est
 torque budget rather than a preference.
 
 ### Something must cross a continuously rotating joint
+
+> **Decided since:** a wire loop, not a slip ring (ADR 0009). The statement below that
+> continuous rotation forbids a loop is answered by bounding the travel and unwinding.
 
 Continuous rotation forbids a simple wire loop. Either a slip ring (or contactless power and
 data) carries signals across the joint, or the split is chosen so that the only crossing
@@ -91,6 +105,8 @@ here.
    See below.
 
 ### IMU placement becomes the pivotal open decision
+
+> **Decided since:** on the casing (ADR 0005), 3.8 mm beside the axis (ADR 0010).
 
 `CLAUDE.md` already lists IMU placement as ADR material. It now determines whether the two
 pitch telemetry fields carry independent information.

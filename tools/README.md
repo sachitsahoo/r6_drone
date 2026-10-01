@@ -26,7 +26,7 @@ generated Python bindings from [`../protocol/`](../protocol/).
 | Script | Purpose |
 |---|---|
 | `check_core_purity.py` | CI guard: enforces CLAUDE.md hard rules 1 and 2 over `firmware/core/`. |
-| `pitch_inertia_budget.py` | Inertia and torque budget for the pitch axis. Feeds ADR 0006. |
+| `pitch_inertia_budget.py` | Inertia and torque budget for the pitch axis at the current design point. Feeds ADR 0011 and `docs/theory/`. |
 
 ## Known limitations
 

@@ -34,8 +34,8 @@ import parameters as P
 import parts
 
 # Which parts rotate with the casing. This is what the pitch motor has to accelerate
-# directly -- with no reduction there is no n^2 cushion (ADR 0008) -- and therefore what
-# the 22.5 mN m torque budget is about.
+# directly -- with no reduction there is no n^2 cushion (ADR 0008) -- and therefore the
+# plastic half of ADR 0011's torque budget (tools/pitch_inertia_budget.py).
 ROTATING = {
     "01_casing_shell": 1,
     "02_casing_end_cap_a": 1,
@@ -136,10 +136,9 @@ def main(argv: list[str]) -> int:
     print(f"  from this geometry:  {rot_inertia * 1e3:.3f}e-3 kg m^2 "
           f"({rot_inertia / ADR_0008_INERTIA_KG_M2:.2f}x)")
     print()
-    print("  Plastic only. NOT included: the pitch motor's rotor bell, the camera, Pi, MCU,")
-    print("  battery or anything else the casing carries. The motor's rotor is coaxial and")
-    print("  small (r <= 14 mm), so it adds little; the electronics sit near the wall and")
-    print("  will add a lot. The torque budget is not trustworthy until they are included.")
+    print("  Plastic only. tools/pitch_inertia_budget.py adds the motor rotor and the")
+    print("  electronics as point masses (~99 g, +0.035e-3) to build the torque budget;")
+    print("  re-copy the two figures above into it whenever the CAD changes.")
     return 0
 
 

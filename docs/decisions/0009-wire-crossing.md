@@ -1,17 +1,21 @@
 # 0009 — Crossing the rotating joint
 
-- **Status:** **PROPOSED — awaiting owner approval.**
-- **Related:** [0008](0008-reduced-scale-direct-drive.md), [0004](0004-pitch-axis-architecture.md)
+- **Status:** **PROPOSED — awaiting owner approval.** Revised 2026-09-30 after ADRs
+  0010–0012: the spine removed the slip ring fallback, and the budget figures are now ADR 0011's.
+- **Related:** [0008](0008-reduced-scale-direct-drive.md), [0004](0004-pitch-axis-architecture.md),
+  [0010](0010-direct-drive-axial-layout.md), [0011](0011-pitch-motor-and-encoder.md),
+  [0012](0012-power-and-electronics-placement.md)
 
 ## Context
 
-The casing rotates relative to the chassis, and wiring has to cross that joint. ADR 0005
-put the MCU, Pi, camera and IMU all in the casing, so what crosses is the two wheel motors'
-power and their encoder signals — roughly 8 to 12 conductors, all DC or low-rate.
+The casing rotates relative to the chassis, and wiring has to cross that joint. ADR 0012
+puts every electronic part, including the battery and the wheel driver, in the casing, so
+what crosses is only the two wheel motors' leads and their encoder lines: **about 10
+conductors**, all low-current or low-rate.
 
-ADR 0008 made this harder by putting the motor on the centreline, where it now competes for
-space with whatever carries those wires, and by cutting the torque budget from 67 mN m to
-22.5 mN m, which makes friction matter.
+ADR 0008 made this harder by putting the motor on the centreline, and by shrinking the torque
+budget to the point where friction matters. ADR 0011's design point is **16.8–24.3 mN m** at
+the axis for a trimmed casing.
 
 ## First: the requirement is +/-180 degrees, not continuous rotation
 
@@ -35,6 +39,10 @@ way to recover when it is not."
 
 ### 1. Capsule slip ring at a separate axial station
 
+> **Ruled out by ADR 0010.** A capsule unit sits on the centreline, and the chassis spine
+> occupies the centreline at every axial station. There is nowhere to put one. The friction
+> analysis below is kept because it is why option 2 fails too.
+
 Real parts: 8–30 circuits at 12.5–16 mm outer diameter; smaller counts down to 6.5 mm. Sits
 on the centreline at a different axial station from the motor, which the 182 mm casing has
 room for.
@@ -49,7 +57,7 @@ Truly unbounded rotation. But:
   | Senring M125, OD 12.5 mm | "less than 0.06 N.m" = **60 mN m** |
   | ATO 12.5 mm | 0.05 N.m, +0.01 per 6 circuits = **50-70 mN m** at 12 circuits |
   | Another vendor datasheet | starting torque 2 N.cm = **20 mN m** |
-  | **Axis torque budget (ADR 0008)** | **22.5 mN m** |
+  | **Axis torque budget (ADR 0011, trimmed)** | **16.8–24.3 mN m** |
 
   The most optimistic figure is 0.9x the whole budget; the typical one is 2-3x. And the drag
   is *continuous* — paid whenever the camera holds level, not only while it moves.
@@ -66,13 +74,14 @@ Truly unbounded rotation. But:
   possible *and* made the slip ring impossible, from the same k^4 scaling: the robot shrank
   and the slip ring's friction did not.
 - A wear item, with a finite rotation life, in a robot that is meant to be thrown.
-- Another part on a centreline that now holds the motor and the IMU.
+- Another part on a centreline that now holds the spine, the motor and both wheel shafts.
 
-### 2. Through-bore slip ring around the motor shaft
+### 2. Through-bore slip ring around the spine
 
-Concentric with the motor. Elegant, and constrains which motor can be bought — hollow-shaft
+After ADR 0010 this is the only slip ring geometry that could still be built: it would have to
+ring the 16 mm spine, so its bore is at least 16 mm. Concentric with the axis. Elegant, and constrains which motor can be bought — hollow-shaft
 gimbal motors exist but the bore is typically 3–7 mm, while a 6-circuit through-bore unit is
-around 33 mm outer diameter. Added complexity for no functional gain over option 1 — and
+around 33 mm outer diameter. Added complexity for no functional gain — and
 **worse on the point that matters**, since friction torque scales with contact radius and a
 through-bore unit has a much larger one.
 
@@ -82,7 +91,8 @@ Let the wiring wrap. Allow several turns of travel, track accumulated angle in f
 unwind 360 degrees **whenever the accumulated angle reaches one turn and the robot is
 stationary** — not when it approaches the mechanical limit.
 
-- **Zero friction.** Nothing rubs, so none of the 22.5 mN m is spent on drag.
+- **Zero sliding friction.** Nothing rubs, so none of the budget is spent on drag. (It is
+  still a spring; see the consequences.)
 - **Zero wear**, no rotation life, nothing to fail mechanically.
 - **Free**, and one fewer part on a crowded centreline.
 - Cost: the camera spins through 360 degrees during an unwind, so the operator loses the
@@ -128,14 +138,15 @@ a robot in constant motion that never pauses, degrades gracefully to the table a
 
 ## Proposed decision
 
-**Option 3: bounded travel with a software unwind**, with option 1 as the fallback if the
-unwind behaviour proves unacceptable in use.
+**Option 3: bounded travel with a software unwind.**
 
-The deciding argument is friction, not cost, and it is not close. Vendor specifications put
-capsule slip ring drag at 20–70 mN m against a 22.5 mN m budget — between 0.9x and 3x the
-entire torque available, paid continuously, in a machine whose whole purpose is holding a
-camera steady. A wire loop has zero drag with certainty, which is worth more than a component
-whose friction specification carries a 6x uncertainty band sitting on top of the budget.
+The deciding argument is friction, and it is not close. Even small capsule slip rings are
+specified at 20–70 mN m against a 16.8–24.3 mN m budget, paid continuously in a machine whose
+purpose is holding a camera steady. The only slip ring the spine still allows has a larger
+contact radius and so more drag. **There is no practical fallback**, which is a reason to
+measure the loop early (below) rather than a reason to hesitate.
+
+The loop has no sliding friction. It is not torque-free, though: see the spring term below.
 
 ## Consequences
 
@@ -152,8 +163,18 @@ whose friction specification carries a 6x uncertainty band sitting on top of the
   loom until something tears. This belongs in the safety state machine design.
 - Wiring must be routed and strain-relieved to survive repeated winding. Silicone-insulated
   stranded wire, a generous loop radius, and anchoring at both ends.
+- **A wound loop is a torsion spring.** It adds a torque that grows with accumulated turns.
+  It is position-dependent and repeatable, so the controller can cancel it from the turn count
+  (feedforward) or let the integrator absorb it, but it comes out of the torque budget. Its
+  size is unknown and gets measured alongside item 1 below.
+- **Where the loop goes:** around the spine near end B, over wheel motor B's pocket
+  (z ≈ 142–166 mm, spine radius 8 mm). Casing contents must stay outside about r = 20 mm
+  there. Not yet reserved in `cad/assembly.py`.
 
-## What must be settled before this is accepted
+## What remains open after acceptance
+
+None of these change the decision, since the alternatives are ruled out. They set its
+parameters.
 
 1. How many turns the loom actually tolerates, measured on the real wiring rather than
    assumed. This is quadratic in value: +/-5 turns is nearly three times the margin of +/-3.
@@ -161,6 +182,4 @@ whose friction specification carries a 6x uncertainty band sitting on top of the
    policy this should be rare, but it is a question about how the robot gets used rather
    than about mechanics.
 3. Whether turn count survives a power cycle, or is re-established by driving to a known stop.
-4. If the slip ring path is ever reopened: **measure a real one's friction torque.** The
-   datasheet figures and the first-principles estimate differ by about 6x, and the decision
-   turns entirely on which is closer to true.
+4. The loop's spring torque per turn, measured on the real loom.

@@ -102,10 +102,9 @@ messages:
         source: initial guess — one revolution per second, to be tuned
         description: Positive is counter-clockwise about +z, i.e. turning left.
 
-  # 0x03 is RESERVED for the camera pitch command. Deliberately unassigned: whether it
-  # carries a target angle or a target torque depends on the pitch actuator choice
-  # (geared servo vs. FOC gimbal BLDC), which has no ADR yet. Guessing would cost a
-  # protocol version bump later; reserving the ID costs nothing.
+  # 0x03 is RESERVED for the camera pitch command. Still unassigned: the actuator is now
+  # chosen (direct drive, FOC on the MCU), so it should carry a target angle, but that is
+  # a schema change awaiting owner approval -- protocol/design-proposal.md, proposal 6.
 
   - name: SafetyStateRequest
     id: 0x04
@@ -228,8 +227,8 @@ messages:
         unit: rad
         range: [-3.1416, 3.1416]
         source: >
-          full circle — the outer casing rotates continuously about the wheel axis
-          (ADR 0004), so every angle is physically reachable. The previous +/-90 deg
+          full circle — the outer casing turns through at least a full turn about the
+          wheel axis (ADRs 0004, 0009), so every angle is physically reachable. The previous +/-90 deg
           limit came from assuming a limited-travel camera gimbal and caused the decoder
           to drop valid telemetry past 90 deg.
         description: >

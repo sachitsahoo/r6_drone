@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
-"""Inertia and torque budget for the pitch axis.
+"""Inertia and torque budget for the pitch axis, at the current design point.
 
-Feeds the pitch actuator selection (docs/decisions/0006) and the theory note in
-docs/theory/pitch-axis-inertia-and-torque.md. Offline analysis only -- nothing here runs on
-the robot.
+Feeds docs/theory/pitch-axis-inertia-and-torque.md and ADR 0011 (pitch motor). Offline
+analysis only -- nothing here runs on the robot.
 
-Every input is an estimate from the mechanical envelope, not a measurement. The point of
-having this as a script rather than arithmetic in a document is that it can be re-run
-against weighed parts, and the conclusions either survive or visibly do not.
+The design point is ADR 0008's 70 x 182 mm casing, direct drive, with ADR 0010's spine
+layout. The printed parts' mass and inertia come from the CAD solids (cad/build.py); the
+electronics are point masses at the radii the layout puts them, which are estimates. Every
+input is tagged with where it came from, and nothing here is a measurement yet.
 
-Geometry from the owner, 2026-09-30:
-    outer diameter          135-145 mm
-    internal chassis dia    115-125 mm
-    shell thickness         2.5-3 mm, printed
-    rotational clearance    2-3 mm
-    wheel-to-wheel          ~165 mm
-    total mass target       700-900 g
+This script deliberately does not import cad/: CadQuery is not a dependency of the tools
+or of CI. The two CAD figures are copied in with their source, and the test suite checks
+them against the CAD when CadQuery is installed.
 
 Usage:
     python3 tools/pitch_inertia_budget.py
@@ -28,28 +24,30 @@ from dataclasses import dataclass, field
 
 G = 9.81  # m/s^2
 
+# ------------------------------------------------------------------- printed plastic
 
-@dataclass(frozen=True)
-class Geometry:
-    """Casing geometry in metres. The casing is a thin cylindrical shell."""
+#: From `python3 cad/build.py --report`, 2026-09-30: shell, both end caps, IMU bridge and
+#: camera mount, in ABS. Re-copy these whenever the CAD changes.
+CAD_ROTATING_PLASTIC_KG = 0.1408
+CAD_ROTATING_PLASTIC_INERTIA_KG_M2 = 0.137e-3
+#: The shell alone, same source. It is the reason mass at the wall is expensive.
+CAD_SHELL_INERTIA_KG_M2 = 0.121e-3
 
-    outer_diameter_m: float
-    shell_thickness_m: float
-    axial_length_m: float
-
-    @property
-    def outer_radius_m(self) -> float:
-        return self.outer_diameter_m / 2.0
-
-    @property
-    def inner_radius_m(self) -> float:
-        return self.outer_radius_m - self.shell_thickness_m
-
-    @property
-    def wall_volume_m3(self) -> float:
-        """Volume of the cylindrical wall, excluding end caps."""
-        return math.pi * (self.outer_radius_m ** 2 - self.inner_radius_m ** 2) \
-            * self.axial_length_m
+# ------------------------------------------------------------------ the pitch motor
+#
+# iPower GM2804 (ADR 0011). Vendor listing, iFlight, 2026-09-30.
+#: "Load torque 0.35 kg.cm" at "load current 0.8 A". Taken as the rated continuous point.
+MOTOR_RATED_TORQUE_N_M = 0.35 * 9.81 / 100          # 34.3 mN m
+MOTOR_RATED_CURRENT_A = 0.8
+#: Torque per amp from the rated point rather than from KV. KV gives ~0.057 N m/A, but the
+#: KV-to-Kt conversion depends on winding and measurement conventions that a listing does
+#: not state, and the rated point is an actual operating condition. It is also the more
+#: pessimistic of the two, which is the right direction for a budget.
+MOTOR_KT_N_M_PER_A = MOTOR_RATED_TORQUE_N_M / MOTOR_RATED_CURRENT_A   # 0.043
+#: "Motor internal resistance 9 ohm". Assumed phase-to-phase, so 4.5 ohm per phase in a wye.
+MOTOR_RESISTANCE_PHASE_TO_PHASE_OHM = 9.0
+#: Power stage limit, ADR 0007 (DRV8313 on SimpleFOCMini v1).
+DRIVER_CURRENT_LIMIT_A = 2.5
 
 
 @dataclass(frozen=True)
@@ -59,35 +57,38 @@ class PointMass:
     name: str
     mass_kg: float
     radius_m: float
+    source: str = ""
 
     @property
     def inertia_kg_m2(self) -> float:
         return self.mass_kg * self.radius_m ** 2
 
 
+#: What the casing carries besides plastic. Radii are where ADR 0010's layout puts each
+#: part: boards lie as chords in the 65 mm bore, so their centroids sit around r = 20 mm.
+#: All radii are ESTIMATES until the electronics are placed in cad/assembly.py.
+CASING_CONTENTS: list[PointMass] = [
+    PointMass("pitch motor stator + windings", 0.030, 0.010,
+              "~60% of the 51 g motor; GUESS. Stator on the casing, ADR 0011"),
+    PointMass("battery, 3S 300 mAh", 0.025, 0.018, "BetaFPV listing 24.8 g; ADR 0012"),
+    PointMass("Pi Zero 2 W", 0.011, 0.022, "listing"),
+    PointMass("MCU board, small G474", 0.008, 0.022, "GUESS; board not chosen"),
+    PointMass("camera module", 0.005, 0.020, "listing"),
+    PointMass("power stage (SimpleFOCMini)", 0.005, 0.022, "GUESS"),
+    PointMass("wheel driver (TB6612)", 0.003, 0.022, "GUESS; in the casing per ADR 0012"),
+    PointMass("power monitor (INA226)", 0.002, 0.022, "GUESS"),
+    PointMass("encoder + ring magnet", 0.003, 0.015, "GUESS; ADR 0011"),
+    PointMass("IMU breakout", 0.002, 0.004, "beside the waist, ADR 0010"),
+    PointMass("wiring, fasteners, 5 V regulator", 0.015, 0.020, "GUESS"),
+]
+
+
 @dataclass
 class CasingModel:
-    geometry: Geometry
-    material_density_kg_m3: float
-    wall_fill_fraction: float          # 1.0 = solid walls; FDM 3 mm walls are near-solid
-    end_cap_mass_kg: float
+    plastic_mass_kg: float
+    plastic_inertia_kg_m2: float
+    shell_inertia_kg_m2: float
     contents: list[PointMass] = field(default_factory=list)
-
-    @property
-    def shell_mass_kg(self) -> float:
-        return (self.geometry.wall_volume_m3 * self.material_density_kg_m3
-                * self.wall_fill_fraction) + self.end_cap_mass_kg
-
-    @property
-    def shell_inertia_kg_m2(self) -> float:
-        """Thick-walled cylinder about its own axis: I = m (r_i^2 + r_o^2) / 2.
-
-        End cap mass is lumped in at the shell's mean radius, which overestimates slightly
-        (caps are discs, I = m r^2 / 2 with mass spread inward). Erring high is the right
-        direction for a torque budget.
-        """
-        g = self.geometry
-        return 0.5 * self.shell_mass_kg * (g.inner_radius_m ** 2 + g.outer_radius_m ** 2)
 
     @property
     def contents_mass_kg(self) -> float:
@@ -99,18 +100,28 @@ class CasingModel:
 
     @property
     def total_mass_kg(self) -> float:
-        return self.shell_mass_kg + self.contents_mass_kg
+        return self.plastic_mass_kg + self.contents_mass_kg
 
     @property
     def total_inertia_kg_m2(self) -> float:
-        return self.shell_inertia_kg_m2 + self.contents_inertia_kg_m2
+        return self.plastic_inertia_kg_m2 + self.contents_inertia_kg_m2
 
+
+def build_model() -> CasingModel:
+    return CasingModel(plastic_mass_kg=CAD_ROTATING_PLASTIC_KG,
+                       plastic_inertia_kg_m2=CAD_ROTATING_PLASTIC_INERTIA_KG_M2,
+                       shell_inertia_kg_m2=CAD_SHELL_INERTIA_KG_M2,
+                       contents=list(CASING_CONTENTS))
+
+
+# --------------------------------------------------------------------------- loads
 
 def gravity_torque_N_m(mass_kg: float, com_offset_m: float) -> float:
-    """Holding torque needed when the centre of mass is offset from the rotation axis.
+    """Torque from gravity on a centre of mass offset `com_offset_m` horizontally.
 
-    This is a *continuous* load, not a transient: the actuator holds it whenever the camera
-    is pointed anywhere other than through the CoM. Balancing the casing drives it to zero.
+    With the camera held level the casing's world attitude is constant, so this is a
+    *holding* load, paid continuously. Only the horizontal component of the offset (in the
+    level pose) counts; a centre of mass directly below the axis costs nothing to hold.
     """
     return mass_kg * G * com_offset_m
 
@@ -126,128 +137,141 @@ def slew_torque_N_m(inertia_kg_m2: float, angle_rad: float, time_s: float) -> fl
     return inertia_kg_m2 * alpha
 
 
-def build_model(*, optimistic: bool) -> CasingModel:
-    """Two corners of the envelope: light/small and heavy/large.
+def acceleration_torque_N_m(mass_kg: float, vertical_offset_m: float,
+                            accel_m_s2: float) -> float:
+    """Torque the stabilizer must reject when the chassis accelerates.
 
-    `optimistic` takes the smallest diameter, thinnest wall and lightest parts.
+    A casing whose centre of mass sits `vertical_offset_m` below the axis is a pendulum; a
+    horizontal acceleration of the axle swings it with torque m a d. This is the disturbance
+    the research question is about (ADR 0004, coupling direction 2).
     """
-    if optimistic:
-        geometry = Geometry(outer_diameter_m=0.135, shell_thickness_m=0.0025,
-                            axial_length_m=0.115)
-        density = 1040.0        # ABS, kg/m^3
-        fill = 0.85
-        caps = 0.020
-        mcu_mass = 0.010        # bare STM32G474 module on a small custom-ish carrier
-    else:
-        geometry = Geometry(outer_diameter_m=0.145, shell_thickness_m=0.003,
-                            axial_length_m=0.125)
-        density = 1270.0        # PETG, kg/m^3
-        fill = 1.0
-        caps = 0.040
-        mcu_mass = 0.060        # Nucleo-G474RE development board as-is
-
-    # Radii are where the part sits relative to the rotation axis. Boards mounted against
-    # the inner wall sit far out; anything on the axis contributes almost nothing.
-    inner = geometry.inner_radius_m
-    contents = [
-        PointMass("Pi Zero 2 W", 0.011, inner * 0.75),
-        PointMass("Camera Module 3 Wide", 0.005, inner * 0.90),
-        PointMass("MCU board", mcu_mass, inner * 0.70),
-        PointMass("IMU, near the axis per ADR 0005", 0.002, 0.005),
-        PointMass("wiring, fasteners, brackets", 0.020 if optimistic else 0.040,
-                  inner * 0.60),
-    ]
-    return CasingModel(geometry=geometry, material_density_kg_m3=density,
-                       wall_fill_fraction=fill, end_cap_mass_kg=caps, contents=contents)
-
-
-def report() -> None:
-    for label, optimistic in (("LIGHT corner", True), ("HEAVY corner", False)):
-        m = build_model(optimistic=optimistic)
-        g = m.geometry
-        print(f"=== {label} "
-              f"(OD {g.outer_diameter_m * 1000:.0f} mm, wall {g.shell_thickness_m * 1000:.1f} mm, "
-              f"L {g.axial_length_m * 1000:.0f} mm) ===")
-        print(f"  shell: {m.shell_mass_kg * 1000:6.0f} g   "
-              f"I = {m.shell_inertia_kg_m2 * 1e3:6.3f} e-3 kg m^2   "
-              f"({100 * m.shell_inertia_kg_m2 / m.total_inertia_kg_m2:.0f}% of total)")
-        print(f"  contents: {m.contents_mass_kg * 1000:3.0f} g   "
-              f"I = {m.contents_inertia_kg_m2 * 1e3:6.3f} e-3 kg m^2")
-        print(f"  TOTAL rotating: {m.total_mass_kg * 1000:.0f} g, "
-              f"I = {m.total_inertia_kg_m2 * 1e3:.3f} e-3 kg m^2")
-        print()
-        print("  holding torque against gravity, by CoM offset from the axis:")
-        for offset_mm in (0, 2, 5, 10, 20):
-            tau = gravity_torque_N_m(m.total_mass_kg, offset_mm / 1000.0)
-            print(f"    {offset_mm:>2} mm -> {tau * 1000:6.1f} mN m")
-        print()
-        print("  peak torque to correct a pitch error, by aggressiveness:")
-        for angle_deg, t_ms in ((10, 200), (10, 100), (10, 50), (30, 100)):
-            tau = slew_torque_N_m(m.total_inertia_kg_m2, math.radians(angle_deg),
-                                  t_ms / 1000.0)
-            alpha = 4.0 * math.radians(angle_deg) / ((t_ms / 1000.0) ** 2)
-            print(f"    {angle_deg:>2} deg in {t_ms:>3} ms "
-                  f"(alpha {alpha:6.0f} rad/s^2) -> {tau * 1000:6.1f} mN m")
-        print()
-        print("  what a reduction ratio does to the motor-side requirement")
-        print("  (10 deg in 100 ms, plus 10 mm CoM offset):")
-        tau_axis = (slew_torque_N_m(m.total_inertia_kg_m2, math.radians(10), 0.100)
-                    + gravity_torque_N_m(m.total_mass_kg, 0.010))
-        for ratio in (1, 4, 13, 30):
-            reflected = m.total_inertia_kg_m2 / (ratio ** 2)
-            print(f"    {ratio:>2}:1 -> motor torque {tau_axis * 1000 / ratio:6.1f} mN m, "
-                  f"reflected inertia {reflected * 1e6:7.2f} e-6 kg m^2")
-        print()
+    return mass_kg * accel_m_s2 * vertical_offset_m
 
 
 def pendulum_frequency_Hz(mass_kg: float, com_offset_m: float,
                           inertia_kg_m2: float) -> float:
     """Natural frequency of the casing swinging as a pendulum about the wheel axis.
 
-    An unbalanced casing is a pendulum: omega = sqrt(m g d / I). This matters because the
-    resonance sits inside the stabilization loop. A bottom-heavy casing passively keeps the
-    camera roughly upright -- which is how throwable two-wheeled robots usually work -- but
-    the same restoring torque fights the actuator whenever it points off-level, and the
-    resonance has to be handled by the controller rather than wished away.
+    omega = sqrt(m g d / I). The resonance sits inside the stabilization loop. A
+    bottom-heavy casing passively keeps the camera roughly upright, but the restoring
+    torque and the resonance have to be handled by the controller.
     """
     if com_offset_m <= 0.0:
         return 0.0
     return math.sqrt(mass_kg * G * com_offset_m / inertia_kg_m2) / (2.0 * math.pi)
 
 
-def pendulum_report() -> None:
-    print("=== pendulum resonance from an unbalanced casing ===")
-    for label, optimistic in (("LIGHT", True), ("HEAVY", False)):
-        m = build_model(optimistic=optimistic)
-        rows = []
-        for offset_mm in (2, 5, 10, 20):
-            f = pendulum_frequency_Hz(m.total_mass_kg, offset_mm / 1000.0,
-                                      m.total_inertia_kg_m2)
-            rows.append(f"{offset_mm:>2} mm -> {f:4.2f} Hz")
-        print(f"  {label}: " + ",  ".join(rows))
-    print()
+def motor_current_A(torque_N_m: float) -> float:
+    return torque_N_m / MOTOR_KT_N_M_PER_A
+
+
+def copper_loss_W(current_peak_A: float) -> float:
+    """I^2 R heat for sinusoidal three-phase drive at peak phase current `current_peak_A`.
+
+    P = 3 * (I_peak / sqrt 2)^2 * R_phase = 1.5 * I_peak^2 * R_phase. This heat is generated
+    inside a closed printed casing, which is why the holding load matters.
+    """
+    r_phase = MOTOR_RESISTANCE_PHASE_TO_PHASE_OHM / 2.0
+    return 1.5 * current_peak_A ** 2 * r_phase
 
 
 def backlash_pixels(backlash_deg: float, horizontal_fov_deg: float,
                     horizontal_pixels: int) -> float:
     """Image displacement from transmission backlash, in pixels.
 
-    The research question is how much active stabilization improves *visual* stability, so
-    backlash is not a side effect -- it lands directly in the measurement.
+    Direct drive has none, which is part of why ADR 0008 chose it. Kept because it is the
+    argument against ever reintroducing a gearbox.
     """
     return backlash_deg * horizontal_pixels / horizontal_fov_deg
 
 
-def backlash_report() -> None:
-    # FOV is an assumption to confirm against the Camera Module 3 Wide datasheet.
-    fov, px = 90.0, 1920
-    print(f"=== backlash as image jitter (assumes {fov:.0f} deg horizontal FOV, "
-          f"{px} px wide) ===")
-    for deg in (0.1, 0.5, 1.0, 2.0):
-        print(f"  {deg:>4.1f} deg backlash -> {backlash_pixels(deg, fov, px):5.0f} px of jitter")
+# --------------------------------------------------------------- the design point
+
+#: The stabilizer specification the budget is built on. Initial guesses -- to be tuned.
+SLEW_ANGLE_RAD = math.radians(10.0)   # correct 10 degrees ...
+SLEW_TIME_S = 0.100                   # ... in 100 ms
+CHASSIS_ACCEL_M_S2 = 3.0              # hard launch or braking; initial guess
+#: Horizontal CoM offset after trimming with the R4 masses. A requirement, not a guess:
+#: see design_point_report for why.
+TRIMMED_HORIZONTAL_OFFSET_M = 0.002
+#: Vertical offset if the owner chooses bottom-heavy. Open (balance is owner-reviewed).
+BOTTOM_HEAVY_VERTICAL_OFFSET_M = 0.010
+
+
+@dataclass(frozen=True)
+class Budget:
+    slew_N_m: float
+    holding_N_m: float
+    accel_N_m: float
+
+    @property
+    def total_N_m(self) -> float:
+        return self.slew_N_m + self.holding_N_m + self.accel_N_m
+
+
+def budget(model: CasingModel, horizontal_offset_m: float,
+           vertical_offset_m: float) -> Budget:
+    return Budget(
+        slew_N_m=slew_torque_N_m(model.total_inertia_kg_m2, SLEW_ANGLE_RAD, SLEW_TIME_S),
+        holding_N_m=gravity_torque_N_m(model.total_mass_kg, horizontal_offset_m),
+        accel_N_m=acceleration_torque_N_m(model.total_mass_kg, vertical_offset_m,
+                                          CHASSIS_ACCEL_M_S2),
+    )
+
+
+def report() -> None:
+    m = build_model()
+    print("=== ROTATING ASSEMBLY ===")
+    print(f"  printed plastic (CAD): {m.plastic_mass_kg * 1000:5.0f} g   "
+          f"I = {m.plastic_inertia_kg_m2 * 1e3:.3f}e-3")
+    for c in m.contents:
+        print(f"    {c.name:<34}{c.mass_kg * 1000:5.0f} g at r = {c.radius_m * 1000:4.0f} mm"
+              f"   I = {c.inertia_kg_m2 * 1e6:5.2f}e-6   ({c.source})")
+    print(f"  contents:              {m.contents_mass_kg * 1000:5.0f} g   "
+          f"I = {m.contents_inertia_kg_m2 * 1e3:.3f}e-3")
+    print(f"  TOTAL:                 {m.total_mass_kg * 1000:5.0f} g   "
+          f"I = {m.total_inertia_kg_m2 * 1e3:.3f}e-3 kg m^2   "
+          f"(shell {100 * m.shell_inertia_kg_m2 / m.total_inertia_kg_m2:.0f}%)")
+    print()
+
+    print("=== HOLDING TORQUE vs horizontal CoM offset (the dominant term) ===")
+    for d_mm in (0, 2, 5, 10):
+        tau = gravity_torque_N_m(m.total_mass_kg, d_mm / 1000)
+        i = motor_current_A(tau)
+        print(f"  {d_mm:>2} mm -> {tau * 1000:5.1f} mN m, {i:4.2f} A, "
+              f"{copper_loss_W(i):4.2f} W of heat, continuously")
+    print()
+
+    print("=== SLEW TORQUE (I alpha) ===")
+    for angle_deg, t_ms in ((10, 200), (10, 100), (10, 50), (30, 100)):
+        tau = slew_torque_N_m(m.total_inertia_kg_m2, math.radians(angle_deg), t_ms / 1000)
+        alpha = 4.0 * math.radians(angle_deg) / ((t_ms / 1000.0) ** 2)
+        print(f"  {angle_deg:>2} deg in {t_ms:>3} ms (alpha {alpha:5.0f} rad/s^2) -> "
+              f"{tau * 1000:5.1f} mN m")
+    print()
+
+    print("=== DESIGN POINT: 10 deg in 100 ms, 3 m/s^2 chassis acceleration ===")
+    print(f"  motor rated {MOTOR_RATED_TORQUE_N_M * 1000:.1f} mN m at "
+          f"{MOTOR_RATED_CURRENT_A} A (Kt {MOTOR_KT_N_M_PER_A * 1000:.0f} mN m/A)")
+    cases = (("untrimmed, 10 mm sideways (ADR 0008's assumption)", 0.010, 0.0),
+             ("trimmed to 2 mm, balanced", TRIMMED_HORIZONTAL_OFFSET_M, 0.0),
+             ("trimmed to 2 mm, bottom-heavy 10 mm",
+              TRIMMED_HORIZONTAL_OFFSET_M, BOTTOM_HEAVY_VERTICAL_OFFSET_M))
+    for label, d_h, d_v in cases:
+        b = budget(m, d_h, d_v)
+        i = motor_current_A(b.total_N_m)
+        print(f"  {label}")
+        print(f"    slew {b.slew_N_m * 1000:4.1f} + holding {b.holding_N_m * 1000:4.1f} + "
+              f"accel {b.accel_N_m * 1000:4.1f} = {b.total_N_m * 1000:4.1f} mN m "
+              f"({100 * b.total_N_m / MOTOR_RATED_TORQUE_N_M:3.0f}% of rated), "
+              f"{i:4.2f} A, {DRIVER_CURRENT_LIMIT_A / i:3.1f}x driver margin")
+    print()
+
+    print("=== PENDULUM RESONANCE (vertical offset, bottom-heavy option) ===")
+    rows = [f"{d:>2} mm -> {pendulum_frequency_Hz(m.total_mass_kg, d / 1000, m.total_inertia_kg_m2):4.2f} Hz"
+            for d in (2, 5, 10, 20)]
+    print("  " + ",  ".join(rows))
 
 
 if __name__ == "__main__":
     report()
-    pendulum_report()
-    backlash_report()

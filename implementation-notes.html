@@ -325,12 +325,71 @@ z = 55 mm. The camera mount's radius is now solved from its corner, which is wha
 it, so no test caught it.</p>
 </details>
 
-<details open>
-<summary>Open — the tangential term dominates the IMU error<span class="tag">question</span></summary>
+<details>
+<summary>RESOLVED — the tangential term dominates the IMU error<span class="tag">closed</span></summary>
 <p>In chat I said the IMU's offset only matters during tumbles. That only accounted for the
 centripetal term. The tangential term <code>alpha r</code> at 200 rad/s<sup>2</sup> and
 4.75 mm is about 5.5&deg;, during hard corrections. It can be removed analytically, since
-alpha is the derivative of the gyro rate, but that is an estimator change for the owner.</p>
+alpha is the derivative of the gyro rate, but that is an estimator change for the owner.
+Recorded in ADR 0010. With the flat breakout the offset is 3.8 mm and the term about 4.4&deg;.</p>
+</details>
+
+<h2>Staleness pass — 2026-09-30</h2>
+
+<details>
+<summary>The ring IMU board was a custom PCB, which is out of scope<span class="tag">off-spec</span></summary>
+<p>The owner asked whether ring boards were odd. They were, and CLAUDE.md excludes custom PCBs.
+Replaced with an off-the-shelf breakout lying chip-side-down beside the waist. That is also
+closer to the axis (3.8 mm versus 4.75), because the offset is a stack-up from the rod, not a
+distance across a board.</p>
+</details>
+
+<details>
+<summary>Wrong bearing designation, caught by checking a listing<span class="tag">bug</span></summary>
+<p>I had called a 35 &times; 44 &times; 5 bearing a 61807. A 61807 is 35 &times; 47 &times; 7;
+35 &times; 44 &times; 5 is a 6707. Moot now: the larger GM2804H needs a 6708ZZ
+(40 &times; 50 &times; 6), verified against a listing.</p>
+</details>
+
+<details>
+<summary>Motor changed from a 2208 to a GM2804H<span class="tag">decision</span></summary>
+<p>No 28 mm hollow-shaft gimbal motor with a usable bore could be found. The GM2804H is a
+stocked part with a 6.5 mm bore. ADR 0011 (Proposed). The cup grew to 37 mm, and every
+clearance still passes.</p>
+</details>
+
+<details>
+<summary>Motor flipped: stator on the casing, rotor on the chassis<span class="tag">bug</span></summary>
+<p>Rewriting R3 exposed that the first refactor bolted the stator, and so the windings, to
+the chassis. With the power stage in the casing, the three phase leads would have crossed
+the wire loop &mdash; exactly what R3 exists to prevent. Flipped in the CAD. A new test
+checks that both bolt circles land in material.</p>
+</details>
+
+<details>
+<summary>Torque budget recomputed; balance trimming is now a requirement<span class="tag">finding</span></summary>
+<p>ADR 0008's 22.5 mN m was traced to I&middot;alpha plus a 10 mm sideways CoM offset, with
+contents guessed at 35% of the shell. With real electronics and the GM2804H's rated point it
+is 36.4 mN m untrimmed, 106% of rating, with about 2.2 W of heat. Trimmed to 2 mm it is
+49&ndash;71%. <code>tools/pitch_inertia_budget.py</code> was rewritten for the current machine,
+and a test now fails if its copied CAD figures drift from the CAD.</p>
+</details>
+
+<details>
+<summary>Tests changed, with reasons<span class="tag">judgment</span></summary>
+<p>The IMU pad-hole test became a chip-stack-up test. The budget tool's "shell above 75%"
+assertion became "above 65%": the old figure excluded electronics, and with them the shell is
+71%. It was replaced, together with an assertion of ADR 0011's headline finding (untrimmed is
+at or past rating, trimmed is under 75%). Added: bolt circles in material, and
+budget-matches-CAD.</p>
+</details>
+
+<details>
+<summary>Schema text edited, nothing on the wire<span class="tag">scope</span></summary>
+<p>Two <code>source</code>/comment strings in <code>messages.yaml</code> said "rotates
+continuously" and "actuator undecided". Text only &mdash; no field, ID, type or range
+changed. The real schema changes (assign <code>0x03</code> as a target-angle command; add the
+wire loop's turn count) are written up as proposals 6 and 7, not applied.</p>
 </details>
 
 <h2>Open questions</h2>
@@ -351,11 +410,11 @@ change never forces a Pi redeploy. Now a constraint recorded in
 <code>robot_bridge/README.md</code>.</p>
 </details>
 
-<details open>
-<summary>Pitch actuator: geared servo vs. FOC gimbal BLDC</summary>
-<p>Undecided, and it gates the stabilization work. It likely also determines whether the
-HAL interface commands an <em>angle</em> or a <em>torque</em>, which is why
-<code>firmware/hal/</code> has no pitch actuator interface yet. First real ADR.</p>
+<details>
+<summary>RESOLVED — Pitch actuator: geared servo vs. FOC gimbal BLDC<span class="tag">closed</span></summary>
+<p>Direct-drive gimbal motor (ADR 0008, Accepted); GM2804H with our own voltage-mode FOC
+(ADRs 0011 and 0007, Proposed). The HAL interface will set three phase duty cycles and read
+one absolute encoder.</p>
 </details>
 
 </main>

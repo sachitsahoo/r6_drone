@@ -22,6 +22,14 @@ every task rather than cleanup afterward.
 - **ADRs are immutable once accepted.** A reversed decision gets a new ADR that supersedes
   the old one, so the reasoning trail survives. Silently editing an ADR destroys the record
   of why the project ever thought otherwise.
+- **How a later decision reaches an accepted ADR.** The new ADR says what it amends or
+  supersedes. The old one gets only two things: a status line listing what has been
+  overtaken and by which ADR, and dated callouts (`> **Decided since:** ...`,
+  `*(Amended by ADR NNNN: ...)*`) next to each affected passage. Its original text stays in
+  place. A reader landing on any section can tell whether it is still current, without
+  losing what was believed before.
+- **Proposed ADRs are living drafts.** Until accepted, they are edited in place to stay
+  correct — a proposal waiting for approval should never be stale.
 - **Theory is written before the controller it justifies**, because a derivation that cannot
   be written down is a controller that cannot be defended.
 - **Learning notes are for the owner, not for reviewers.** If a question in a learning note
@@ -29,5 +37,7 @@ every task rather than cleanup afterward.
 
 ## Known limitations
 
-- `theory/`, `bringup/`, and `learning/` are empty: no controller has been designed, no
-  hardware powered, and no owner-reviewed module implemented.
+- `theory/` has the pitch-axis budget only; no controller has been designed yet.
+- `bringup/` has the UART link plan and the component measurement checklist, but no
+  hardware has been powered.
+- `learning/` has the protocol walkthrough only.

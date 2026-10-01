@@ -1,6 +1,14 @@
 # 0008 — Reduced scale, and direct drive
 
-- **Status:** Accepted (2026-09-30)
+- **Status:** Accepted (2026-09-30). Both decisions stand. **Amended by
+  [0011](0011-pitch-motor-and-encoder.md)** and [0012](0012-power-and-electronics-placement.md),
+  marked inline:
+  - the motor is a GM2804H (35 mm, hollow shaft), not a 2208, because ADR 0010 found the
+    shaft must pass through it
+  - the 22.5 mN m budget omitted the electronics; ADR 0011 recomputes it (16.8–24.3 mN m
+    trimmed, 36.4 untrimmed) and makes balance trimming a requirement
+  - "thermal evaporates" was wrong: ~2 W untrimmed, ~0.1 W trimmed
+  - the battery is a 3S 300 mAh slim pack, 60.5 × 16 × 11.5 (ADR 0012)
 - **Supersedes:** [0006](0006-pitch-actuator.md) (belt/capstan reduction)
 - **Related:** [0004](0004-pitch-axis-architecture.md), [0009](0009-wire-crossing.md)
 
@@ -49,6 +57,11 @@ shrink with the robot:
 **And direct drive becomes easy.** At 70 x 182 the axis needs 22.5 mN m, which through
 `Kt = 9.549/90 = 0.106 N m/A` is **0.21 A against a 2.5 A driver — 12x margin.**
 
+> **Amended (ADR 0011):** 22.5 mN m was I·α for a 10° correction in 100 ms plus a 10 mm
+> sideways CoM offset, with the contents guessed at 35% of the shell. With the real
+> electronics it is 36.4 mN m untrimmed. The motor is now a GM2804H at 43 mN m/A (its rated
+> point), so trimmed it draws 0.39–0.57 A: still direct drive, 4.4–6.4x margin.
+
 So the reduction goes from necessary to pointless, and direct drive now wins on every axis
 ADR 0006 argued:
 
@@ -57,6 +70,8 @@ ADR 0006 argued:
 - **Thermal**: ADR 0006's strongest argument for the belt was that direct drive needed
   0.600 A against 0.075 A, and 64x the I^2R inside a sealed printed casing. At this scale
   direct drive needs 0.21 A, so that argument evaporates.
+  *(Corrected by ADR 0011: it does not evaporate, it becomes conditional. A 9 Ω gimbal motor
+  holding an untrimmed casing dissipates ~2 W; trimmed, ~0.1 W.)*
 - **Parts**: deletes the drive band, the pulley, the tensioner and the motor bracket.
 - **Packaging**: frees the annular pocket that the motor and belt occupied.
 
@@ -68,8 +83,13 @@ ADR 0006 argued:
 - **The motor becomes coaxial with the wheel axis**, so it competes for the centreline with
   the wire crossing. The IMU is unaffected: ADR 0005's constraint is radial only, so it can
   sit on the axis at a different axial station.
+  *(Resolved by ADR 0010: the chassis is a spine, the motor is hollow and wheel A's shaft
+  runs through it, and the wire loop rings the spine at end B. **The IMU claim was wrong**:
+  no casing part can be on the axis at any station; it sits 3.8 mm beside the waist.)*
 - **The battery must shrink.** A 60 x 32 x 18 pack does not fit a 70 mm casing; something
   nearer 45 x 25 x 12 does. That costs run time, and run time has not been budgeted at all.
+  *(Decided by ADR 0012: 3S is forced by the motor drivers, and a slim 3S 300 mAh pack,
+  60.5 × 16 × 11.5 mm, fits along the axis. Estimated 35–55 minutes.)*
 - **Friction now matters.** At 302 mm the torque budget was 67 mN m and bearing or slip ring
   drag was noise. At 22.5 mN m it is not — see ADR 0009.
 - The reduction ratio disappearing means the motor sees the casing's full inertia directly.

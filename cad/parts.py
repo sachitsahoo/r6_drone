@@ -105,15 +105,16 @@ def casing_shell() -> cq.Workplane:
 # --------------------------------------------------------------------------- part 2
 
 def casing_end_cap_a() -> cq.Workplane:
-    """The motor-end cap: the pitch motor's rotor bolts to it, and it rides on the cup.
+    """The motor-end cap: the pitch motor's stator bolts to it, and it rides on the cup.
 
     Shape: disc, stepped. z = 0 is the outboard face, which seats against the shell flange.
-    Features: an annular groove in the inboard face holding the 61807 bearing's outer race
-    (the cup wall enters the groove and carries the inner race), the rotor bolt circle, and
+    Features: an annular groove in the inboard face holding the 6708 bearing's outer race
+    (the cup wall enters the groove and carries the inner race), the stator bolt circle, and
     a centre bore that wheel A's shaft passes through.
 
-    This is where the motor's torque enters the casing, so the hub inside the groove is the
-    torque path: rotor bell -> bolts -> hub -> shoulder under the groove -> rim -> shell.
+    This is where the motor's reaction torque enters the casing, so the hub inside the groove
+    is the torque path: stator -> bolts -> hub -> shoulder under the groove -> rim -> shell.
+    The stator is on this side, not the rotor, so the phase leads stay in the casing (R3).
     """
     r_out = P.CASING_ID / 2
     t = P.END_CAP_A_THICKNESS
@@ -133,7 +134,7 @@ def casing_end_cap_a() -> cq.Workplane:
 
     cap = cap.cut(
         cq.Workplane("XY")
-        .pushPoints(_ring_points(P.PITCH_MOTOR_ROTOR_BOLT_RADIUS, P.PITCH_MOTOR_BOLT_COUNT,
+        .pushPoints(_ring_points(P.PITCH_MOTOR_STATOR_BOLT_RADIUS, P.PITCH_MOTOR_BOLT_COUNT,
                                  phase_deg=45.0))
         .circle(P.M2_CLEARANCE / 2).extrude(t))
 
@@ -206,8 +207,8 @@ def chassis_spine() -> cq.Workplane:
     Unlike the other parts this is built at its assembled z (casing face A = 0), because
     every one of its stations is defined in that frame in parameters.py. From end A:
 
-      cup wall    carries the 61807's inner race, and surrounds the pitch motor
-      cup floor   the motor's stator bolts here; its bore lets wheel motor A in
+      cup wall    carries the 6708's inner race, and surrounds the pitch motor
+      cup floor   the motor's rotor bell bolts here; its bore lets wheel motor A in
       pocket A    wheel motor A, shaft outboard through the pitch motor's hollow bore
       waist       a 5 mm rod; the IMU ring sits around it (ADR 0010)
       pocket B    wheel motor B, shaft outboard through the boss
@@ -249,52 +250,69 @@ def chassis_spine() -> cq.Workplane:
     ]
     spine = _revolve_profile(outline)
 
-    stator_bolts = (
+    rotor_bolts = (
         cq.Workplane("XY", origin=(0, 0, P.Z_MOTOR_HI))
-        .pushPoints(_ring_points(P.PITCH_MOTOR_STATOR_BOLT_RADIUS, P.PITCH_MOTOR_BOLT_COUNT,
+        .pushPoints(_ring_points(P.PITCH_MOTOR_ROTOR_BOLT_RADIUS, P.PITCH_MOTOR_BOLT_COUNT,
                                  phase_deg=45.0))
         .circle(P.M2_CLEARANCE / 2).extrude(P.CUP_FLOOR_THICKNESS))
-    return spine.cut(stator_bolts)
+    return spine.cut(rotor_bolts)
 
 
 # --------------------------------------------------------------------------- part 5
 
 def imu_bridge() -> cq.Workplane:
-    """Flat strip from the casing wall to a pad that rings the spine's waist (R2).
+    """Arm from the casing wall to a carrier plate that holds the IMU breakout beside the
+    spine's waist (R2, ADR 0010).
 
-    Shape: flat strip. The IMU wants to be on the rotation axis -- an accelerometer offset
-    radially sees centripetal acceleration it cannot tell from gravity -- but the chassis
-    spine occupies the axis at every station (ADR 0010). So the pad has a hole the waist
-    passes through, and the IMU sits at the hole's edge, IMU_RADIAL_OFFSET from the axis.
+    Shape: flat strip plus flat plate. Built with the rotation axis along Z through the
+    origin and the board on +X; the assembly turns it to face away from the camera.
+
+    The IMU wants to be on the rotation axis -- an accelerometer offset radially sees
+    centripetal and tangential acceleration it cannot tell from gravity -- but the chassis
+    spine occupies the axis at every station. So an off-the-shelf breakout lies flat beside
+    the waist, running along it, chip side facing the rod. Centred over the rod, the chip's
+    distance from the axis is just the stack-up from the rod surface, wherever the chip sits
+    on the board: IMU_RADIAL_OFFSET.
     """
     reach = P.CASING_ID / 2 - 2.0
     t = P.IMU_BRIDGE_THICKNESS
+    carrier_x0 = P.IMU_BOARD_FAR_R
+    carrier_x1 = carrier_x0 + P.IMU_CARRIER_THICKNESS
+    carrier_y = P.IMU_BOARD_WIDTH + 2 * P.IMU_CARRIER_MARGIN
+    carrier_z = P.IMU_BOARD_LENGTH + 2 * P.IMU_CARRIER_MARGIN
 
+    carrier = (cq.Workplane("XY")
+               .box(carrier_x1 - carrier_x0, carrier_y, carrier_z)
+               .translate(((carrier_x0 + carrier_x1) / 2, 0, 0)))
     arm = (cq.Workplane("XY")
-           .moveTo(0, -P.IMU_BRIDGE_WIDTH / 2)
-           .lineTo(reach, -P.IMU_BRIDGE_WIDTH / 2)
-           .lineTo(reach, P.IMU_BRIDGE_WIDTH / 2)
-           .lineTo(0, P.IMU_BRIDGE_WIDTH / 2)
-           .close().extrude(t))
+           .box(reach - carrier_x1, P.IMU_BRIDGE_WIDTH, t)
+           .translate(((carrier_x1 + reach) / 2, 0, 0)))
+    bridge = carrier.union(arm)
 
-    pad = (cq.Workplane("XY")
-           .rect(P.IMU_PAD_SIZE, P.IMU_PAD_SIZE).extrude(t))
-    bridge = arm.union(pad)
-
-    bridge = bridge.cut(cq.Workplane("XY").circle(P.IMU_PAD_HOLE_DIA / 2).extrude(t))
-
-    # Breakout screws straddling the axis.
-    offset = P.IMU_PAD_SIZE / 2 - 3.0
-    bridge = (bridge.faces(">Z").workplane()
-              .pushPoints([(-offset, -offset), (offset, offset)])
-              .circle(P.IMU_MOUNT_HOLE_DIA / 2).cutThruAll())
+    # Breakout screws, through the carrier along X.
+    hole_z = P.IMU_BOARD_LENGTH / 2 - P.IMU_MOUNT_HOLE_INSET
+    for z in (-hole_z, hole_z):
+        bridge = bridge.cut(
+            cq.Workplane("YZ", origin=(carrier_x0, 0, z))
+            .circle(P.IMU_MOUNT_HOLE_DIA / 2).extrude(P.IMU_CARRIER_THICKNESS))
 
     # Fixing to the casing wall.
-    bridge = (bridge.faces(">Z").workplane()
-              .pushPoints([(reach - 5.0, 0.0)])
-              .circle(P.M3_CLEARANCE / 2).cutThruAll())
-
+    bridge = bridge.cut(
+        cq.Workplane("XY", origin=(reach - 5.0, 0, -t / 2))
+        .circle(P.M3_CLEARANCE / 2).extrude(t))
     return bridge
+
+
+def imu_board_envelope() -> cq.Workplane:
+    """The breakout plus everything on its chip side, as one box, in imu_bridge's frame.
+
+    Not a printed part. It exists so the sweep can check the board's clearance to the waist,
+    which is the gap that sets the IMU's radial offset.
+    """
+    near, far = P.IMU_BOARD_NEAR_R, P.IMU_BOARD_FAR_R
+    return (cq.Workplane("XY")
+            .box(far - near, P.IMU_BOARD_WIDTH, P.IMU_BOARD_LENGTH)
+            .translate(((near + far) / 2, 0, 0)))
 
 
 # --------------------------------------------------------------------------- part 6

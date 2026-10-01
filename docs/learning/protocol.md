@@ -144,10 +144,11 @@ integrator permanently.
 
 ## What is deliberately not here
 
-- **Message `0x03` is reserved and unassigned.** It is the camera pitch command, and
-  whether it carries a target *angle* or a target *torque* depends on whether the actuator
-  is a geared servo or an FOC gimbal motor — which has no ADR yet. Reserving the id costs
-  nothing; guessing its semantics would cost a protocol version bump.
+- **Message `0x03` is reserved and unassigned.** It is the camera pitch command. It was held
+  back until the actuator was chosen, since an angle and a torque command are different
+  messages. The actuator is now direct drive with FOC on the MCU, so the proposal is a target
+  *angle* (protocol/design-proposal.md, proposal 6) — torque stays inside the fast loop and
+  never crosses the radio.
 - **No controller gains in `params.yaml`.** Declaring `kp`/`ki`/`kd` would presuppose a PID
   form, which is itself a decision requiring an ADR.
 - **No authentication.** A CRC of any width stops accidents, not attackers — anyone can

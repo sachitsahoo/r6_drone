@@ -43,7 +43,7 @@ def test_every_module_directory_has_a_readme(module_dir: str) -> None:
 def test_pitch_inertia_budget_physics_is_self_consistent() -> None:
     """Sanity-checks tools/pitch_inertia_budget.py against closed-form results.
 
-    The actuator recommendation in docs/decisions/0006 rests on these numbers, so the
+    ADR 0011's motor choice and its balance requirement rest on these numbers, so the
     script is worth a few assertions rather than trusting that it was right once.
     """
     import math
@@ -79,11 +79,21 @@ def test_pitch_inertia_budget_physics_is_self_consistent() -> None:
     assert math.isclose(budget.backlash_pixels(2.0, 90.0, 1920),
                         2 * budget.backlash_pixels(1.0, 90.0, 1920), rel_tol=1e-9)
 
-    # The headline finding: the shell dominates. If a geometry change breaks this, the
-    # actuator reasoning needs revisiting.
-    heavy = budget.build_model(optimistic=False)
-    shell_fraction = heavy.shell_inertia_kg_m2 / heavy.total_inertia_kg_m2
-    assert shell_fraction > 0.75, \
-        f"shell is {shell_fraction:.0%} of inertia; ADR 0006 assumes it dominates"
+    # The headline finding of the current budget (ADR 0011): an untrimmed 10 mm sideways
+    # CoM offset puts the GM2804 at or past its rated torque, and trimming to 2 mm brings
+    # it back under. If a change breaks either half, the balance requirement needs revisiting.
+    model = budget.build_model()
+    untrimmed = budget.budget(model, 0.010, 0.0).total_N_m
+    trimmed = budget.budget(model, budget.TRIMMED_HORIZONTAL_OFFSET_M,
+                            budget.BOTTOM_HEAVY_VERTICAL_OFFSET_M).total_N_m
+    assert untrimmed > 0.95 * budget.MOTOR_RATED_TORQUE_N_M
+    assert trimmed < 0.75 * budget.MOTOR_RATED_TORQUE_N_M
+
+    # The shell is still the largest single contributor once electronics are included.
+    shell_fraction = model.shell_inertia_kg_m2 / model.total_inertia_kg_m2
+    assert shell_fraction > 0.65, f"shell is only {shell_fraction:.0%} of rotating inertia"
+
+    # Copper loss is quadratic in current: double the current, four times the heat.
+    assert math.isclose(budget.copper_loss_W(0.4) / budget.copper_loss_W(0.2), 4.0)
 
     sys.path.remove(str(REPO_ROOT / "tools"))

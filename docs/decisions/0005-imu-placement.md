@@ -1,8 +1,13 @@
 # 0005 — IMU on the rotating casing
 
-- **Status:** Accepted (2026-09-30). **Mounting geometry amended by
-  [0010](0010-direct-drive-axial-layout.md)**: on-axis placement is impossible with a
-  continuous chassis; the IMU sits 4.75 mm off the axis, around the spine's waist.
+- **Status:** Accepted (2026-09-30). The decision — IMU on the casing — stands. Parts of
+  its consequences have since been decided, each marked inline:
+  - **mounting geometry → [0010](0010-direct-drive-axial-layout.md)**: on-axis placement is
+    impossible with a continuous chassis; the IMU lies 3.8 mm beside the spine's waist
+  - the actuator tension → direct drive, [0008](0008-reduced-scale-direct-drive.md), with one
+    off-axis encoder, [0011](0011-pitch-motor-and-encoder.md)
+  - the wiring crossing → a wire loop, [0009](0009-wire-crossing.md)
+  - battery placement → in the casing, [0012](0012-power-and-electronics-placement.md)
 - **Related:** [0004](0004-pitch-axis-architecture.md) (the casing rotates about the wheel axis)
 
 ## Context
@@ -66,6 +71,9 @@ inertia pushes toward a geared actuator for torque. The absolute-feedback and
 continuous-rotation requirements point toward a brushless motor with a magnetic encoder, which
 is exactly the FOC gimbal arrangement 0004 said was chosen for the wrong reasons.
 
+> **Decided since:** direct drive (ADR 0008), which has no backlash. The absolute encoder
+> requirement stands, and ADR 0011 meets it with a single off-axis encoder.
+
 The genuine tension for the actuator ADR is therefore:
 
 | | Direct-drive brushless | Geared |
@@ -82,6 +90,9 @@ preference to be argued.
 
 ### The MCU and the Pi belong in the casing
 
+> **Still true, and extended:** ADR 0012 puts the battery and the wheel driver in the casing
+> too. The crossing is a wire loop (ADR 0009), not the slip ring assumed below.
+
 The IMU talks SPI at 1 kHz or more, and the camera uses a CSI ribbon. Neither is something to
 run across a slip ring: both are short-range, high-rate, and noise-sensitive. So the IMU, the
 camera, the Pi, and the MCU that samples the IMU all sit in the casing together.
@@ -91,6 +102,9 @@ a dozen conductors, all low-rate or DC, which is what a slip ring handles well. 
 actuator itself straddles the joint by construction and crosses nothing.
 
 ### Battery placement is now a real trade-off, not a packaging detail
+
+> **Decided since:** in the casing (ADR 0012). The spine has no room, and a wire loop has no
+> contact resistance, so the slip ring argument below no longer applies.
 
 - **Battery in the chassis** reduces the inertia the pitch actuator must accelerate, directly
   easing the torque problem above. Cost: high-current conductors cross the slip ring, where
@@ -102,6 +116,9 @@ Unresolved, and it should be decided together with the actuator's torque budget 
 determine each other.
 
 ### Mounting constraint: put the IMU near the wheel axis
+
+> **Geometry decided since (ADR 0010):** 3.8 mm beside the spine's waist. On the axis itself
+> is not reachable. At 3.8 mm the largest term is tangential, about 4° at 200 rad/s².
 
 This is the consequence most likely to be discovered painfully rather than designed in. An
 accelerometer offset by `r` from the rotation axis sees centripetal `w^2 r` and tangential

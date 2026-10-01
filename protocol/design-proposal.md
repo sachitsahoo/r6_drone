@@ -217,10 +217,9 @@ builds; `tools/check_core_purity.py` still passes over the new `firmware/core/pr
 
 ## Deliberately deferred
 
-- **Camera pitch command (`0x03`).** Whether the message carries a target angle or a target
-  torque depends on the actuator choice (geared servo vs. FOC gimbal BLDC), which needs its
-  own ADR. Reserving the ID now costs nothing; guessing the semantics would cost a protocol
-  version bump later.
+- **Camera pitch command (`0x03`).** Was deferred until the actuator was chosen. It now is —
+  direct drive with our own FOC on the MCU (ADRs 0007, 0008, 0011) — so the semantics can be
+  decided: see proposal 6 below. Still unassigned until the owner approves it.
 - **`StateTelemetry`'s pitch and rate fields are provisional.** What the estimator actually
   produces is an owner-reviewed design that does not exist yet. The field list will likely
   change, which is a version bump — cheap now, while nothing is deployed.
@@ -260,7 +259,7 @@ Protocol schema changes are owner-reviewed, so these are written down rather tha
 
 ### 1. `camera_pitch_rad` range — APPLIED 2026-09-30 (owner approved)
 
-ADR 0004 settled that the outer casing rotates **continuously** about the wheel axis. The
+ADR 0004 settled that the outer casing rotates through a full turn about the wheel axis. The
 field still declares `[-1.5708, 1.5708]` (plus or minus 90 degrees) from when a limited-travel
 camera gimbal was assumed. Because the generator emits range validation into the decoder, this
 does not mislabel data — it **drops frames**:
@@ -343,16 +342,50 @@ simply grows, and the decoder's length check handles the rest.
 Worth waiting on until the estimator is designed, since that will settle what else belongs in
 this message and one combined change beats three.
 
-### 5. Possible redundancy between the two pitch fields — resolved direction, still open
+### 5. Possible redundancy between the two pitch fields — direction settled, still open
 
-If the IMU rides on the rotating casing, `camera_pitch_rad` is measured and `body_pitch_rad` is
-derived from it via the actuator encoder; if it rides on the chassis, the reverse. Either way
-one field is computed from the other plus the encoder, so transmitting both is arguably
-redundant — but transmitting both is also how the operator sees the estimator's two outputs
-without recomputing anything. Not worth deciding until IMU placement is.
+IMU placement is settled: on the casing (ADR 0005). So `camera_pitch_rad` is measured and
+`body_pitch_rad` is derived from it via the encoder. One field is computed from the other, so
+transmitting both is arguably redundant — but it is also how the operator sees the estimator's
+two outputs without recomputing anything. Decide with the estimator design, alongside 3 and 4.
+
+### 6. Assign `0x03` as `CameraPitchCommand`, carrying a target angle — recommend
+
+The question that kept this reserved was angle versus torque. With direct drive and the FOC and
+stabilizer both on the MCU (ADRs 0007, 0011), torque is internal to a 500 Hz–1 kHz loop and must
+never cross a 50 Hz radio link. The operator commands **where the camera points**:
+
+```yaml
+  - name: CameraPitchCommand
+    id: 0x03
+    direction: operator_to_robot
+    fields:
+      - name: target_camera_pitch_rad
+        type: f32
+        unit: rad
+        range: [-3.1416, 3.1416]
+        source: full circle, matching camera_pitch_rad (ADR 0004)
+        description: >
+          World-relative camera pitch setpoint, wrapped to [-pi, pi]. POSITIVE IS NOSE-DOWN.
+          The MCU chooses the direction of travel; the operator never sees turn count.
+```
+
+Subject to the same 200 ms watchdog as the drive command. What the stabilizer does on timeout —
+hold the last setpoint or return to level — is safety design, so owner-reviewed and not decided
+here.
+
+### 7. Report the wire loop's accumulated turns — recommend, needed by ADR 0009
+
+ADR 0009's wire loop allows about ±3 turns and unwinds in software. The firmware must track the
+turn count, and losing it risks winding the loom into its stop. The operator should see it,
+and replay logs need it to explain an unwind. Proposed: `casing_wrap_turns: i8`, range
+`[-8, 8]`, in `StateTelemetry`. One byte at 100 Hz costs 100 B/s, and keeping it in the same
+frame as `camera_pitch_rad` means replay never has to align two streams to know which turn an
+angle belongs to. Batch it with proposals 3–5, since it touches the same message's size
+assertions. Lands together with the firmware's turn tracking, which is owner-reviewed.
 
 ## Remaining dependencies before implementation
 
-None. The camera pitch command (`0x03`) stays reserved and unassigned pending the pitch
-actuator ADR, and `StateTelemetry`'s pitch fields stay provisional pending the estimator
-design. Neither blocks the schema, generator, codec, or tests.
+None. `0x03` stays unassigned until proposal 6 is approved, and `StateTelemetry`'s pitch
+fields stay provisional pending the estimator design. Neither blocks the schema, generator,
+codec, or tests.

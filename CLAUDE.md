@@ -2,7 +2,8 @@
 
 Compact, rugged, two-wheeled reconnaissance robot with an actively pitch-stabilized
 camera body: an inner chassis carries the wheels and drive motors, and an outer casing
-carrying the camera and electronics rotates continuously about the wheel axis. See
+carrying the camera and electronics rotates about the wheel axis — at least ±180°, so the
+camera can level itself from any landing. See
 `docs/decisions/0004-pitch-axis-architecture.md` — the original phrasing was ambiguous
 and was read as a camera gimbal, which is the wrong machine. Personal CE portfolio project and possible Northeastern PEAK research
 project. Research question: how well can active pitch stabilization improve visual
@@ -17,20 +18,27 @@ Three tiers. The faster and more safety-critical a loop, the closer to hardware 
 
 | Tier | Hardware | Responsibilities |
 |---|---|---|
-| MCU | STM32 Nucleo-G474RE | Motor PWM, encoders, velocity PID, diff-drive kinematics, IMU, pitch stabilization, power telemetry, safety state machine, watchdog |
+| MCU | STM32G474 (Nucleo-G474RE on the bench; a small G474 board in the robot) | Motor PWM, encoders, velocity PID, diff-drive kinematics, IMU, pitch stabilization, power telemetry, safety state machine, watchdog |
 | Robot SBC | Raspberry Pi Zero 2 W + Camera Module 3 Wide | H.264 video capture/stream, UDP <-> UART relay, link monitoring |
 | Operator | Laptop | Xbox input (SDL2), video display + telemetry overlay, logging, replay, parameter tuning, simulator, future autonomy |
 
-Bench hardware: TB6612FNG motor driver, 2x N20 gearmotors with magnetic encoders,
+Bench hardware: TB6612FNG motor driver, 2x 12 V N20 gearmotors with magnetic encoders,
 ICM-42688-P IMU (SPI), INA226 power monitor (I2C).
-Pitch actuator: **undecided**. The stabilized mass is the whole casing, not a camera
-assembly, so torque and gearing dominate the choice — the earlier servo-vs-gimbal-BLDC
-framing assumed a light gimbal load and must be re-argued. Needs an inertia estimate and a
-torque budget. Do not assume one. See ADR 0004.
-IMU placement: **on the rotating casing**, as close to the wheel axis as packaging allows —
-an offset of 30 mm corrupts the gravity reference by 17 deg at only 10 rad/s. Chassis pitch is
-derived as casing pitch minus the actuator encoder angle, so the actuator needs absolute
-position feedback. See ADR 0005.
+
+Machine (decided — ADR 0008): 70 x 182 mm casing, 105 mm wheels, 214 mm overall, **direct
+drive** pitch actuator, no gearbox or belt.
+Proposed, awaiting owner approval (ADRs 0007, 0009–0012) — treat as the working design, but
+do not build on them as settled:
+- Chassis is a single **spine** on the axis; nothing on the casing can reach the axis (0010).
+- Pitch motor: iPower **GM2804H** hollow-shaft gimbal motor, stator on the casing, wheel A's
+  shaft through its bore. **One** absolute encoder, read off-axis, serves both FOC and
+  estimation (0011). Sideways CoM offset must be trimmed to ≤ 2 mm (0011).
+- FOC: bought DRV8313 power stage, our own voltage-mode FOC on the G474 (0007).
+- Wiring crosses the joint in a wire loop, about ±3 turns, with a software unwind (0009).
+- Power: 3S LiPo; battery and every board ride in the casing (0012).
+IMU placement: **on the rotating casing**, 3.8 mm beside the spine's waist (ADRs 0005, 0010).
+Chassis pitch is derived as casing pitch minus the encoder angle, so the encoder must be
+absolute.
 
 ## Repository layout
 

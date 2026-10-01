@@ -1,8 +1,11 @@
 # 0007 — FOC: bought power stage, own control code
 
 - **Status:** **PROPOSED — awaiting owner approval. Do not implement.**
-- **Related:** [0006](0006-pitch-actuator.md) (the 2208 motor and 8:1 reduction),
-  [0005](0005-imu-placement.md) (two sensors, not one)
+  Revised 2026-09-30 for direct drive: the operating point below was first written for
+  ADR 0006's belt and has been recomputed for the GM2804H.
+- **Related:** [0008](0008-reduced-scale-direct-drive.md) (direct drive),
+  [0011](0011-pitch-motor-and-encoder.md) (the motor and its single encoder),
+  [0012](0012-power-and-electronics-placement.md) (the 3S supply this stage needs)
 
 ## Context
 
@@ -47,18 +50,22 @@ is the one part of this system with no research content — it is a commodity.
 ## The operating point makes this much easier than it sounds
 
 FOC has a reputation for complexity that mostly comes from current control. At our operating
-point that complexity is unnecessary:
+point that complexity is unnecessary. Figures from ADR 0011's budget, for a trimmed casing:
 
 | | Value |
 |---|---|
-| Current required at the motor | **0.084 A** (8.9 mN m through `Kt = 9.549/KV`) |
-| Driver rating | 2.5 A — **30x margin** |
-| Electrical frequency at peak slew | **31 Hz** (7 pole pairs, casing at 3.5 rad/s through 8:1) |
-| A 20 kHz FOC loop oversamples that by | **643x** |
+| Current at the design point | **0.39–0.57 A** (16.8–24.3 mN m at the rated-point Kt, 43 mN m/A) |
+| Driver rating | 2.5 A — **4.4–6.4x margin** |
+| Electrical frequency at peak slew | **3.9 Hz** (7 pole pairs, casing at 3.5 rad/s, no reduction) |
+| A 20 kHz FOC loop oversamples that by | **over 5000x** |
 | TIM1 resolution at 20 kHz from 170 MHz | 8500 counts, **13.1 bits** |
 
-Gimbal motors are deliberately high-resistance — low KV means many turns — so at 84 mA a
-current loop regulates almost nothing. **Voltage-mode FOC**, where a voltage vector is
+Direct drive made the electrical frequency *eight times lower* than under the belt (31 Hz),
+which makes commutation timing even less demanding. It also made the current several times
+higher, which is the half that needs watching: see the consequences.
+
+Gimbal motors are deliberately high-resistance — the GM2804H is 9 Ω — so at half an amp a
+current loop regulates little that the winding resistance does not already set. **Voltage-mode FOC**, where a voltage vector is
 applied at the correct electrical angle without measuring current, is the standard approach
 for gimbal motors and is what SimpleFOC itself defaults to for them.
 
@@ -98,21 +105,24 @@ check at every 30 degrees.
 - **Motor control is an owner-reviewed area**, so this ADR and the FOC design that follows
   both need approval before implementation.
 - **No current sensing means no torque measurement.** For a research project that is a real
-  loss: measured current would give measured torque, which would let us characterise friction
-  and quantify what the actuator is actually doing. SimpleFOCMini **v2.3** (DRV8316, 8 A,
-  three-phase low-side sensing at 150 mV/A) adds that for a few dollars and a larger board.
-  **Worth considering on research grounds even though the control loop does not need it.**
+  loss, and direct drive made it a bigger one. Measured current would give measured torque,
+  which would characterise bearing and wire-loop drag (ADR 0009) and show how much of the
+  budget the gravity holding term actually takes (ADR 0011). SimpleFOCMini **v2.3** (DRV8316,
+  8 A, three-phase low-side sensing at 150 mV/A) adds that for a few dollars and a larger
+  board. **Worth considering on research grounds even though the control loop does not need it.**
+- **The stage needs at least 8 V**, which is what forces a 3S battery (ADR 0012).
 - The DRV8313 module's onboard 3.3 V LDO supplies only 10 mA. It must not power the MCU,
   the Pi, or the sensors.
 - Voltage-mode FOC has no protection against a stalled motor drawing its full winding
   current. A current limit must come from somewhere — either the supply, or by bounding the
   commanded voltage — and that belongs in the safety state machine design.
-- Commutation needs rotor angle. ADR 0005 already establishes that this is a *different*
-  sensor from the casing-angle encoder the control loop uses.
+- Commutation needs rotor angle, and with direct drive the rotor angle *is* the casing
+  angle. **One encoder serves both** FOC and the estimator (ADR 0011). It has to be read
+  off-axis, because wheel A's shaft runs through the motor.
 
 ## What must be settled before this is accepted
 
-1. Confirm the motor's pole pair count on arrival (assumed 7, i.e. 12N14P).
+1. Confirm the motor's pole pair count on arrival (listed as 12N14P, i.e. 7).
 2. Decide whether current sensing is worth the larger board, on research grounds rather than
    control grounds.
 3. Agree the PWM frequency and dead-time, which is STM32 timer configuration and therefore

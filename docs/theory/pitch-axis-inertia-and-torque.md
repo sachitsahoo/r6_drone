@@ -1,227 +1,161 @@
-# Pitch axis: inertia, torque, and what they rule out
+# Pitch axis: inertia, torque, and what they require
 
-Supports [ADR 0006](../decisions/0006-pitch-actuator.md). Reproduce with
-`python3 tools/pitch_inertia_budget.py`.
+Supports [ADR 0011](../decisions/0011-pitch-motor-and-encoder.md) (the motor and the balance
+requirement) and [ADR 0008](../decisions/0008-reduced-scale-direct-drive.md) (direct drive).
+Reproduce with `python3 tools/pitch_inertia_budget.py`.
 
-**Every number here is an estimate from the mechanical envelope, not a measurement.** The
-script exists so the conclusions can be re-checked against weighed parts.
+**Nothing here is measured yet.** The printed parts come from the CAD solids and the
+electronics are point masses at estimated radii. The script exists so the conclusions can be
+re-checked against weighed parts.
+
+*History: the first revision of this note argued, for a 135 mm casing, that direct drive was
+marginal and an 8:1 belt was needed (ADR 0006). The robot then shrank to 70 × 182 mm. Inertia
+fell about 5×, the belt stopped fitting, and direct drive became the obvious choice. That
+argument is in ADR 0008. This revision is the budget for the machine as it now stands.*
 
 ## Symbols
 
 | Symbol | Meaning | Unit |
 |---|---|---|
-| `r_o`, `r_i` | casing shell outer, inner radius | m |
-| `L` | casing axial length | m |
-| `m_c` | total rotating mass (shell plus contents) | kg |
+| `m` | total rotating mass (plastic plus contents) | kg |
 | `I` | rotating inertia about the wheel axis | kg m^2 |
-| `d` | offset of the casing centre of mass from the rotation axis | m |
+| `d_h` | horizontal offset of the casing's centre of mass from the axis, camera level | m |
+| `d_v` | vertical offset (below the axis), camera level | m |
 | `theta` | pitch error to be corrected | rad |
 | `alpha` | angular acceleration | rad/s^2 |
+| `a` | chassis linear acceleration | m/s^2 |
 | `tau` | torque at the pitch axis | N m |
-| `n` | reduction ratio, motor to casing | — |
-
-## Geometry
-
-From the owner, 2026-09-30: outer diameter 135–145 mm, internal chassis diameter
-115–125 mm, printed shell 2.5–3 mm, rotational clearance 2–3 mm, wheel-to-wheel ~165 mm,
-total mass target 700–900 g.
-
-The casing is therefore a **thin cylindrical shell** of roughly 65 mm inner and 68 mm outer
-radius. That single fact drives everything below: essentially all of the shell's mass sits
-at the largest radius in the machine.
+| `K_t` | motor torque per amp | N m/A |
 
 ## Inertia
 
-Shell wall volume, excluding end caps:
+The printed parts' mass and inertia come from the solids (`cad/build.py`). Everything else is
+a point mass, `I = m r^2`, at the radius ADR 0010's layout puts it:
 
-```
-V = pi (r_o^2 - r_i^2) L
-```
+| | mass | I |
+|---|---|---|
+| Printed plastic (shell, caps, IMU bridge, camera mount) | 141 g | 0.137e-3 |
+| Motor stator and windings, ~30 g at r = 10 mm (stator rides on the casing) | 30 g | 0.003e-3 |
+| Battery, Pi, MCU, camera, drivers, encoder, IMU, wiring | 79 g | 0.031e-3 |
+| **Total** | **250 g** | **0.171e-3 kg m^2** |
 
-Thick-walled cylinder about its own axis, and a component treated as a point mass at
-radius `r`:
+The full list with each part's radius and source is in the script's output.
 
-```
-I_shell = m_shell (r_i^2 + r_o^2) / 2          I_part = m_part r^2
-```
+### Finding 1: the shell is still 71% of the inertia
 
-Two corners of the envelope — light/small/ABS at 85% wall fill with a bare MCU module, and
-heavy/large/PETG at solid fill with the Nucleo-G474RE board as-is:
-
-| | shell mass | I_shell | contents | I_contents | total | **I total** |
-|---|---|---|---|---|---|---|
-| Light | 126 g | 0.552e-3 | 48 g | 0.094e-3 | 174 g | **0.647e-3 kg m^2** |
-| Heavy | 252 g | 1.273e-3 | 118 g | 0.261e-3 | 370 g | **1.534e-3 kg m^2** |
-
-### Finding 1: the shell is 83–85% of the inertia
-
-Not the electronics, not the camera — the printed wall. Two consequences:
-
-- **Shell mass reduction has an outsized payoff.** A gram removed from the wall at
-  r ≈ 66 mm costs about four times the inertia of a gram removed at r ≈ 33 mm. Ribbing or
-  a lattice instead of solid 3 mm walls attacks 85% of the problem; relocating a circuit
-  board attacks a few percent.
-- **The rotating mass is only 174–370 g of the 700–900 g budget**, so most of the robot's
-  mass is already off the pitch axis. There is headroom to move more (see battery placement
-  in [ADR 0005](../decisions/0005-imu-placement.md)) but the shell itself cannot be moved.
+The 107 g shell sits at r ≈ 33 mm, the largest radius in the casing. A gram removed from the
+wall saves about three times the inertia of a gram removed from a board at r ≈ 20 mm. Ribbing
+the shell (R6) is still the best lever on inertia.
 
 ## Torque at the pitch axis
 
-Two loads, one continuous and one transient.
+Three loads.
 
-**Gravity**, whenever the centre of mass is off the rotation axis:
+**Holding gravity**, whenever the centre of mass is sideways of the axis with the camera level:
 
 ```
-tau_gravity = m_c g d
+tau_hold = m g d_h
 ```
 
-| `d` | Light | Heavy |
+With the camera held level the casing's world attitude is constant, so this is paid
+**continuously**, for as long as the camera holds level. Only the sideways component counts:
+a centre of mass directly below the axis costs nothing to hold.
+
+**Correcting a pitch error.** Accelerate for half the interval and decelerate for the other
+half: the peak is `alpha = 4 theta / t^2`, and `tau = I alpha`.
+
+| Correction | `alpha` | `tau` |
 |---|---|---|
-| 0 mm | 0 | 0 |
-| 5 mm | 8.5 mN m | 18.2 mN m |
-| 10 mm | 17.0 mN m | 36.3 mN m |
-| 20 mm | 34.1 mN m | 72.7 mN m |
+| 10° in 200 ms | 17 rad/s^2 | 3.0 mN m |
+| **10° in 100 ms** | **70 rad/s^2** | **11.9 mN m** |
+| 10° in 50 ms | 279 rad/s^2 | 47.7 mN m |
+| 30° in 100 ms | 209 rad/s^2 | 35.8 mN m |
 
-This is a *holding* load. A direct-drive actuator fighting it burns current and heats with
-the robot standing still.
+**Rejecting chassis acceleration.** A casing whose centre of mass hangs `d_v` below the axis is
+a pendulum. Accelerating the axle swings it with
 
-**Correcting a pitch error.** Accelerating for half the interval and decelerating for the
-other half gives a peak `alpha = 4 theta / t^2`, so `tau = I alpha`:
+```
+tau_accel = m a d_v
+```
 
-| Correction | `alpha` | Light | Heavy |
-|---|---|---|---|
-| 10° in 200 ms | 17 rad/s^2 | 11.3 mN m | 26.8 mN m |
-| 10° in 100 ms | 70 rad/s^2 | 45.2 mN m | 107.1 mN m |
-| 10° in 50 ms | 279 rad/s^2 | 180.6 mN m | **428.5 mN m** |
-| 30° in 100 ms | 209 rad/s^2 | 135.5 mN m | 321.3 mN m |
+This is the disturbance the research question is about (ADR 0004, coupling direction 2).
 
-### Finding 2: direct drive is marginal, and a small reduction collapses the problem
+### Finding 2: holding gravity is the largest term, so balance trimming is a requirement
 
-A moderate specification — 10° in 100 ms with a 10 mm CoM offset — needs **62 mN m (light)
-to 144 mN m (heavy)** at the axis. That is at or beyond what small direct-drive gimbal
-motors deliver, and it has to be delivered partly as continuous holding torque.
+At the design point (10° in 100 ms, `a` = 3 m/s^2), against the GM2804H's rated
+34.3 mN m at 0.8 A, so `K_t` = 43 mN m/A:
 
-Reduction divides required motor torque by `n` and reflected inertia by `n^2`:
+| Case | slew | hold | accel | total | % rated | current | heat while holding |
+|---|---|---|---|---|---|---|---|
+| Untrimmed, `d_h` = 10 mm | 11.9 | 24.5 | 0 | **36.4 mN m** | **106%** | 0.85 A | 2.2 W |
+| Trimmed `d_h` = 2 mm, balanced | 11.9 | 4.9 | 0 | 16.8 mN m | 49% | 0.39 A | 0.09 W |
+| Trimmed `d_h` = 2 mm, bottom-heavy `d_v` = 10 mm | 11.9 | 4.9 | 7.5 | 24.3 mN m | 71% | 0.57 A | 0.09 W |
 
-| `n` | motor torque (light) | motor torque (heavy) | reflected inertia (heavy) |
-|---|---|---|---|
-| 1:1 | 62.2 mN m | 143.5 mN m | 1534e-6 kg m^2 |
-| 4:1 | 15.5 mN m | 35.9 mN m | 95.9e-6 |
-| 13:1 | 4.8 mN m | 11.0 mN m | 9.1e-6 |
-| 30:1 | 2.1 mN m | 4.8 mN m | 1.7e-6 |
+Copper loss uses `P = 1.5 I_peak^2 R_phase`, with the listed 9 Ω taken as phase-to-phase.
 
-At 13:1 the requirement is about 5–11 mN m, which is undemanding, and reflected inertia
-becomes negligible next to any rotor.
+An untrimmed casing runs the motor past its rating and heats a closed plastic shell
+continuously. Trimming the sideways offset to 2 mm with the R4 masses removes nearly all of
+the holding load. **That makes trimming a requirement, not an option**, and the R8 balance
+measurement has to find `d_h`.
 
-**The geometry offers that reduction almost for free.** The casing is a ~135 mm cylinder, so
-its own circumference is already a large pulley: a 10 mm drive pulley or capstan against a
-130 mm casing is roughly 13:1 in one stage, with no gear teeth anywhere.
+ADR 0008's earlier 22.5 mN m was this same calculation with the contents guessed at 35% of the
+shell mass. That left out about 70 g of electronics and the motor, and it assumed the untrimmed 10 mm.
+
+### Finding 3: `K_t` from the rated point, not from KV
+
+The listing's no-load figure (about 1690 rpm at 10 V) implies 169 rpm/V and `K_t` ≈ 57 mN m/A.
+The rated load point implies 43 mN m/A. The KV conversion depends on conventions a listing
+doesn't state, so the budget uses the rated point, which is the more pessimistic of the two.
 
 ## Pendulum resonance
 
-An unbalanced casing swings about the wheel axis with
+A casing with its centre of mass `d_v` below the axis swings at
 
 ```
-f = sqrt(m_c g d / I) / (2 pi)
+f = sqrt(m g d_v / I) / (2 pi)
 ```
 
-| `d` | Light | Heavy |
-|---|---|---|
-| 2 mm | 0.37 Hz | 0.35 Hz |
-| 5 mm | 0.58 Hz | 0.55 Hz |
-| 10 mm | 0.82 Hz | 0.77 Hz |
-| 20 mm | 1.16 Hz | 1.10 Hz |
+| `d_v` | 2 mm | 5 mm | 10 mm | 20 mm |
+|---|---|---|---|---|
+| `f` | 0.85 Hz | 1.35 Hz | 1.91 Hz | 2.70 Hz |
 
-Sub-1 Hz for any realistic offset — squarely inside the band of chassis motion over rough
-ground. This makes balance an explicit design choice rather than a packaging afterthought:
+Shrinking the robot raised this: the same offset now resonates about twice as fast as at
+135 mm, because inertia fell faster than mass. It is still well inside the band of chassis
+motion over rough ground, so the choice remains a control design decision (owner-reviewed):
 
-- **Bottom-heavy** gives a passive restoring torque that keeps the camera roughly upright
-  without power, which is how throwable two-wheeled robots normally work. The same torque
-  fights the actuator whenever it points off-level, adds a continuous holding load, and puts
-  a lightly-damped sub-1 Hz resonance inside the control loop.
-- **Balanced** (`d -> 0`) removes the holding load and the resonance, at the cost of no
-  passive recovery: the camera's attitude is then entirely the actuator's responsibility,
-  including at power-up and after an impact.
+- **Bottom-heavy** gives passive recovery after a throw, at the cost of a resonance inside
+  the loop and the acceleration torque above.
+- **Balanced** removes both, but then the camera's attitude is entirely the actuator's job,
+  including at power-up.
 
-Which to choose is a control design question and therefore owner-reviewed. The analysis only
-establishes that it *is* a choice with a sub-1 Hz consequence, not a detail.
+Either is within the motor's rating once `d_h` is trimmed.
 
-## Backlash lands directly in the measurement
+## Why not a gearbox: backlash lands in the measurement
 
-The project's research question is how much active pitch stabilization improves *visual*
-stability. Transmission backlash is therefore not a side effect — it is an error term in the
-quantity being measured. Converting angle to image displacement:
+The research question is about *visual* stability, so transmission backlash is an error term
+in the quantity being measured:
 
 ```
 pixels = backlash_deg * horizontal_pixels / horizontal_fov_deg
 ```
 
-Assuming 1920 px across a ~90° horizontal field of view (**confirm against the Camera
-Module 3 Wide datasheet**):
+At 1920 px across about 90° (to confirm for the Camera Module 3 Wide), 1° of backlash is
+21 px. Small gearboxes commonly have 1–3°, the same size as the residual error stabilization
+is trying to reach. Direct drive has none, which is a standing reason never to reintroduce a
+gearbox to buy torque.
 
-| Backlash | Image jitter |
-|---|---|
-| 0.1° | 2 px |
-| 0.5° | 11 px |
-| 1.0° | 21 px |
-| 2.0° | 43 px |
+## What building the CAD revealed
 
-### Finding 3: a geared actuator with typical backlash would corrupt the result
-
-Small gearboxes commonly show 1–3° of backlash. If stabilization reduces pitch error from
-10° to a 1–2° residual, a 1.5° backlash is the *same size as the residual being reported* —
-the experiment would be measuring the gearbox, not the controller. Backlash must be well
-below the target residual error, which is a requirement on the transmission, not a
-preference about motors.
-
-## Measured from the CAD geometry (2026-09-30)
-
-The parametric model in `cad/` now exists, so mass and inertia come from the solids rather
-than from the estimate above. Run `python3 cad/build.py --report`.
-
-| | Estimated (light–heavy) | **From geometry** |
-|---|---|---|
-| Rotating mass | 174–370 g | **198 g** |
-| Rotating inertia | 0.647e-3 – 1.534e-3 kg m^2 | **0.747e-3 kg m^2** |
-
-The light-corner estimate was close; the heavy corner was pessimistic. Revised torque, with
-the pitch motor still **not** included (it rides in the casing per R3):
-
-| Load | At the axis | At the motor, 8:1 |
-|---|---|---|
-| Gravity, 5 mm CoM offset | 9.7 mN m | 1.2 mN m |
-| Gravity, 10 mm CoM offset | 19.4 mN m | 2.4 mN m |
-| 10° in 200 ms | 13.0 mN m | 1.6 mN m |
-| 10° in 100 ms | 52.2 mN m | 6.5 mN m |
-| 10° in 50 ms | 208.7 mN m | 26.1 mN m |
-| **Moderate spec + 10 mm offset** | **71.6 mN m** | **9.0 mN m** |
-
-The ratio is 8:1, not the 9:1 the earlier revision assumed: the binding constraint is
-fitting the 28 mm motor *body* inside the casing alongside the belt, not the belt itself.
-
-Pendulum resonance at a 10 mm offset: **0.81 Hz** — the sub-1 Hz finding holds.
-
-ADR 0006's conclusion survives contact with the real geometry: 9.0 mN m at the motor through
-an 8:1 zero-backlash reduction is undemanding, while 71.6 mN m direct-drive is not.
-
-### What building the CAD revealed that the estimate missed
-
-The first build of the parts came to **855 g of printed plastic** against the owner's
-700–900 g vehicle target, leaving −155 to +45 g for motors, battery, electronics and
-bearings. The estimate above had only ever costed the casing shell; it never costed the end
-caps, the chassis discs, or the wheels — and a near-solid 150 mm wheel is 160 g each.
-
-Rebuilding those as rim-hub-and-spoke rather than solid discs brought the total to **398 g**,
-leaving 302–502 g. This is the reason to build geometry early even when the analysis seems
-settled: the inertia estimate was fine, and the mass budget was not.
+The first build was **855 g of printed plastic** against a 700–900 g vehicle target. No
+estimate had costed the end caps, discs or wheels. Rim-hub-and-spoke parts brought it to
+398 g; at 70 × 182 with direct drive it is 212 g. Build geometry early: the inertia estimate
+was fine, and the mass budget was not.
 
 ## What to measure to replace these estimates
 
-1. Weigh the printed shell and each casing component. Shell mass carries 85% of the answer.
-2. Measure the CoM offset `d` — hang the casing and find where it balances.
-3. Measure `I` directly: hang the casing as a pendulum, time the period, and invert
-   `f = sqrt(m g d / I) / 2 pi`. This also validates the estimate above.
-4. Confirm the camera's true horizontal FOV and output resolution.
-5. Measure the chosen transmission's actual backlash, in degrees at the casing.
-
-Until items 1–3 are done, treat every torque figure here as an order-of-magnitude bound.
+1. Weigh the printed shell and every casing component. The shell carries 71% of `I`.
+2. Find the centre of mass in both directions, `d_h` and `d_v`, using the R8 datum. Then trim
+   `d_h` to 2 mm or less.
+3. Measure `I` directly: hang the casing as a pendulum, time it, and invert the formula above.
+4. Confirm the motor's rated point, and measure the wire loop's spring torque (ADR 0009).
+5. Confirm the camera's horizontal FOV and output resolution.

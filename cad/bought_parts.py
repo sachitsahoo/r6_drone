@@ -55,47 +55,47 @@ class Component:
 CASING_COMPONENTS: list[Component] = [
     Component("pitch_motor", "cylinder", (P.PITCH_MOTOR_OD, P.PITCH_MOTOR_LENGTH),
               P.PITCH_MOTOR_MASS_G, "LISTING",
-              "2208-class gimbal, 28 x 26 mm, 39 g, coaxial at end A (ADR 0008). MUST be "
-              "hollow-shaft with a bore >= 5 mm: wheel A's shaft passes through it "
-              "(ADR 0010). Sourcing not verified. A 2804-class part is 35 mm OD and needs "
-              "a larger cup."),
+              "iPower GM2804H-100T, hollow shaft 6.5 mm ID, 12N14P, 9 ohm (ADR 0011). Not "
+              "the GBM2804H variant, whose bore is 5 mm."),
     Component("pi_zero_2w", "box", (65.0, 30.0, 5.0), 11.0, "LISTING",
               "Pi Zero 2 W board outline is well documented; 5 mm is with nothing stacked."),
     Component("camera_module_3_wide", "box", (25.0, 24.0, 12.5), 5.0, "LISTING",
               "Lens barrel height dominates and varies; measure it."),
-    Component("mcu_board", "box", (70.0, 82.0, 20.0), 60.0, "GUESS",
-              "Nucleo-G474RE with headers. DOES NOT FIT the 65 mm bore at any orientation "
-              "(70 mm is wider than the bore). Bench only; the robot needs a smaller "
-              "G474 board."),
-    Component("imu_breakout", "box", (20.0, 16.0, 3.0), 2.0, "GUESS",
-              "ICM-42688-P breakout. Board outline varies by vendor."),
-    Component("encoder_casing", "box", (20.0, 15.0, 3.0), 2.0, "GUESS",
-              "AS5600 breakout reading the casing angle (ADR 0005)."),
-    Component("encoder_motor", "box", (20.0, 15.0, 3.0), 2.0, "GUESS",
-              "AS5600 breakout for FOC commutation. Note: AS5600's I2C address is fixed at "
-              "0x36, so this and encoder_casing cannot share a bus."),
+    Component("mcu_board", "box", (50.0, 25.0, 8.0), 8.0, "GUESS",
+              "Small STM32G474 board, NOT YET CHOSEN. The Nucleo-G474RE (70 x 82) is "
+              "bench-only: it is wider than the 65 mm bore. Same chip, same firmware."),
+    Component("imu_breakout", "box", (P.IMU_BOARD_LENGTH, P.IMU_BOARD_WIDTH,
+                                      P.IMU_BOARD_THICKNESS + P.IMU_CHIP_SIDE_HEIGHT),
+              2.0, "GUESS",
+              "ICM-42688-P breakout, SPI. Needs NOTHING taller than the chip on the chip side "
+              "and headers on the back: it lies chip-down beside the spine waist (ADR 0010)."),
+    Component("pitch_encoder", "box", (12.0, 12.0, 3.0), 3.0, "GUESS",
+              "ONE encoder: with direct drive the rotor angle is the casing angle, so it does "
+              "both commutation and casing pitch (ADR 0011). Must work off-axis -- wheel A's "
+              "shaft occupies the axis. MA732-class sensor beside a diametric ring magnet."),
     Component("foc_driver", "box", (25.0, 20.0, 8.0), 5.0, "GUESS",
-              "SimpleFOC Mini, or an eventual DRV8313-class stage."),
+              "SimpleFOCMini (DRV8313), ADR 0007. Needs >= 8 V, hence 3S (ADR 0012)."),
+    Component("buck_5v", "box", (22.0, 17.0, 4.0), 3.0, "GUESS",
+              "5 V regulator for the Pi from the 3S pack, ~2 A (ADR 0012)."),
     Component("power_monitor", "box", (20.0, 16.0, 3.0), 2.0, "GUESS", "INA226 breakout."),
-    Component("battery", "box", (45.0, 25.0, 12.0), 40.0, "GUESS",
-              "ADR 0008: a 60 x 32 x 18 pack does not fit a 70 mm casing; something near "
-              "45 x 25 x 12 does, at a run-time cost nobody has budgeted. Placement is "
-              "UNDECIDED, and the spine leaves the chassis almost no room for it."),
+    Component("battery", "box", (60.5, 16.0, 11.5), 24.8, "LISTING",
+              "3S 300 mAh, BetaFPV 45C listing: 60.5 x 16 x 11.5 mm, 24.8 g. Slim enough to "
+              "lie along the axis in the casing (ADR 0012)."),
+    Component("motor_driver", "box", (20.0, 20.0, 3.0), 3.0, "GUESS",
+              "TB6612FNG breakout. In the casing: the spine has no platform (ADR 0012)."),
 ]
 
 # ------------------------------------------------------------- inside the chassis
+#
+# Only the wheel motors (ADR 0012). Everything electronic rides in the casing, so the
+# wire loop (ADR 0009) carries just the wheel motor leads and their encoder lines.
 
 CHASSIS_COMPONENTS: list[Component] = [
     Component("wheel_motor_left", "cylinder", (P.WHEEL_MOTOR_OD, P.WHEEL_MOTOR_LENGTH), 10.0,
-              "GUESS", "N20 gearmotor inside the spine. Length depends entirely on gear "
-                       "ratio -- measure, it sets every axial station at both ends."),
+              "GUESS", "N20 gearmotor with magnetic encoder, inside the spine. Length "
+                       "depends on gear ratio -- measure, it sets every axial station."),
     Component("wheel_motor_right", "cylinder", (P.WHEEL_MOTOR_OD, P.WHEEL_MOTOR_LENGTH), 10.0,
               "GUESS", "as above"),
-    Component("motor_driver", "box", (20.0, 20.0, 3.0), 3.0, "GUESS", "TB6612FNG breakout."),
-    Component("slip_ring", "cylinder", (P.SLIP_RING_ENVELOPE_DIA,
-                                        P.SLIP_RING_ENVELOPE_LENGTH),
-              20.0, "GUESS", "FALLBACK ONLY: ADR 0009 proposes a wire loop, since vendor "
-                             "drag specs exceed the whole direct-drive torque budget."),
 ]
 
 ALL_COMPONENTS = CASING_COMPONENTS + CHASSIS_COMPONENTS

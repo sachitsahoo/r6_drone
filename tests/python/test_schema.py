@@ -85,7 +85,7 @@ def test_camera_pitch_id_stays_reserved(schema) -> None:
 
 
 def test_camera_pitch_covers_the_full_circle(schema) -> None:
-    """The outer casing rotates continuously about the wheel axis (ADR 0004).
+    """The outer casing turns through at least a full turn about the wheel axis (ADRs 0004, 0009).
 
     Regression test. This field originally declared +/-90 deg, inherited from assuming a
     limited-travel camera gimbal. Because the generator emits range validation into the

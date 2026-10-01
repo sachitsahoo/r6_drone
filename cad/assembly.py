@@ -54,11 +54,12 @@ ROTATION_GROUP = {
     "end_cap_a": "casing",
     "end_cap_b": "casing",
     "imu_bridge": "casing",
+    "imu_board": "casing",
     "camera_mount": "casing",
     "chassis_spine": "chassis",
     "wheel_motor_a": "chassis",
     "wheel_motor_b": "chassis",
-    # Stator on the chassis, rotor on the casing. As a plain envelope it is a cylinder, so
+    # Stator on the casing, rotor on the chassis. As a plain envelope it is a cylinder, so
     # which group it belongs to does not change any result.
     "pitch_motor_envelope": "motor",
     "wheel_a": "wheel_a",
@@ -111,6 +112,9 @@ def build_assembly() -> dict[str, cq.Workplane]:
     bridge = (parts.imu_bridge()
               .rotate((0, 0, 0), (0, 0, 1), 180)
               .translate((0, 0, P.Z_IMU_BRIDGE)))
+    imu_board = (parts.imu_board_envelope()
+                 .rotate((0, 0, 0), (0, 0, 1), 180)
+                 .translate((0, 0, P.Z_IMU_BRIDGE)))
     camera = (parts.camera_mount()
               .rotate((0, 0, 0), (0, 1, 0), 90)
               .translate((P.CAMERA_MOUNT_INNER_RADIUS, 0, P.Z_CAMERA)))
@@ -134,6 +138,7 @@ def build_assembly() -> dict[str, cq.Workplane]:
         "end_cap_b": cap_b,
         "chassis_spine": spine,
         "imu_bridge": bridge,
+        "imu_board": imu_board,
         "camera_mount": camera,
         "pitch_motor_envelope": motor,
         "wheel_motor_a": wheel_motor_a,
@@ -252,9 +257,10 @@ def bearing_checks(assembly: dict[str, cq.Workplane]) -> list[tuple[str, float]]
 CHECKS: list[tuple[str, str, float, str]] = [
     ("end_cap_a", "chassis_spine", P.RUNNING_CLEARANCE, "cap A hub inside the cup, and cup tip"),
     ("end_cap_b", "chassis_spine", P.RUNNING_CLEARANCE, "cap B bore around the boss"),
-    ("imu_bridge", "chassis_spine", P.IMU_WAIST_CLEARANCE, "IMU pad hole around the waist"),
-    ("pitch_motor_envelope", "end_cap_a", 0.0, "rotor bell bolted to cap A"),
-    ("pitch_motor_envelope", "chassis_spine", 0.0, "stator bolted to the cup floor"),
+    ("imu_board", "chassis_spine", P.IMU_WAIST_CLEARANCE, "IMU breakout beside the waist"),
+    ("imu_board", "imu_bridge", 0.0, "breakout screwed to its carrier"),
+    ("pitch_motor_envelope", "end_cap_a", 0.0, "stator bolted to cap A"),
+    ("pitch_motor_envelope", "chassis_spine", 0.0, "rotor bell bolted to the cup floor"),
     ("wheel_shaft_a", "pitch_motor_envelope",
      (P.PITCH_MOTOR_HOLLOW_BORE - P.WHEEL_SHAFT_DIA) / 2, "shaft through the hollow bore"),
     ("wheel_shaft_a", "end_cap_a",

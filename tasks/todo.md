@@ -6,8 +6,21 @@ Plan written 2026-09-30. Spec of record: ../CLAUDE.md
 **Slices 1–4 complete and verified 2026-09-30.** Slice 5 (simulator) is blocked on the
 `firmware/hal/` interfaces, which are owner-reviewed.
 
-Mechanical work beyond Phase 1 has also happened: ADRs 0004–0006, a torque budget, and a
-parametric CAD model in `cad/`. See `docs/mechanical-requirements.md`.
+Mechanical work beyond Phase 1 has also happened: ADRs 0004–0012, a torque budget
+(`tools/pitch_inertia_budget.py`), and a parametric CAD model in `cad/` at the 70 x 182
+direct-drive design point. See `docs/mechanical-requirements.md`.
+
+## Awaiting the owner
+
+Each is written to be accepted as-is; open items listed in each are parameters, not blockers.
+
+- [ ] ADR 0007 — bought power stage, own voltage-mode FOC. **Unblocks the pitch HAL interface.**
+- [ ] ADR 0009 — wire loop with software unwind (the only option the spine leaves)
+- [ ] ADR 0010 — spine chassis, IMU 3.8 mm beside the axis
+- [ ] ADR 0011 — GM2804H, one off-axis encoder, sideways CoM trimmed to <= 2 mm
+- [ ] ADR 0012 — 3S battery, every board in the casing
+- [ ] Protocol proposals 2–7 (`protocol/design-proposal.md`): 6 assigns `0x03` as a target-angle
+      command; 7 adds the wire loop's turn count. 3–5 and 7 batch with the estimator design.
 
 ---
 
@@ -102,7 +115,8 @@ Write a design proposal before any code. Must cover:
 
 Motor control, pitch stabilization, state estimation, safety state machine, watchdog, STM32
 timer/IRQ/DMA config. All owner-reviewed, all blocked on Phase 1's test harness existing.
-Pitch actuator choice (servo vs. FOC gimbal BLDC) needs its own ADR and gates stabilization.
+The pitch actuator is chosen (direct drive, ADR 0008; GM2804H, ADR 0011 proposed); its HAL
+interface waits on ADR 0007.
 
 Out of scope per CLAUDE.md: ROS 2, autonomy, SLAM, LiDAR, custom PCB, self-righting.
 
@@ -110,26 +124,8 @@ Out of scope per CLAUDE.md: ROS 2, autonomy, SLAM, LiDAR, custom PCB, self-right
 
 - ~~Repo naming~~ RESOLVED 2026-09-30: keep `r6_drone` as the repo/dir name. "Recon UGV" stays
   the project name in docs and READMEs. No rename, no ADR needed.
-- Schema generator language: Python (matches tools/operator, one less toolchain) is my default
-  unless you'd rather it be C++. Will raise this in the 4.x proposal.
+- ~~Schema generator language~~ RESOLVED: Python, ADR 0003 (Accepted).
 - ~~arm-none-eabi-gcc availability~~ RESOLVED 2026-09-30: installed Arm GNU Toolchain
   15.3.Rel1 via `brew install --cask gcc-arm-embedded` (includes gdb and newlib specs).
   CMake 4.4.3 also installed — it was missing too. Target build verified locally.
 
----
-
-## CAD refactor: 70 x 182, direct drive (ADR 0008)  [2026-09-30, DONE]
-
-Owner approved the layout in chat: spine chassis, hollow-shaft pitch motor at end A, IMU on a
-ring around a thinned spine waist (r ~ 5 mm), full +/-180 deg leveling kept.
-
-- [x] parameters.py: rescale; delete belt/band/pulley/bracket/standoff values; axial layout
-      stations as DERIVED values; spine, cup, motor-end bearing, hollow bore (ASSUMPTION)
-- [x] parts.py: delete drive band + motor bracket + chassis disc; add chassis_spine, end cap A
-      (motor end); cap B keeps the 6704 and the pendulum datum
-- [x] assembly.py: rotation-aware sweep (casing vs chassis sampled over a full turn, pruned by
-      exact r_min / conservative r_max); motor, wheel motors, wheel shaft A as envelopes
-- [x] build.py: rotating set, quantities, compare against ADR 0008's 0.133e-3
-- [x] tests/python/test_cad.py: replace belt-era tests with direct-drive equivalents
-- [x] ADR 0010 (axial layout, topology finding); amend ADR 0005; mechanical-requirements R1/R2/R5
-- [x] implementation-notes.html entry; cad/README; component-measurements checklist

@@ -42,10 +42,12 @@ SHELL_FLANGE_RADIAL = 4.5    # ASSUMPTION: wide enough to land an M3 tap with ~1
 SPINE_OD = 16.0              # ASSUMPTION: 12 mm N20 body plus a 2 mm printed wall
 SPINE_BORE = 13.0            # ASSUMPTION: clears an N20 motor body (12 mm) by 0.5 each side
 SPINE_END_WALL = 2.0         # ASSUMPTION: closes each wheel motor pocket on its inboard end
-#: The thinned section the IMU ring sits around. In reality a bought 5 mm steel rod or
-#: carbon tube plugged into two printed ends -- a printed 5 mm section would not survive a
-#: throw. Its radius sets the IMU's radial offset, so it is kept as small as is credible.
-SPINE_WAIST_OD = 5.0         # ASSUMPTION: smallest rod that plausibly carries wheel loads
+#: The thinned section the IMU sits beside. In reality a bought rod joining two printed
+#: ends -- a printed 5 mm section would not survive a throw. A hollow tube lets wheel motor
+#: A's wires pass through it; a threaded rod lets nuts clamp the two ends together. Its
+#: radius sets the IMU's radial offset, so it is kept as small as is credible.
+SPINE_WAIST_OD = 5.0         # ASSUMPTION: M5 threaded rod or 5 mm brass/aluminium tube;
+                             # the smallest that plausibly carries wheel loads
 
 # Wheel motors live inside the spine, one at each end, shafts pointing outboard.
 WHEEL_MOTOR_OD = 12.0        # LISTING: N20 gearmotor body
@@ -59,23 +61,32 @@ WHEEL_MOTOR_LENGTH = 40.0    # GUESS: depends entirely on gear ratio -- measure
 # Wheel A's drive shaft has to pass through the motor's centre -- there is nowhere else
 # for it to go (ADR 0010). So this must be a HOLLOW-SHAFT motor.
 
-# 28 mm matches a 2208-class gimbal motor (vendor listings: 28 mm OD, 39-42 g). The more
-# commonly recommended GM2804 is 35 mm OD despite its name, and would force a larger cup.
-PITCH_MOTOR_OD = 28.0
-#: Axial length of the motor body. SpeedyFPV 2208 listing: 26 mm.
-PITCH_MOTOR_LENGTH = 26.0
-PITCH_MOTOR_MASS_G = 39.0
-PITCH_MOTOR_KV = 80.0
-#: ASSUMPTION, and the one to check before buying anything: hollow-shaft gimbal motors exist
-#: but whether a 28 mm one with a >= 5 mm bore is easy to source has NOT been verified.
-PITCH_MOTOR_HOLLOW_BORE = 5.0
-PITCH_MOTOR_ROTOR_BOLT_RADIUS = 6.0     # ASSUMPTION: rotor-bell top bolt circle
-PITCH_MOTOR_STATOR_BOLT_RADIUS = 9.5    # ASSUMPTION: stator base bolt circle
+# iPower GM2804 (ADR 0011). iFlight listing, 2026-09-30.
+#
+# Orientation: the STATOR bolts to end cap A (casing) and the ROTOR to the cup floor
+# (chassis). The windings are on the stator, so this keeps the three phase leads inside the
+# casing with the power stage -- the reason R3 exists. Bolted the other way, the phase leads
+# would have to cross the wire loop. Chosen because it is a real,
+# stocked hollow-shaft gimbal motor: a 28 mm 2208-class part with a bore that passes a shaft
+# could not be found. 35 mm is its OD despite the "28" in the name (that is the stator).
+PITCH_MOTOR_OD = 35.0                   # LISTING: "Phi 35 +/- 0.05 mm"
+#: Axial length. The listing gives 25 mm for the encoder variant "with encoder housing";
+#: the plain motor is assumed no longer. LISTING
+PITCH_MOTOR_LENGTH = 25.0
+PITCH_MOTOR_MASS_G = 51.0               # LISTING (encoder variant)
+#: "Hollow shaft ID Phi 6.5 +0.05/0". The GBM2804H variant lists 5 mm -- buy the GM2804H.
+PITCH_MOTOR_HOLLOW_BORE = 6.5           # LISTING
+PITCH_MOTOR_POLE_PAIRS = 7              # LISTING: 12N14P
+#: Rotor-bell bolt circle, into the cup floor. Must clear the floor's 13 mm bore (wheel
+#: motor A goes in through it), which the test suite checks. ASSUMPTION: measure.
+PITCH_MOTOR_ROTOR_BOLT_RADIUS = 8.0
+#: Stator base bolt circle, into end cap A. M2, per the listing's Q&A. ASSUMPTION: measure.
+PITCH_MOTOR_STATOR_BOLT_RADIUS = 9.5
 PITCH_MOTOR_BOLT_COUNT = 4
 
 #: Radial gap between the motor body and the cup wall around it.
-MOTOR_CUP_RADIAL_CLEARANCE = 1.5        # ASSUMPTION: FDM bores run undersize
-CUP_WALL = 2.0                          # ASSUMPTION
+MOTOR_CUP_RADIAL_CLEARANCE = 1.0        # ASSUMPTION: FDM bores run undersize
+CUP_WALL = 1.5                          # ASSUMPTION: thin, but it only locates a bearing race
 CUP_FLOOR_THICKNESS = 3.0               # ASSUMPTION: carries the stator bolts
 
 # Wheel A's shaft: N20 output extended through the pitch motor's bore to the wheel.
@@ -88,9 +99,9 @@ WHEEL_SHAFT_DIA = 3.0        # LISTING: N20 D-shaft
 # End A: the casing bearing sits on the OUTSIDE of the cup wall, so impact loads on the
 # casing go to the chassis through a real bearing rather than through the gimbal motor's
 # tiny internal ones.
-BEARING_A_ID = 35.0          # ASSUMPTION: 61807 thin-section, 35 x 44 x 5
-BEARING_A_OD = 44.0
-BEARING_A_WIDTH = 5.0
+BEARING_A_ID = 40.0          # LISTING: 6708ZZ thin-section, 40 x 50 x 6 (simplybearings)
+BEARING_A_OD = 50.0
+BEARING_A_WIDTH = 6.0
 # End B: unchanged from the first design, on a boss at the spine's end.
 AXIS_BOSS_OD = 20.0          # ASSUMPTION: bearing bore rides on this
 BEARING_OD = 27.0            # ASSUMPTION: 6704ZZ, 20 x 27 x 4
@@ -131,19 +142,29 @@ CAMERA_LENS_HOLE_DIA = 10.0          # ASSUMPTION
 # --------------------------------------------------------------------------------- IMU
 
 # R2 (amended by ADR 0010): the IMU cannot sit ON the axis, because the chassis passes every
-# axial station (see the spine note above). It sits on a pad with a hole around the spine's
-# waist instead, and the requirement is "under 5 mm radially, error budgeted".
-IMU_PAD_SIZE = 16.0
+# axial station (see the spine note above). An off-the-shelf breakout lies flat beside the
+# spine's waist instead, running along it, CHIP SIDE FACING THE ROD. Centred over the rod,
+# the chip's distance from the axis is just the stack-up below, wherever the chip sits on the
+# board -- so no custom PCB is needed (custom PCBs are out of scope, CLAUDE.md).
+IMU_BOARD_LENGTH = 20.0          # GUESS: breakout outline, along the axis once mounted
+IMU_BOARD_WIDTH = 16.0           # GUESS: tangential once mounted
+IMU_BOARD_THICKNESS = 1.6        # GUESS: standard FR-4
+#: Tallest thing on the chip side of the breakout. If a capacitor or regulator is taller
+#: than the IMU package, it sets the gap, not the chip. Headers must go on the back.
+IMU_CHIP_SIDE_HEIGHT = 1.0       # GUESS: measure the real breakout
+IMU_PACKAGE_THICKNESS = 0.91     # LISTING: ICM-42688-P LGA, TDK datasheet package outline
+IMU_WAIST_CLEARANCE = 0.75       # ASSUMPTION: running gap between board and spine waist
+IMU_CARRIER_THICKNESS = 3.0      # ASSUMPTION: printed plate the breakout screws to
+IMU_CARRIER_MARGIN = 1.0         # ASSUMPTION: carrier overhang past the board on each side
 IMU_BRIDGE_THICKNESS = 3.0
 IMU_BRIDGE_WIDTH = 12.0
 IMU_MOUNT_HOLE_DIA = 2.2         # ASSUMPTION: M2 clearance
-IMU_WAIST_CLEARANCE = 0.75       # ASSUMPTION: radial gap between pad hole and spine waist
-#: Half the ICM-42688-P package (2.5 x 3 mm LGA). The sensing element is near its centre.
-IMU_PACKAGE_HALF = 1.5           # LISTING: TDK datasheet package outline
-IMU_PAD_HOLE_DIA = SPINE_WAIST_OD + 2 * IMU_WAIST_CLEARANCE          # DERIVED: 6.5
-#: Where the sensor actually sits, if it is placed right at the hole's edge. This needs a
-#: custom ring breakout -- off-the-shelf breakouts put the chip mid-board.
-IMU_RADIAL_OFFSET = IMU_PAD_HOLE_DIA / 2 + IMU_PACKAGE_HALF          # DERIVED: 4.75
+IMU_MOUNT_HOLE_INSET = 2.5       # GUESS: breakout mounting holes from the board's ends
+#: Radius of the board's chip-side face (its components' tips) and of the chip's centre.
+IMU_BOARD_NEAR_R = SPINE_WAIST_OD / 2 + IMU_WAIST_CLEARANCE                      # DERIVED: 3.25
+IMU_RADIAL_OFFSET = IMU_BOARD_NEAR_R + IMU_CHIP_SIDE_HEIGHT - IMU_PACKAGE_THICKNESS / 2
+                                                                                 # DERIVED: 3.8
+IMU_BOARD_FAR_R = IMU_BOARD_NEAR_R + IMU_CHIP_SIDE_HEIGHT + IMU_BOARD_THICKNESS  # DERIVED
 
 # ------------------------------------------------------------------- fasteners, fixtures
 
@@ -159,8 +180,6 @@ PENDULUM_DATUM_RADIUS = 27.5    # R8: known offset for the inertia measurement, 
 PENDULUM_DATUM_ANGLE_DEG = 30.0 # DERIVED: midway between two cap screws
 PENDULUM_DATUM_DIA = 3.2
 
-SLIP_RING_ENVELOPE_DIA = 15.0   # R5. Fallback only: ADR 0009 proposes a wire loop instead
-SLIP_RING_ENVELOPE_LENGTH = 25.0
 
 # End cap B: rim, hub and spokes, stepped in thickness. 6 mm is needed only at the hub,
 # for a 4 mm bearing seat plus a 2 mm shoulder.
@@ -171,9 +190,9 @@ END_CAP_BOSS_CLEARANCE_BORE = AXIS_BOSS_OD + 2 * RUNNING_CLEARANCE   # DERIVED: 
 END_CAP_SCREW_COUNT = 6
 END_CAP_SCREW_RADIUS = CASING_ID / 2 - SHELL_FLANGE_RADIAL / 2      # DERIVED: mid-flange
 
-# End cap A (motor end): thicker, because it holds a 5 mm bearing seat around the cup wall
-# with a shoulder under it, and the motor's rotor bolts to its inboard face.
-END_CAP_A_THICKNESS = 8.0       # ASSUMPTION: 5.5 mm seat + 2.5 mm shoulder
+# End cap A (motor end): thicker, because it holds the bearing seat around the cup wall
+# with a shoulder under it, and the motor's stator bolts to its inboard face.
+END_CAP_A_THICKNESS = 9.0       # ASSUMPTION: 6.5 mm seat + 2.5 mm shoulder
 #: Annulus outside the bearing housing: carries only screw loads, so it runs thinner.
 END_CAP_A_HOUSING_WALL = 3.0    # ASSUMPTION: material around the bearing's outer race
 END_CAP_A_SHAFT_BORE = PITCH_MOTOR_HOLLOW_BORE                       # DERIVED
@@ -191,8 +210,8 @@ PRINT_DENSITY = ABS_DENSITY     # what the reports assume; ABS is 18% lighter th
 # ------------------------------------------- derived cup geometry (do not edit)
 
 #: The cup wall's OD is the end-A bearing's bore; its ID clears the motor.
-CUP_OD = BEARING_A_ID
-CUP_ID = CUP_OD - 2 * CUP_WALL
+CUP_OD = BEARING_A_ID                    # 40
+CUP_ID = CUP_OD - 2 * CUP_WALL           # 37: the 35 mm motor plus 1 mm each side
 assert CUP_ID >= PITCH_MOTOR_OD + 2 * MOTOR_CUP_RADIAL_CLEARANCE - 1e-9, \
     "the cup wall would rub the motor body"
 
@@ -210,8 +229,8 @@ END_CAP_A_GROOVE_DEPTH = BEARING_A_WIDTH + RUNNING_CLEARANCE
 # removes that class of bug. End A is the motor end.
 
 Z_END_CAP_A = SHELL_FLANGE_DEPTH                         # cap A seats on the flange: 4
-Z_MOTOR_LO = Z_END_CAP_A + END_CAP_A_THICKNESS           # rotor bell on cap A: 12
-Z_MOTOR_HI = Z_MOTOR_LO + PITCH_MOTOR_LENGTH             # stator base: 38
+Z_MOTOR_LO = Z_END_CAP_A + END_CAP_A_THICKNESS           # stator base on cap A: 13
+Z_MOTOR_HI = Z_MOTOR_LO + PITCH_MOTOR_LENGTH             # rotor bell on the floor: 38
 Z_CUP_TIP = Z_MOTOR_LO - BEARING_A_WIDTH                 # cup wall fills the bearing: 7
 Z_CUP_FLOOR_HI = Z_MOTOR_HI + CUP_FLOOR_THICKNESS        # 41
 Z_WHEEL_MOTOR_A_LO = Z_CUP_FLOOR_HI                      # 41
@@ -229,9 +248,9 @@ AXIS_BOSS_INBOARD_OVERHANG = 6.0
 Z_BOSS_B_LO = Z_END_CAP_B - AXIS_BOSS_INBOARD_OVERHANG   # 166
 
 Z_CAMERA = CASING_LENGTH / 2                             # 91
-#: The IMU sits on the waist, clear of the camera mount's axial span. ASSUMPTION within
-#: those limits; the test suite checks both.
-Z_IMU_BRIDGE = 118.0
+#: Axial centre of the IMU board, on the waist and clear of the camera mount's span.
+#: ASSUMPTION within those limits; the test suite checks both.
+Z_IMU_BRIDGE = 120.0
 #: Trim bosses sit at the casing's balance station, away from the camera (which shares the
 #: 0-degree angle with one boss). ASSUMPTION: anywhere axially over the thick spine works.
 Z_TRIM_BOSSES = 55.0
