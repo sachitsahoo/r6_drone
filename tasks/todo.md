@@ -14,7 +14,7 @@ direct-drive design point. See `docs/mechanical-requirements.md`.
 
 Each is written to be accepted as-is; open items listed in each are parameters, not blockers.
 
-- [ ] ADR 0007 — bought power stage, own voltage-mode FOC. **Unblocks the pitch HAL interface.**
+- [x] ADR 0007 — bought power stage, own voltage-mode FOC. **Accepted 2026-09-30.**
 - [ ] ADR 0009 — wire loop with software unwind (the only option the spine leaves)
 - [ ] ADR 0010 — spine chassis, IMU 3.8 mm beside the axis
 - [ ] ADR 0011 — DM3505 (SparkFun ROB-27477), one off-axis encoder, stator on the casing

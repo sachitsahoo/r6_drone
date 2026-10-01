@@ -29,9 +29,9 @@ declared here; implementations live in [`../stm32/`](../stm32/) for the real rob
 
 - Empty as of Phase 1.
 - The pitch actuator interface is not designed yet. The actuator is now chosen — direct-drive
-  DM3505 with our own FOC (ADRs 0007, 0008, 0011, the last two of which are proposed) — so
+  DM3505 with our own FOC (ADRs 0007 and 0008 accepted, 0011 proposed) — so
   the interface will be "set three phase duty cycles" plus **one** absolute encoder shared by
-  FOC and estimation. Designed once ADR 0007 is approved.
+  FOC and estimation. Next to be proposed.
 
 ## How to test
 

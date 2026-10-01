@@ -1,8 +1,9 @@
 # 0007 — FOC: bought power stage, own control code
 
-- **Status:** **PROPOSED — awaiting owner approval. Do not implement.**
-  Revised 2026-09-30 for direct drive: the operating point below was first written for
-  ADR 0006's belt and has been recomputed for the DM3505.
+- **Status:** **Accepted** (2026-09-30, by the owner). Implementation is still
+  owner-reviewed: the FOC design and the timer configuration each get a proposal first.
+  The operating point below was first written for ADR 0006's belt and was recomputed for the
+  DM3505 before acceptance.
 - **Related:** [0008](0008-reduced-scale-direct-drive.md) (direct drive),
   [0011](0011-pitch-motor-and-encoder.md) (the motor and its single encoder),
   [0012](0012-power-and-electronics-placement.md) (the 3S supply this stage needs)
