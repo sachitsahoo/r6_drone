@@ -19,6 +19,8 @@ Each is written to be accepted as-is; open items listed in each are parameters, 
 - [ ] ADR 0010 — spine chassis, IMU 3.8 mm beside the axis
 - [ ] ADR 0011 — DM3505 (SparkFun ROB-27477), one off-axis encoder, stator on the casing
 - [ ] ADR 0012 — 3S battery, every board in the casing
+- [ ] `firmware/hal/design-proposal.md` — the eight HAL interfaces; three questions at the end.
+      **Unblocks slice 5 (simulator).**
 - [ ] Protocol proposals 2–7 (`protocol/design-proposal.md`): 6 assigns `0x03` as a target-angle
       command; 7 adds the wire loop's turn count. 3–5 and 7 batch with the estimator design.
 
