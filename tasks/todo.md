@@ -5,7 +5,7 @@ Plan written 2026-09-30. Spec of record: ../CLAUDE.md
 
 **Slices 1–5 complete.** 1–4 verified 2026-09-30; the `firmware/hal/` interfaces were
 approved and implemented 2026-10-01; slice 5 (minimal simulator) landed 2026-10-01. Phase 1
-is done once CI confirms it.
+is **complete**: CI green on `31b998f` (2026-10-01).
 
 **Safety design inputs already decided by the owner** (for the state machine proposal):
 wheels coast on comms timeout, escalating to brake if the link stays down long enough
@@ -116,7 +116,7 @@ Write a design proposal before any code. Must cover:
 **Done when:** a SIL test passes in CI with no hardware attached.
 
 **Done locally 2026-10-01:** 102 C++ tests (28 new: 25 sim unit + 3 SIL), 203 Python, purity
-guard and STM32 build all green. CI confirmation pending on push. Loop closing deferred to
+guard and STM32 build all green. CI green on `31b998f`. Loop closing deferred to
 the first approved controller (see implementation-notes.html, slice 5).
 
 ### Slice 5 plan (written 2026-10-01)

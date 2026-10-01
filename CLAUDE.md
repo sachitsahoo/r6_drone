@@ -165,5 +165,7 @@ them speculatively. Keep the core platform simple and reliable first.
 
 ## Current phase
 
-Phase 1: repo skeleton, build system, CI, protocol schema and codec, minimal simulator.
-Update this section as the project progresses.
+Phase 1 (repo skeleton, build system, CI, protocol schema and codec, minimal simulator):
+**complete 2026-10-01**, CI green on `31b998f`.
+Phase 2: first owner-reviewed designs (wheel velocity loop, safety state machine), closed
+against the sim plant before any hardware. Update this section as the project progresses.
