@@ -1,9 +1,9 @@
 # 0014 — Safety state machine, comms watchdog and hardware watchdog
 
-- **Status:** **PROPOSED**, 2026-10-01. Owner-reviewed area: safety state machine,
-  watchdog, plus protocol schema changes (new fault codes, Nack reasons, params) and one new
-  HAL interface. Nothing here is implemented. Six questions for the owner are at the end,
-  each with a recommendation, so it can be accepted as written.
+- **Status:** **ACCEPTED** by the owner, 2026-10-01: all six questions answered with the
+  recommendation (see "Owner decisions" at the end). Owner-reviewed area: safety state
+  machine, watchdog, plus protocol schema changes (new fault codes, Nack reasons, params) and
+  one new HAL interface. Not yet implemented.
 - **Inputs already decided by the owner:** wheels **coast** on a comms timeout and escalate
   to **brake** if the link stays down long enough (`firmware/hal/hal/wheel_motor.hpp`);
   the hardware watchdog (IWDG) is designed together with this machine (`tasks/todo.md`).
@@ -306,3 +306,11 @@ params in ADR 0013).
    fault. Dropping the casing would swing it loose on a coasting robot, and the camera is
    already level when the link comes back. Nothing is built on this yet; it binds the pitch
    design.
+
+## Owner decisions (2026-10-01)
+
+Accepted as written: "0014 all makes sense to me." All six questions take the recommended
+answer: (1) a comms timeout latches FAULT; (2) brake 800 ms after the fault; (3) ENCODER_FAULT
+on the first glitch plus WHEEL_STALL; (4) LOOP_OVERRUN at a 5 ms gap; (5) a 50 ms IWDG fed on
+check-in, booting into FAULT(WATCHDOG_RESET); (6) the pitch stabilizer keeps running through
+COMMS_TIMEOUT only.

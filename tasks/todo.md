@@ -26,7 +26,7 @@ Each is written to be accepted as-is; open items listed in each are parameters, 
 - [ ] ADR 0012 — 3S battery, every board in the casing
 - [x] `firmware/hal/design-proposal.md` — approved 2026-10-01 and implemented.
 - [x] ADR 0013 — wheel velocity loop. **Accepted 2026-10-01**, all five as recommended.
-- [ ] ADR 0014 — safety state machine, comms watchdog, IWDG. **Proposed 2026-10-01**, six questions.
+- [x] ADR 0014 — safety state machine, comms watchdog, IWDG. **Accepted 2026-10-01**, all six as recommended.
 - [ ] Protocol proposals 2–7 (`protocol/design-proposal.md`): 6 assigns `0x03` as a target-angle
       command; 7 adds the wire loop's turn count. 3–5 and 7 batch with the estimator design.
 
