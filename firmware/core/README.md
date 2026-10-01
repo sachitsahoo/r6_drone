@@ -34,8 +34,9 @@ identical code compiles three ways:
 | Directory | Contents | Design |
 |---|---|---|
 | `time/` | Wraparound-safe `elapsed_us` | hard rule 7 |
-| `protocol/` | COBS, CRC-32, frame encoder and garbage-tolerant decoder | ADR 0002 |
-| `safety/` | `SafetySupervisor` (DISARMED / ARMED / FAULT / ESTOP, arm interlocks, comms watchdog, fault latching, coast-then-brake), `WheelStallDetector`, `CheckInMonitor` (IWDG feed gate, `kIwdgTimeout_ms`) | ADR 0014; [theory](../../docs/theory/safety-state-machine.md); [learning note](../../docs/learning/safety-state-machine.md) |
+| `protocol/` | COBS, CRC-32, frame encoder and garbage-tolerant decoder; `StaleCommandFilter` (replay rejection, baseline reset after link silence) | ADR 0002, ADR 0015 §3 |
+| `runtime/` | `MotorLoop::tick()` (body of the 1 kHz interrupt) and `MainLoop::poll()` (body of the superloop): the glue between frames, the supervisor, DriveLoop and the drivers, written against HAL interfaces only | ADR 0015; [learning note](../../docs/learning/mcu-runtime.md) |
+| `safety/` | `SafetyMailbox` + `ReportQueue` (lock-free main-loop/ISR hand-off on `SpscRing`), `SafetySupervisor` (DISARMED / ARMED / FAULT / ESTOP, arm interlocks, comms watchdog, fault latching, coast-then-brake), `WheelStallDetector`, `CheckInMonitor` (IWDG feed gate, `kIwdgTimeout_ms`) | ADR 0014; [theory](../../docs/theory/safety-state-machine.md); [learning note](../../docs/learning/safety-state-machine.md) |
 | `control/` | Wheel velocity loop: `diff_drive`, `RateLimiter`, `WheelSpeedEstimator`, `WheelVelocityController` (PI, `kff = 0` by default), `DriveLoop` | ADR 0013 (+ amendment); [theory](../../docs/theory/wheel-velocity-loop.md); [learning note](../../docs/learning/wheel-velocity-loop.md) |
 
 `safety/` follows the same pattern as `control/`: pure classes, inputs and outputs as plain
@@ -50,10 +51,10 @@ guarded by `tests/python/test_geometry_drift.py`.
 
 - Every controller here requires an approved design before implementation
   (see "Owner-reviewed areas" in [`../../CLAUDE.md`](../../CLAUDE.md)).
-- `DriveLoop` and `SafetySupervisor` are not yet wired to anything. The glue is proposed in
-  ADR 0015 and waits on owner review: who calls `step()` at 1 kHz, who decodes frames into
-  `SafetyInputs` (including stale-timestamp rejection, which is not implemented anywhere yet),
-  how `ParamSet` reaches `set_config` (no param table yet), and how `LoopTiming` is sent.
+- `runtime/` sends no telemetry yet (StateTelemetry, LoopTiming, LinkStats), and Nacks every
+  Param* frame because the parameter table does not exist yet.
+- The mailbox is correct for one producer preempted by an ISR consumer on one core (the G474),
+  not for two cores.
 - `SafetySupervisor` has no detectors for IMU_FAULT, OVERCURRENT or UNDERVOLTAGE (thresholds
   deferred by ADR 0014), nor for WIRE_LOOP_LIMIT (reserved for ADR 0009).
 - The wheel gains are derived from the placeholder sim plant. They must be re-derived after

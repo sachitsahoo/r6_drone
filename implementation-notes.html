@@ -686,6 +686,106 @@ glue.</p>
 yet.</p>
 </details>
 
+<h2>Phase 2.3 — ADR 0015 glue and the first STM32 image (2026-10-01)</h2>
+
+<p>The owner accepted ADR 0015 as written and chose CMSIS-only register access (ADR 0016). The
+host-side glue is tested on the simulator. The STM32 layer compiles and links (11.2 KB flash,
+7.4 KB RAM) but has <b>never run</b>: the owner has no board yet. It drives no motor.</p>
+
+<details>
+<summary>Open — how the boot report is encoded<span class="tag">open question</span></summary>
+<p>ADR 0015 Q4 says to report non-IWDG reset causes for information only, without saying how.
+Implemented without a schema change: one <code>Fault(NONE)</code> at boot with
+<code>context = 0x80000000 | (RCC_CSR &gt;&gt; 24)</code>. The marker bit keeps it distinct from
+the arm-interlock contexts 2&ndash;4, which also use <code>NONE</code>. Cleaner alternative: a
+schema addition (a <code>BOOT_INFO</code> code, or a small boot message), which needs owner
+approval as a schema change. Recommended: keep the marker until the operator app exists, then
+decide with the telemetry design.</p>
+</details>
+
+<details>
+<summary>"Sequence lock" implemented as a double buffer<span class="tag">off-spec</span></summary>
+<p>A seqlock reader retries while the writer is mid-update. An ISR reader preempting the main
+loop would retry forever, because the writer can't run until the ISR returns. ADR 0015 already
+says "it is a double-buffer". The writer fills the slot the reader isn't reading, then
+publishes it with one atomic increment. Tested by staging a write, taking, then publishing.</p>
+</details>
+
+<details>
+<summary>The DriveCommand receive time is the motor tick's time<span class="tag">off-spec</span></summary>
+<p>ADR 0015 §2 says the main loop stamps the receive time and carries it in the mailbox. The
+supervisor's input struct has no field for it, and adding one would save at most one main-loop
+pass (sub-millisecond) on the comms-watchdog bound. Not carried. The bound is in
+<code>docs/theory/safety-state-machine.md</code> §8.</p>
+</details>
+
+<details>
+<summary>No UART IDLE interrupt; TX polled into the FIFO, no TX DMA<span class="tag">off-spec</span></summary>
+<p>The main loop reads the DMA position on every pass, so it never needs to be told the line
+went idle. The only RX interrupt counts ring laps, which is what makes overrun detection exact.
+TX moves bytes from a ring into the 8-byte LPUART FIFO each pass, with no interrupt. That's
+ample for Fault and Nack frames; telemetry may need TX DMA.</p>
+</details>
+
+<details>
+<summary>Stale filter details<span class="tag">off-spec</span></summary>
+<ul>
+<li><b>EstopRequest is exempt:</b> a replayed stop is harmless, and a refused one is not.</li>
+<li><b>The baseline resets</b> after no frame of <em>any</em> type has been accepted for the
+comms timeout. That isn't the supervisor's <code>link_fresh_</code> (in ARMED only DriveCommand
+counts for that). A restarted app's frames are all rejected, so the silence counts either way.</li>
+<li>An equal timestamp is a duplicate and is rejected.</li>
+</ul>
+</details>
+
+<details>
+<summary>Nack reasons the glue chooses<span class="tag">off-spec</span></summary>
+<ul>
+<li>A robot-to-operator ID arriving at the robot: <code>UNKNOWN_MESSAGE_ID</code>. It does not
+feed the watchdog.</li>
+<li>A failed <code>decode()</code>: <code>BAD_MAGIC</code> for EstopRequest (its only field is
+the magic), <code>RANGE_REJECT</code> otherwise. <code>decode()</code> doesn't say which check
+failed. A generator change could return the reason.</li>
+<li>ParamGet/ParamSet: <code>UNKNOWN_PARAM_ID</code>, and ParamCommit: <code>UNSPECIFIED</code>,
+until the param table exists. All three still count as valid frames for the watchdog
+(ADR 0014).</li>
+<li>A fifth queued request: <code>UNSPECIFIED</code> (ADR 0015 §2).</li>
+</ul>
+</details>
+
+<details>
+<summary>First image: HSI16, null motor drivers, 96 KB RAM<span class="tag">limitation</span></summary>
+<p>No PLL (16 MHz) until it can be checked on a board. Wheels and pitch are stubs, so arming
+with the stick pushed latches WHEEL_STALL on silicon, a free check of that detector. The linker
+script uses SRAM1+SRAM2 only and leaves the CCM SRAM aside, the conservative reading. Stack
+reserve: 4 KB, to be measured by paint.</p>
+</details>
+
+<details>
+<summary>The no-heap rule is enforced by the link, and it caught something<span class="tag">design</span></summary>
+<p>The linker script defines no heap. The first link failed: GCC 15's libstdc++ enables run-time
+assertions in unoptimised builds, and their handler calls <code>abort()</code> &rarr; signal &rarr;
+<code>malloc</code>. Now a failed assertion or a pure-virtual call spins into an IWDG reset
+(reported at boot as WATCHDOG_RESET). The image builds <code>RelWithDebInfo</code> by default,
+and <code>-nostartfiles</code> keeps newlib's unused <code>crt0</code> and its syscall stubs out.
+Checked: the final image contains no malloc, stdio, abort or exit symbols.</p>
+</details>
+
+<details>
+<summary>Function-local statics in main() instead of placement new<span class="tag">design</span></summary>
+<p>The supervisor needs the boot reason, which is only known inside <code>main()</code>.
+Function-local statics are built once there and never destroyed, with
+<code>-fno-threadsafe-statics</code> (no other context exists yet). The motor-loop ISR reaches
+them through a pointer set before the timer interrupt is enabled.</p>
+</details>
+
+<details>
+<summary>Vendor packages pinned by SHA-256<span class="tag">tooling</span></summary>
+<p>ST cmsis-device-g4 v1.2.6 and Arm CMSIS_6 v6.3.0, both Apache-2.0, fetched only for
+<code>-DTARGET=stm32</code> (about 11 MB). <code>SOURCE_SUBDIR</code> points at a missing
+directory, so their own build scripts never run.</p>
+</details>
+
 <h2>Open questions</h2>
 
 <details>

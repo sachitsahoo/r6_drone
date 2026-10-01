@@ -262,6 +262,24 @@ Interlock 2 ("no fault latched") is not reachable through the public interface: 
 leaves DISARMED, and every path back into DISARMED clears all flags. It is kept as defence in
 depth (ADR 0014 lists it), and the test file says why it has no test.
 
+## 8. Timing through the glue (ADR 0015)
+
+The supervisor's bounds above assume frames arrive at tick boundaries. On the G474 a frame
+passes through the UART, the DMA ring, one main-loop pass and the mailbox first. Let P_m be
+the worst-case main-loop pass and T = 1 ms the motor tick.
+
+| Quantity | Bound | Why |
+|---|---|---|
+| e-stop: last byte received → brake | ≤ P_m + T | decoded on the next main-loop pass, taken on the next tick; ADR 0014 targets < 2 ms, so P_m must stay under ~1 ms |
+| comms watchdog lateness | ≤ P_m + T | the supervisor stamps a DriveCommand with its own tick time, not the UART arrival time, so a lost link trips at most that much late |
+| UART RX slack | 512 B / 46 080 B/s = **11.1 ms** | the main loop may stall this long before the DMA ring laps and bytes are lost (counted in `rx_overflow_count`) |
+| IWDG reload | 32 kHz / 4 = 8 kHz; 50 ms × 8 kHz = **400 counts** | RLR = 399 [UNCLEAR: reload semantics, RM0440] |
+| IWDG feed requirement | both check-ins within 45 ms (LSI fast corner) | the motor loop checks in every 1 ms; so P_m < 45 ms |
+
+The receive-time stamp ADR 0015 §2 mentions is not carried through the mailbox. Doing so
+would change the supervisor's input struct to save at most P_m (sub-millisecond), so the
+watchdog runs on tick time and the bound above is the cost.
+
 ## References
 
 - ADR 0013 (wheel loop: τ_cl, ωc, anti-windup, carpet plant), ADR 0014 (this design).

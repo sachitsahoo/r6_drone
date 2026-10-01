@@ -13,6 +13,11 @@ Nothing in Phase 1 needs hardware. Wave 1 starts when firmware first touches rea
 
 ## Wave 1 — bench kit
 
+**Buy the Nucleo first, on its own.** The first firmware image (`firmware/stm32/`, 2026-10-01)
+needs nothing else. It runs the safety machine, the UART link and the watchdog on a bare board,
+and every unverified register value in it is settled by `docs/bringup/stm32-first-image.md`.
+The rest of wave 1 is needed when the motor drivers are written.
+
 | Item | Qty | Status | Notes |
 |---|---|---|---|
 | Nucleo-G474RE + USB cable | 1 | decided | Development board, never goes in the robot. Its built-in ST-LINK can likely also flash the small robot board later (to confirm) |
@@ -21,6 +26,7 @@ Nothing in Phase 1 needs hardware. Wave 1 starts when firmware first touches rea
 | TB6612FNG breakout | 1 | decided | |
 | N20 gearmotor, **12 V**, magnetic encoder | 2 | decided | 12 V because the supply is 3S (ADR 0012). Gear ratio still to pick |
 | Breadboard + jumper wires | 1 set | — | |
+| 10 kΩ resistors (pull-downs) | ~10 | decided | TB6612 STBY and PWM inputs, so a chip in reset drives nothing (ADR 0014; owner, ADR 0015 Q5: fitted before the first motor is powered). Value is an initial guess; check the breakout doesn't already fit them |
 
 ## Wave 2 — after the open items close
 

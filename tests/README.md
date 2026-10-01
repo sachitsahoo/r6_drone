@@ -40,6 +40,8 @@ skipped, or deleted to get to green.
 | `cpp/test_wheel_stall_detector.cpp`, `cpp/test_check_in_monitor.cpp` | ADR 0014 WHEEL_STALL detector and IWDG check-in gate. |
 | `cpp/test_safety_supervisor.cpp` | ADR 0014: the full state × event transition table (completeness enforced), interlocks, comms watchdog timing and wraps, escalation, clearing. |
 | `cpp/test_sil_safety.cpp` | SIL: link cut, unplugged and reversed encoder, carpet full stick, watchdog-reset boot, e-stop latency, IWDG starvation. |
+| `cpp/test_stale_command_filter.cpp`, `cpp/test_safety_mailbox.cpp` | ADR 0015: replay rejection with wraps and the restart reset; SPSC ring, mailbox incl. a reader preempting a half-done write. |
+| `cpp/test_runtime.cpp` | ADR 0015 glue: `MainLoop` (decode, Nack reasons, IWDG gating, boot report) and `MotorLoop` (stop modes, reports, exec time) on sim HAL. |
 | `cpp/protocol_vector_tool.cpp` | Host-only CLI exposing the real codec for cross-language tests. |
 | `python/test_schema.py` | Schema validity, documented payload sizes, every validator rule. |
 | `python/test_generator.py` | Determinism, `--check` staleness detection, banner, no banned constructs. |
@@ -53,8 +55,8 @@ skipped, or deleted to get to green.
 - Behaviour tests cover the wheel loop (ADR 0013) and the safety machine (ADR 0014) against
   a **placeholder** plant. No estimator or pitch loop exists yet, and nothing is checked on
   hardware.
-- The SIL tests' frame-to-supervisor glue is test code (`test_sil_safety.cpp`'s `Robot`), not
-  firmware: the real glue waits on the STM32 timer design (ADR 0015, proposed).
+- `test_sil_safety.cpp` runs the real glue (`core/runtime/`), but the STM32 drivers under it
+  (`firmware/stm32/`) are only compiled and linked in CI, never run: there is no board yet.
 
 ## How to test
 
