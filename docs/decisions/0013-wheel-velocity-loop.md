@@ -129,6 +129,25 @@ All three are "derived from the placeholder plant — to be replaced after syste
 derivation goes in `docs/theory/wheel-velocity-loop.md`, so re-deriving after system ID
 means substituting the measured K and τ.
 
+### One gain set for every surface (no gain scheduling)
+
+The owner asked (2026-10-01) whether the gains should switch between floor types such as
+carpet and hard floor. They should not, at least until data says otherwise:
+
+- **Rolling resistance** (carpet pile deforming) is a near-constant load torque. Rejecting a
+  constant load with zero steady-state error is exactly what the integral term does. The
+  settled integrator value is the extra duty the surface needs, so logging it gives a free
+  surface signature for the research writeup.
+- **Traction** limits acceleration before slip. Gains cannot add grip. The acceleration
+  limiter is what keeps demands inside it.
+- **The plant dynamics** (K, τ) are set mostly by the motor, gearbox and wheel inertia, and
+  the surface shifts them only slightly. The ±50% gain-mismatch SIL test covers that.
+- **Gain scheduling costs** a surface detector that can be wrong, bumpless transfer when
+  switching, and twice the tuning and test surface.
+
+Revisit if hardware system ID on carpet and hard floor gives K or τ more than ~2x apart.
+The gains are runtime parameters, so a manual retune needs no reflash in the meantime.
+
 ### Kinematics, saturation and acceleration limit
 
 - Track width `b` = **0.202 m**: wheel centres sit at ±(182/2 + 4 + 12/2) mm
@@ -200,6 +219,10 @@ No message changes.
   - Steady-state error under a constant load torque is zero. This needs a load input added
     to `SimWheel`; the sim is not owner-reviewed, so that can proceed with this ADR.
   - Gains perturbed ±50% (plant mismatch) stay stable.
+  - A "carpet" case: the same step with added constant load and added viscous drag settles
+    to zero error with the same gains.
+- **On hardware, later:** system ID on carpet and on hard floor. That decides whether one
+  gain set suffices.
 - Each test asserts against a number derived in the theory doc, not one read off a run.
 
 ## Consequences
