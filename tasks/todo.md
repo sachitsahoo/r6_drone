@@ -27,7 +27,8 @@ Each is written to be accepted as-is; open items listed in each are parameters, 
 - [x] `firmware/hal/design-proposal.md` — approved 2026-10-01 and implemented.
 - [x] ADR 0013 — wheel velocity loop. **Accepted 2026-10-01**, all five as recommended.
 - [x] ADR 0014 — safety state machine, comms watchdog, IWDG. **Accepted 2026-10-01**, all six as recommended.
-- [ ] ADR 0015 — MCU loop timing, IWDG driver, safety glue (5 questions). **Proposed 2026-10-01.**
+- [x] ADR 0015 — MCU loop timing, IWDG driver, safety glue. **Accepted 2026-10-01**, all five as recommended.
+- [x] ADR 0016 — STM32 register access: CMSIS headers only. **Owner choice 2026-10-01.**
 - [ ] ADR 0014 implementation interpretations (4, each with a recommendation): implementation-notes.html, Phase 2.2
 - [ ] Protocol proposals 2–7 (`protocol/design-proposal.md`): 6 assigns `0x03` as a target-angle
       command; 7 adds the wire loop's turn count. 3–5 and 7 batch with the estimator design.
@@ -155,6 +156,30 @@ clamping); real-time threads (rejected — non-deterministic tests).
 ---
 
 Phase 2.1 (ADR 0013) and Phase 2.2 (ADR 0014) are done: see `completed.md`.
+
+## Phase 2.3 — ADR 0015 glue + first STM32 image (accepted 2026-10-01)
+
+Plan written 2026-10-01. Goal: everything ADR 0015 decides, host-tested where possible, plus
+a linkable G474 image that **drives no motor** (wheel/pitch drivers are null stubs until the
+TB6612 pin map is designed). Nothing can be flashed: the owner has no board yet.
+
+Host (tests first):
+- [ ] `core/protocol/stale_command_filter`: per-ID newest timestamp, `(int32_t)` compare,
+      baseline reset after a link-stale period (Q3); EstopRequest exempt (a stop is never refused)
+- [ ] `core/safety/safety_mailbox`: atomic e-stop, 4-deep SPSC request ring, double-buffered
+      DriveCommand; outbound report ring (ISR -> main) for Fault/Nack frames
+- [ ] `core/runtime/`: `MotorLoop::tick()` (mailbox -> supervisor -> DriveLoop -> outputs ->
+      check-in, exec time + overrun count) and `MainLoop::poll()` (serial -> decoder -> stale
+      filter -> mailbox, reports -> frames, check-in, IWDG feed)
+- [ ] SIL: `test_sil_safety.cpp` drives the real glue instead of its test `Robot`
+STM32 (compile + link only, verified on hardware later):
+- [ ] CMake: FetchContent ST cmsis-device-g4 v1.2.6 + Arm CMSIS_6 v6.3.0 (pinned SHA-256);
+      C + ASM enabled for the stm32 target; own linker script; `recon_firmware.elf`
+- [ ] Drivers: TIM2 1 MHz `Clock`, IWDG `Watchdog` + RCC_CSR boot reason + DBGMCU freeze,
+      TIM6 1 kHz ISR, LPUART1 (ST-LINK VCP) with circular DMA RX and polled-FIFO TX, NVIC
+      priorities, null wheel/pitch/IMU/power stubs; HSI16 clock (no PLL yet)
+- [ ] Docs: ADR 0016, firmware/stm32 README, bring-up checklist, notes, theory/learning updates
+- [ ] Prove: ctest, pytest, STM32 image links (size report), purity guard. Commit at checkpoints.
 
 ## Not now — deliberately deferred
 

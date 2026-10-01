@@ -1,10 +1,9 @@
 // SIL: the ADR 0014 safety machine closed around the ADR 0013 wheel loop, on the simulated
 // plant, with every operator frame crossing the simulated UART through the real codec.
 //
-// `Robot` below is TEST GLUE, not the firmware's: the real glue (who decodes frames, at what
-// rate, stale-timestamp rejection, how outputs reach the drivers) is part of the STM32 timer
-// design, which is owner-reviewed and not built yet. This one does the minimum ADR 0014 says
-// the glue must do, so the supervisor's decisions can be checked against physics.
+// `Robot` below runs the REAL firmware glue (ADR 0015): `MainLoop::poll()` and
+// `MotorLoop::tick()` from firmware/core/runtime/, on the simulated HAL, in the order the G474
+// runs them (main-loop pass, then the 1 kHz timer interrupt). Only the operator is scripted.
 
 #include <gtest/gtest.h>
 
@@ -17,6 +16,8 @@
 #include "control/geometry.hpp"
 #include "messages.hpp"
 #include "protocol/frame.hpp"
+#include "runtime/main_loop.hpp"
+#include "runtime/motor_loop.hpp"
 #include "safety/check_in_monitor.hpp"
 #include "safety/safety_supervisor.hpp"
 #include "sim/sim_watchdog.hpp"
@@ -80,7 +81,11 @@ class Robot {
         // Firmware reads the reset reason once, at boot, exactly like this.
         supervisor(core::SafetyConfig{}, watchdog.reset_was_watchdog()),
         check_ins(static_cast<uint32_t>(CheckInTask::kMotorLoop) |
-                  static_cast<uint32_t>(CheckInTask::kMainLoop)) {}
+                  static_cast<uint32_t>(CheckInTask::kMainLoop)),
+        main_loop(world.clock, world.link.mcu(), watchdog, mailbox, reports, check_ins,
+                  core::SafetyConfig{}.comms_timeout_ms * 1000U),
+        motor_loop(world.clock, loop, supervisor, mailbox, reports, check_ins, world.left_wheel,
+                   world.right_wheel, world.pitch_stage) {}
 
   // ------------------------------------------------------------ operator side
   /// While true, the operator sends Heartbeat + DriveCommand(cmd) every 20 ms.
@@ -120,92 +125,15 @@ class Robot {
     }
 
     world.step(kPeriodUs);
-    const uint32_t now_us = world.clock.now_us();
-
-    // Main loop: decode whatever arrived. Requests beyond one per tick wait (ADR 0014 glue).
-    SafetyInputs in;
-    in.now_us = now_us;
-    std::vector<DecodedFrame> frames;
-    receive(world.link.mcu(), robot_decoder_, frames);
-    for (const DecodedFrame& f : frames) {
-      switch (static_cast<MessageId>(f.message_id)) {
-        case MessageId::DriveCommand: {
-          protocol::DriveCommand cmd{};
-          if (protocol::DriveCommand::decode(f.payload, f.payload_len, cmd)) {
-            in.drive_command = true;
-            in.drive_linear_m_s = cmd.cmd_linear_speed_m_s;
-            in.drive_angular_rad_s = cmd.cmd_angular_rate_rad_s;
-            loop.set_command(cmd.cmd_linear_speed_m_s, cmd.cmd_angular_rate_rad_s);
-            last_drive_rx_us = now_us;
-          }
-          break;
-        }
-        case MessageId::SafetyStateRequest: {
-          protocol::SafetyStateRequest req{};
-          if (protocol::SafetyStateRequest::decode(f.payload, f.payload_len, req)) {
-            pending_.push_back({true, req.requested_state, f.seq});
-          }
-          break;
-        }
-        case MessageId::EstopRequest: {
-          protocol::EstopRequest req{};
-          if (protocol::EstopRequest::decode(f.payload, f.payload_len, req)) {
-            in.estop = true;
-          }
-          break;
-        }
-        default:
-          in.other_frame = true;
-          break;
-      }
+    const uint32_t drives_before = main_loop.stats().drive_commands;
+    main_loop.poll();
+    if (main_loop.stats().drive_commands != drives_before) {
+      last_drive_rx_us = world.clock.now_us();
     }
-    if (!pending_.empty()) {
-      in.request = pending_.front();
-      pending_.pop_front();
-    }
-    check_ins.check_in(CheckInTask::kMainLoop);
-
     if (!motor_loop_hung) {
-      // Motor loop: supervisor, then DriveLoop, then apply the outputs.
-      const core::WheelStatus& l = loop.left();
-      const core::WheelStatus& r = loop.right();
-      const float limit = loop.config().gains.duty_limit;
-      in.left = {l.duty, limit, l.speed_rad_s, l.speed_valid};
-      in.right = {r.duty, limit, r.speed_rad_s, r.speed_valid};
-      in.encoder_fault_left = l.encoder_fault;
-      in.encoder_fault_right = r.encoder_fault;
-      in.driver_fault = static_cast<const hal::PitchPowerStage&>(world.pitch_stage).fault();
-
-      out = supervisor.step(in);
-      loop.step(out.drive_armed);
-      if (!out.drive_armed) {
-        static_cast<hal::WheelMotor&>(world.left_wheel).stop(out.wheel_stop);
-        static_cast<hal::WheelMotor&>(world.right_wheel).stop(out.wheel_stop);
-      }
-      static_cast<hal::PitchPowerStage&>(world.pitch_stage).set_enabled(out.pitch_enabled);
-      check_ins.check_in(CheckInTask::kMotorLoop);
-
-      for (size_t i = 0; i < out.fault_count; ++i) {
-        protocol::Fault fault{};
-        fault.fault_code = out.faults[i].code;
-        fault.context = out.faults[i].context;
-        send(world.link.mcu(), MessageId::Fault, robot_seq_++, now_us, fault);
-      }
-      if (out.nack.present) {
-        protocol::Nack nack{};
-        nack.rejected_message_id = out.nack.rejected_message_id;
-        nack.reason = out.nack.reason;
-        nack.rejected_seq = out.nack.rejected_seq;
-        send(world.link.mcu(), MessageId::Nack, robot_seq_++, now_us, nack);
-      }
+      motor_loop.tick();
     }
 
-    // Main loop, end of iteration: feed only when every loop has checked in.
-    if (check_ins.should_feed()) {
-      static_cast<hal::Watchdog&>(watchdog).feed();
-    }
-
-    // Operator receives.
     std::vector<DecodedFrame> back;
     receive(world.link.host(), operator_decoder_, back);
     for (const DecodedFrame& f : back) {
@@ -235,7 +163,7 @@ class Robot {
     run(0.05);
     send_request(SafetyState::ARMED);
     run(0.005);
-    ASSERT_EQ(out.state, SafetyState::ARMED);
+    ASSERT_EQ(out().state, SafetyState::ARMED);
   }
 
   bool saw_fault(FaultCode code, uint32_t context) const {
@@ -247,21 +175,23 @@ class Robot {
     return false;
   }
 
+  const SafetyOutputs& out() const { return motor_loop.outputs(); }
+
   SimWorld world;
   SimWatchdog watchdog;
   DriveLoop loop;
   SafetySupervisor supervisor;
+  core::SafetyMailbox mailbox;
+  core::ReportQueue reports;
   CheckInMonitor check_ins;
-  SafetyOutputs out{};
-  uint32_t last_drive_rx_us = 0;  ///< MCU receive time of the last DriveCommand.
+  core::MainLoop main_loop;
+  core::MotorLoop motor_loop;
+  uint32_t last_drive_rx_us = 0;  ///< MCU time of the main-loop pass that took the last DriveCommand.
 
  private:
-  FrameDecoder robot_decoder_;
   FrameDecoder operator_decoder_;
-  std::deque<core::SafetyRequest> pending_;
   uint32_t last_stream_us_ = 0;
   uint8_t op_seq_ = 0;
-  uint8_t robot_seq_ = 0;
 };
 
 TEST(SilSafety, ALinkCutCoastsAt200msBrakesAt1sAndNeverResumesByItself) {
@@ -269,7 +199,7 @@ TEST(SilSafety, ALinkCutCoastsAt200msBrakesAt1sAndNeverResumesByItself) {
   robot.arm();
   robot.cmd_linear_m_s = 0.2F;
   robot.run(1.0);
-  ASSERT_EQ(robot.out.state, SafetyState::ARMED);
+  ASSERT_EQ(robot.out().state, SafetyState::ARMED);
   const double cruise_rad_s = robot.world.left_wheel.speed_rad_s();
   ASSERT_GT(cruise_rad_s, 3.0);
 
@@ -279,7 +209,7 @@ TEST(SilSafety, ALinkCutCoastsAt200msBrakesAt1sAndNeverResumesByItself) {
   for (int i = 0; i < 2000 && brake_us == 0; ++i) {
     robot.tick();
     const uint32_t now = robot.world.clock.now_us();
-    if (fault_us == 0 && robot.out.state == SafetyState::FAULT) {
+    if (fault_us == 0 && robot.out().state == SafetyState::FAULT) {
       fault_us = now;
       EXPECT_FALSE(robot.world.left_wheel.braking()) << "a fault coasts first";
       EXPECT_TRUE(robot.world.pitch_stage.enabled()) << "Q6: stabilizer keeps running";
@@ -303,13 +233,13 @@ TEST(SilSafety, ALinkCutCoastsAt200msBrakesAt1sAndNeverResumesByItself) {
   // The link returns with the stick still pushed: the robot must not move.
   robot.world.link.set_cut(false);
   robot.run(1.0);
-  EXPECT_EQ(robot.out.state, SafetyState::FAULT);
+  EXPECT_EQ(robot.out().state, SafetyState::FAULT);
   EXPECT_LT(std::fabs(robot.world.left_wheel.speed_rad_s()), 0.01);
 
   // Clear, then arm: two deliberate requests, with the stick centred for the second.
   robot.send_request(SafetyState::DISARMED);
   robot.run(0.01);
-  EXPECT_EQ(robot.out.state, SafetyState::DISARMED);
+  EXPECT_EQ(robot.out().state, SafetyState::DISARMED);
   robot.arm();
 }
 
@@ -324,7 +254,7 @@ TEST(SilSafety, AFrozenEncoderLatchesWheelStallAndTheRobotStops) {
   uint32_t trip_us = 0;
   for (int i = 0; i < 1500 && trip_us == 0; ++i) {
     robot.tick();
-    if (robot.out.state == SafetyState::FAULT) {
+    if (robot.out().state == SafetyState::FAULT) {
       trip_us = robot.world.clock.now_us();
     }
   }
@@ -349,11 +279,11 @@ TEST(SilSafety, AReversedEncoderLatchesWheelStall) {
   robot.arm();
   robot.cmd_linear_m_s = 0.2F;
   double peak_rad_s = 0.0;
-  for (int i = 0; i < 1000 && robot.out.state == SafetyState::ARMED; ++i) {
+  for (int i = 0; i < 1000 && robot.out().state == SafetyState::ARMED; ++i) {
     robot.tick();
     peak_rad_s = std::fmax(peak_rad_s, robot.world.left_wheel.speed_rad_s());
   }
-  ASSERT_EQ(robot.out.state, SafetyState::FAULT);
+  ASSERT_EQ(robot.out().state, SafetyState::FAULT);
   EXPECT_GT(peak_rad_s, 0.2 / core::kWheelRadius_m) << "positive feedback: it ran away";
   robot.run(0.05);
   EXPECT_TRUE(robot.saw_fault(FaultCode::WHEEL_STALL, core::kLeftWheel));
@@ -371,7 +301,7 @@ TEST(SilSafety, FullStickOnCarpetSaturatesWithoutAFault) {
   robot.arm();
   robot.cmd_linear_m_s = 2.0F;  // DriveCommand range maximum
   robot.run(3.0);
-  EXPECT_EQ(robot.out.state, SafetyState::ARMED);
+  EXPECT_EQ(robot.out().state, SafetyState::ARMED);
   EXPECT_EQ(robot.supervisor.fault_flags(), 0);
   EXPECT_TRUE(robot.faults_seen.empty());
   EXPECT_FLOAT_EQ(robot.loop.left().duty, robot.loop.config().gains.duty_limit)
@@ -382,7 +312,7 @@ TEST(SilSafety, FullStickOnCarpetSaturatesWithoutAFault) {
 TEST(SilSafety, BootAfterAWatchdogResetReportsItAndClears) {
   Robot robot(SimWorld::Config{}, /*boot_after_watchdog_reset=*/true);
   robot.run(0.1);
-  EXPECT_EQ(robot.out.state, SafetyState::FAULT);
+  EXPECT_EQ(robot.out().state, SafetyState::FAULT);
   ASSERT_EQ(robot.faults_seen.size(), 1U);
   EXPECT_EQ(robot.faults_seen[0].fault_code, FaultCode::WATCHDOG_RESET);
 
@@ -393,7 +323,7 @@ TEST(SilSafety, BootAfterAWatchdogResetReportsItAndClears) {
 
   robot.send_request(SafetyState::DISARMED);
   robot.run(0.01);
-  EXPECT_EQ(robot.out.state, SafetyState::DISARMED);
+  EXPECT_EQ(robot.out().state, SafetyState::DISARMED);
   robot.arm();
 }
 
@@ -403,7 +333,7 @@ TEST(SilSafety, ArmingWithTheStickDeflectedIsNackedOverTheLink) {
   robot.run(0.05);
   robot.send_request(SafetyState::ARMED);
   robot.run(0.01);
-  EXPECT_EQ(robot.out.state, SafetyState::DISARMED);
+  EXPECT_EQ(robot.out().state, SafetyState::DISARMED);
   ASSERT_EQ(robot.nacks_seen.size(), 1U);
   EXPECT_EQ(robot.nacks_seen[0].reason, NackReason::ARM_INTERLOCK);
   EXPECT_EQ(robot.nacks_seen[0].rejected_message_id,
@@ -426,7 +356,7 @@ TEST(SilSafety, EstopOverTheLinkBrakesWithinTwoMilliseconds) {
   }
   // ADR 0014: one main-loop iteration plus one motor tick; the frame is ~10 bytes (0.2 ms).
   EXPECT_LE(core::elapsed_us(sent_us, robot.world.clock.now_us()), 2000U);
-  EXPECT_EQ(robot.out.state, SafetyState::ESTOP);
+  EXPECT_EQ(robot.out().state, SafetyState::ESTOP);
 }
 
 TEST(SilSafety, HealthyLoopsKeepTheIwdgFed) {
@@ -442,17 +372,20 @@ TEST(SilSafety, AHungMotorLoopStarvesTheIwdgWithin50ms) {
   robot.arm();
   robot.cmd_linear_m_s = 0.2F;
   robot.run(0.5);
+  const uint32_t hang_us = robot.world.clock.now_us();
   robot.motor_loop_hung = true;
+  // The motor loop's last check-in (the tick before the hang) can still pay for one feed on
+  // the next main-loop pass. After that the main loop alone can never feed.
+  robot.tick();
   const uint32_t last_feed_us = robot.watchdog.last_feed_us();
-  // The main loop alone can never feed: up to 49 ms nothing expires...
+  EXPECT_LE(core::elapsed_us(hang_us, last_feed_us), kPeriodUs);
   while (core::elapsed_us(last_feed_us, robot.world.clock.now_us()) < 49000U) {
     robot.tick();
     ASSERT_FALSE(robot.watchdog.expired());
   }
   EXPECT_GT(robot.world.left_wheel.speed_rad_s(), 3.0)
       << "and meanwhile the PWM keeps driving: why the timeout is short (ADR 0014)";
-  // ...and at 50 ms it would reset the chip.
-  robot.tick();
+  robot.tick();  // 50 ms after the last feed: it would reset the chip
   EXPECT_TRUE(robot.watchdog.expired());
   EXPECT_EQ(robot.watchdog.last_feed_us(), last_feed_us) << "no feed without the motor loop";
 }

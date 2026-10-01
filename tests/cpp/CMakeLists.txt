@@ -29,6 +29,9 @@ add_executable(core_tests
   test_check_in_monitor.cpp
   test_safety_supervisor.cpp
   test_sil_safety.cpp
+  test_stale_command_filter.cpp
+  test_safety_mailbox.cpp
+  test_runtime.cpp
 )
 
 target_link_libraries(core_tests PRIVATE recon_core recon_sim GTest::gtest_main)

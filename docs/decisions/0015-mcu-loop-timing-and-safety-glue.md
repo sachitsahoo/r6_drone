@@ -1,7 +1,9 @@
 # 0015 — MCU loop timing, IWDG driver and safety glue
 
-- **Status:** **PROPOSED** 2026-10-01, awaiting owner review. Owner-reviewed area: STM32
-  timer/interrupt/DMA configuration, watchdog. **Nothing here is implemented.**
+- **Status:** **ACCEPTED** by the owner, 2026-10-01: "implement 0015 as is", all five
+  questions taking the recommendation (see "Owner decisions" at the end). Owner-reviewed area:
+  STM32 timer/interrupt/DMA configuration, watchdog. How the STM32 code reaches registers is
+  ADR 0016 (CMSIS headers only).
 - **Builds on:** ADR 0013 (DriveLoop, 1 kHz), ADR 0014 (SafetySupervisor, CheckInMonitor,
   `hal::Watchdog`, 50 ms IWDG), `docs/bringup/uart-link.md` (460 800 baud, circular DMA RX
   is mandatory), `protocol/design-proposal.md` (stale-command rejection).
@@ -138,3 +140,18 @@ schematic before ordering.
    every battery swap needs a clear. *Recommended: report only.*
 5. **Pull-downs:** confirm they go on the bench wiring now, before the first motor is powered.
    *Recommended: yes.* After an IWDG reset, a floating STBY can enable the TB6612.
+
+## Owner decisions (2026-10-01)
+
+Accepted as written, together with the earlier answer to keep a superloop rather than adopt an
+RTOS now (the pitch loop is a timer interrupt either way). (1) Motor loop in a TIM6 interrupt,
+frames in the main loop, no RTOS. (2) Atomic e-stop, 4-deep request ring, double-buffered
+DriveCommand. (3) Reset the stale-timestamp baseline when the link goes stale. (4) Report
+non-IWDG reset causes for information only. (5) Pull-downs go on the bench wiring before the
+first motor is powered.
+
+**When to revisit the RTOS question** (recorded so the switch is planned, not discovered): the
+main loop gains a job whose worst case would push e-stop decoding past 2 ms (a flash erase
+for ParamCommit is the likely first), its worst-case pass approaches the 45 ms IWDG margin, or
+a second slow bus or SD logging arrives. The switch changes `firmware/stm32/main.cpp` only;
+`core/` and the mailbox are unaffected.
