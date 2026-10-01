@@ -169,5 +169,7 @@ Phase 1 (repo skeleton, build system, CI, protocol schema and codec, minimal sim
 **complete 2026-10-01**, CI green on `31b998f`.
 Phase 2: first owner-reviewed designs (wheel velocity loop, safety state machine), closed
 against the sim plant before any hardware. Wheel loop (ADR 0013) and safety machine (ADR 0014)
-are implemented as pure `core` logic with SIL tests (2026-10-01); the STM32 glue that runs them
-is proposed in ADR 0015. Update this section as the project progresses.
+are implemented as pure `core` logic with SIL tests (2026-10-01); the glue that runs them
+(ADR 0015, accepted) is built: `core/runtime/` tested in SIL, and a first G474 image that links
+but drives no motor and has not yet run on a board (ADR 0016: CMSIS headers only). Update this
+section as the project progresses.
