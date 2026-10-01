@@ -20,6 +20,11 @@ add_executable(core_tests
   test_hal_fakes.cpp
   test_sim.cpp
   test_sil_link.cpp
+  test_wheel_speed_estimator.cpp
+  test_wheel_velocity_controller.cpp
+  test_diff_drive.cpp
+  test_drive_loop.cpp
+  test_sil_drive.cpp
 )
 
 target_link_libraries(core_tests PRIVATE recon_core recon_sim GTest::gtest_main)

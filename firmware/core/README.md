@@ -29,11 +29,27 @@ identical code compiles three ways:
 - **SI units with suffixes in every name.** `dt_s`, `speed_m_s`, `rate_rad_s`. Unit mistakes
   in control code are silent and expensive; the names make them visible at the call site.
 
+## What is here
+
+| Directory | Contents | Design |
+|---|---|---|
+| `time/` | Wraparound-safe `elapsed_us` | hard rule 7 |
+| `protocol/` | COBS, CRC-32, frame encoder and garbage-tolerant decoder | ADR 0002 |
+| `control/` | Wheel velocity loop: `diff_drive`, `RateLimiter`, `WheelSpeedEstimator`, `WheelVelocityController` (PI, `kff = 0` by default), `DriveLoop` | ADR 0013 (+ amendment); [theory](../../docs/theory/wheel-velocity-loop.md); [learning note](../../docs/learning/wheel-velocity-loop.md) |
+
+Config defaults come from the generated `protocol::param_defaults`, so a default is written
+once, in `protocol/schema/params.yaml`. `control/geometry.hpp` copies two CAD numbers and is
+guarded by `tests/python/test_geometry_drift.py`.
+
 ## Known limitations
 
-- Empty as of Phase 1. No control law exists yet.
-- Every controller here will require an approved design before implementation
+- Every controller here requires an approved design before implementation
   (see "Owner-reviewed areas" in [`../../CLAUDE.md`](../../CLAUDE.md)).
+- `DriveLoop` is not yet wired to anything. Not decided: who calls `step()` at 1 kHz (STM32
+  timer design), where `armed` comes from (safety state machine), how `ParamSet` reaches
+  `set_config` (no param table yet), and how `LoopTiming` is transmitted.
+- The wheel gains are derived from the placeholder sim plant. They must be re-derived after
+  system ID (theory doc, §3.1).
 
 ## How to test
 

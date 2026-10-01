@@ -1,12 +1,12 @@
 # Tunable parameters, addressed by ID over the protocol and persisted in MCU flash.
 #
-# DELIBERATELY MINIMAL. This file exists to define and test the parameter *mechanism*
-# (get/set/commit, type-tagged uniform wire format, table-driven MCU lookup), not to
-# declare the robot's control gains.
+# Controller gains are added only when their controller's ADR is accepted, because a gain
+# name presupposes a controller form (CLAUDE.md names "PID form" as an ADR-level choice).
+# The drive block 0x0100-0x01FF holds ADR 0013's wheel velocity loop; the pitch block will
+# follow its own ADR.
 #
-# Controller gains are absent on purpose. Declaring `motor_kp` / `motor_ki` / `motor_kd`
-# would presuppose a PID form, and CLAUDE.md names "PID form" as an example of a choice
-# that requires an ADR. Gains get added here when their controller's ADR lands, not before.
+# The generator emits every default into C++ as `recon::protocol::param_defaults::<name>`,
+# so firmware configs initialise from this file rather than from copied numbers.
 #
 # Every entry needs a `source` note (hard rule 6). "initial guess — to be tuned" is a
 # legitimate source; silence is not.
@@ -57,3 +57,88 @@ params:
     description: >
       Read-only. Exists so the operator can confirm which schema version the firmware was
       built from without relying on the version byte of a frame it may be rejecting.
+
+  # ------------------------------------------------- drive: wheel velocity loop (ADR 0013)
+  # Gains carry no `unit` key because their units (duty per rad/s, duty per rad) have no
+  # name-suffix form; the description states them instead.
+
+  - id: 0x0100
+    name: wheel_kff
+    type: f32
+    range: [0.0, 1.0]
+    default: 0.0
+    writable: true
+    source: >
+      owner decision 2026-10-01 (ADR 0013 amendment): 0, because with the PI zero cancelling
+      the plant pole, feedforward on top adds a closed-loop zero and ~12% step overshoot.
+      Kept as a parameter in case hardware needs it; 1/K (0.0318 on the placeholder plant)
+      is the value that gives zero ramp lag.
+    description: Velocity feedforward, duty per rad/s of wheel speed reference.
+
+  - id: 0x0101
+    name: wheel_kp
+    type: f32
+    range: [0.0, 1.0]
+    default: 0.0796
+    writable: true
+    source: >
+      derived (ADR 0013, docs/theory/wheel-velocity-loop.md): kp = wc*tau/K with
+      wc = 50 rad/s, tau = 0.05 s, K = 31.4 rad/s. Placeholder plant; replace after system ID.
+    description: Proportional gain, duty per rad/s of speed error.
+
+  - id: 0x0102
+    name: wheel_ki
+    type: f32
+    range: [0.0, 50.0]
+    default: 1.59
+    writable: true
+    source: derived (ADR 0013) — ki = kp/tau, the PI zero cancels the plant pole.
+    description: >
+      Integral gain, duty per rad of accumulated speed error. The integrator is stored in
+      duty units, so changing this while ARMED does not step the output.
+
+  - id: 0x0103
+    name: wheel_duty_limit
+    type: f32
+    range: [0.0, 1.0]
+    default: 0.3
+    writable: true
+    source: >
+      CLAUDE.md hardware-in-the-loop safety: output limits low by default; raising this
+      needs owner approval. Saturating, not scaling (ADR 0013, question 3).
+    description: Largest |duty| the controller will command.
+
+  - id: 0x0104
+    name: wheel_max_speed_rad_s
+    type: f32
+    unit: rad/s
+    range: [0.0, 100.0]
+    default: 9.0
+    writable: true
+    source: >
+      initial guess — just under 0.3 duty x 31.4 rad/s (9.4 rad/s), so feedforward alone
+      rarely reaches the duty limit. Placeholder plant.
+    description: Wheel speed reference ceiling; both wheels scale together above it.
+
+  - id: 0x0105
+    name: wheel_accel_limit_m_s2
+    type: f32
+    unit: m/s^2
+    range: [0.05, 10.0]
+    default: 1.0
+    writable: true
+    source: >
+      initial guess (ADR 0013) — keeps the casing's pendulum disturbance small until the
+      stabilizer exists. To be tuned with the stabilizer.
+    description: Rate limit on each wheel's rim speed reference.
+
+  - id: 0x0106
+    name: wheel_speed_window_samples
+    type: u8
+    range: [1, 50]
+    default: 10
+    writable: true
+    source: >
+      ADR 0013 — 10 samples at 1 kHz trades 0.449 rad/s resolution (1400 counts/rev) for
+      5 ms of delay. Upper bound is the estimator's fixed buffer size.
+    description: Encoder samples spanned by the speed estimate's count difference.

@@ -36,6 +36,15 @@ struct WheelPlantParams {
   float output_limit = 0.3F;
   /// Encoder reading at construction. Set near 2^32 to put a counter wrap inside a test.
   uint32_t initial_count = 0;
+  /// Constant load torque, expressed as the duty that would cancel it. Positive opposes
+  /// forward motion. Acts in every mode, so with no drive it rolls the wheel backwards:
+  /// it models a slope, or rolling resistance while moving forward. Coulomb friction, which
+  /// can never reverse motion, is NOT modelled. Default 0: no load.
+  float load_duty = 0.0F;
+  /// Extra speed-proportional drag, relative to the plant's own (dimensionless, >= 0). It
+  /// lowers the steady-state speed by 1/(1 + drag) and speeds up the response by the same
+  /// factor. Default 0. Used for the ADR 0013 carpet case.
+  float extra_viscous_drag = 0.0F;
 };
 
 /// One simulated wheel: a TB6612 channel driving an N20, with its quadrature encoder.
@@ -46,7 +55,8 @@ struct WheelPlantParams {
 ///
 /// Model: speed `w` follows a first-order lag toward a target, `dw/dt = (w_target - w)/tau`.
 /// Driven, `w_target = duty * no_load_speed` with `tau = drive_tau`. Coasting or braking,
-/// `w_target = 0` with the matching time constant. Stepped with the exact solution of that
+/// `w_target = 0` with the matching time constant. A load `d` and extra drag `c` make it
+/// `tau dw/dt = K (u - d) - (1 + c) w`, i.e. target `K (u - d) / (1 + c)`, lag `tau / (1 + c)`. Stepped with the exact solution of that
 /// ODE, so the result does not depend on the step size.
 ///
 /// Not modelled: load torque, wheel slip, voltage sag, encoder quantisation noise beyond

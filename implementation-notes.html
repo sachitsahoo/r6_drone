@@ -451,7 +451,7 @@ first loop is the first approved controller's job.</p>
 </details>
 
 <details>
-<summary>SimWheel's output limit saturates; it does not scale<span class="tag">open question</span></summary>
+<summary>SimWheel's output limit saturates; it does not scale<span class="tag">resolved: ADR 0013 Q3</span></summary>
 <p><code>hal::WheelMotor</code> says the implementation "clamps out-of-range values, then
 applies the per-build output limit". That could mean saturating at &plusmn;limit or scaling
 by limit. The sim saturates: duty 0.1 under a 0.3 limit is applied as 0.1. That reads most
@@ -481,6 +481,75 @@ exactly. Not modelled: framing errors, line breaks, Pi-side relay latency or UDP
 not chosen and nothing has been measured. The values only give the plant a plausible shape.
 They are named and commented in <code>sim/sim/wheel_plant.hpp</code> and must be replaced by
 system identification.</p>
+</details>
+
+<h2>Phase 2.1 — wheel velocity loop (ADR 0013, 2026-10-01)</h2>
+
+<details>
+<summary>The accepted design overshot; feedforward is now off by default<span class="tag">amendment</span></summary>
+<p>The SIL step test failed at 13% overshoot. My derivation had followed only the feedback
+path; feedforward adds a closed-loop zero at -14.3 rad/s. The owner chose <code>kff = 0</code>,
+keeping the parameter. The derivation is in <code>docs/theory/wheel-velocity-loop.md</code> §3.3,
+and the lesson is recorded in <code>tasks/lessons.md</code>.</p>
+</details>
+
+<details>
+<summary>No valid speed: feedforward only, integrator frozen<span class="tag">off-spec</span></summary>
+<p>The ADR did not say what the controller does on a step with no valid estimate: the first
+sample, or an encoder plausibility fault. <code>DriveLoop</code> outputs
+<code>feedforward_only(ref)</code> and does not integrate. With <code>kff = 0</code> that is zero
+duty for that one step. Acting on a known-bad measurement was the alternative, and the worse
+one. The fault flag is exposed for the safety state machine.</p>
+</details>
+
+<details>
+<summary>Step dt is measured and capped at 10 ms<span class="tag">off-spec</span></summary>
+<p><code>kMaxDriveStepDt_s = 0.01</code>. After a stall, integrating the whole gap at once would
+kick the integrator and jump the ramp. Detecting the stall is LOOP_OVERRUN's job (safety).
+The first step after construction integrates dt = 0.</p>
+</details>
+
+<details>
+<summary>Estimator details the ADR left open<span class="tag">off-spec</span></summary>
+<ul>
+<li><b>Warm-up:</b> until N+1 samples exist, the estimate spans what is there. It is valid but
+coarser.</li>
+<li><b>Plausibility bound:</b> <code>kMaxPlausibleWheelSpeed_rad_s = 100</code>, about 3x the
+placeholder no-load speed, plus one count of margin. This is an initial guess; revisit it
+with the real gear ratio.</li>
+<li><b>On a fault</b> the history restarts from the faulting sample, so one glitch does not
+poison the next 10 ms.</li>
+<li><b>Changing the window</b> clears the history, so two window lengths never mix.</li>
+</ul>
+</details>
+
+<details>
+<summary>Integrator bounded to &plusmn;duty_limit<span class="tag">off-spec</span></summary>
+<p>This goes beyond conditional integration. If the limit is lowered while ARMED, a stored
+integrator above it is clipped at once, since it could never be applied anyway.</p>
+</details>
+
+<details>
+<summary>Generator now emits param defaults, minima and maxima for C++<span class="tag">tooling</span></summary>
+<p><code>protocol::param_defaults</code>, <code>param_min</code> and <code>param_max</code>. Core
+configs initialise from them, and <code>WheelSpeedEstimator</code> static_asserts its buffer
+size against <code>param_max::wheel_speed_window_samples</code>, so no default is copied by
+hand. <code>unit_suffix</code> maps <code>m/s^2</code> to <code>_m_s2</code>. Protocol version
+stays 1: adding parameters does not change the wire format, and an unknown ID is already
+Nacked.</p>
+</details>
+
+<details>
+<summary>RESOLVED — WheelMotor output limit saturates<span class="tag">closed</span></summary>
+<p>Owner, ADR 0013 question 3. <code>core</code> holds <code>wheel_duty_limit</code> for
+anti-windup; the HAL limit is a backstop at or above it.</p>
+</details>
+
+<details>
+<summary>Open — reserve a <code>kd</code> slot?<span class="tag">open question</span></summary>
+<p>The owner asked whether a zero <code>kd</code> would exist alongside the zero
+<code>kff</code>. The recommendation is no, because an unfiltered D is noise the moment it is
+non-zero. I proceeded without it; the owner may override.</p>
 </details>
 
 <h2>Open questions</h2>

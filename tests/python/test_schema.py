@@ -43,7 +43,7 @@ def test_real_schema_is_valid(schema) -> None:
     assert schema.protocol_version == 1
     assert len(schema.messages) == 14
     assert len(schema.enums) == 4
-    assert len(schema.params) == 4
+    assert len(schema.params) == 11  # 4 mechanism params + 7 drive params (ADR 0013)
 
 
 # Values quoted in protocol/design-proposal.md and docs/bringup/uart-link.md. If a schema
@@ -133,6 +133,7 @@ def test_unit_suffix_mapping() -> None:
     assert unit_suffix("rad") == "_rad"
     assert unit_suffix("V") == "_V"
     assert unit_suffix("Hz") == "_Hz"
+    assert unit_suffix("m/s^2") == "_m_s2", "^ cannot appear in an identifier"
 
 
 # ---------------------------------------------------------------------- validator rules

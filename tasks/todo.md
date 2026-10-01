@@ -25,9 +25,7 @@ Each is written to be accepted as-is; open items listed in each are parameters, 
 - [ ] ADR 0011 — DM3505 (SparkFun ROB-27477), one off-axis encoder, stator on the casing
 - [ ] ADR 0012 — 3S battery, every board in the casing
 - [x] `firmware/hal/design-proposal.md` — approved 2026-10-01 and implemented.
-- [ ] ADR 0013 — wheel velocity loop: PI + feedforward, 10 ms windowed encoder speed,
-      saturating output limit, new drive params 0x0100+. Five questions, each with a
-      recommendation. Phase 2's first design; implementation waits on it.
+- [x] ADR 0013 — wheel velocity loop. **Accepted 2026-10-01**, all five as recommended.
 - [ ] Protocol proposals 2–7 (`protocol/design-proposal.md`): 6 assigns `0x03` as a target-angle
       command; 7 adds the wire loop's turn count. 3–5 and 7 batch with the estimator design.
 
@@ -152,6 +150,25 @@ unmodified); reuse `hal_fakes.hpp` (rejected — fakes deliberately have no phys
 clamping); real-time threads (rejected — non-deterministic tests).
 
 ---
+
+## Phase 2.1 — wheel velocity loop (ADR 0013, accepted 2026-10-01)
+
+**Done 2026-10-01.** 159 C++ / 207 Python green, STM32 build OK. Amended mid-way: the SIL step
+test exposed 12% overshoot from feedforward; owner set `kff = 0` (ADR 0013 amendment).
+Open: owner may want a reserved `kd` slot (recommended no).
+
+- [x] Schema: 7 drive params at 0x0100+; `unit_suffix` maps `m/s^2` -> `_m_s2`; generator
+      emits C++ `param_defaults::` so core initialises from the schema (no copied numbers)
+- [x] `core/control/geometry.hpp` (wheel radius, track width) + Python drift test vs `cad/parameters.py`
+- [x] Tests first, then `core/control/`: wheel_speed_estimator, wheel_velocity_controller,
+      diff_drive, rate_limiter, drive_loop
+- [x] `SimWheel`: constant load (duty-equivalent) + extra viscous drag, for the carpet case
+- [x] SIL: step response (settle 5% < 100 ms, overshoot < 5%), turn in place, carpet case
+      zero steady error, gains ±50% stable, not-ARMED never writes motors
+- [x] Docs: theory/wheel-velocity-loop.md, learning/wheel-velocity-loop.md, core README,
+      implementation-notes
+- Not here: wiring ParamSet to the live config (no param table in core yet), who calls
+  step() at 1 kHz (STM32 timer design), LoopTiming transmission (telemetry scheduler).
 
 ## Not now — deliberately deferred
 

@@ -28,6 +28,7 @@ from schema_loader import (  # noqa: E402
     CRC_BYTES,
     HEADER_BYTES,
     Enum,
+    FLOAT_TYPES,
     Field,
     Message,
     SCALAR_SIZES,
@@ -51,6 +52,14 @@ CPP_TYPE = {"u8": "uint8_t", "u16": "uint16_t", "u32": "uint32_t",
             "i8": "int8_t", "i16": "int16_t", "i32": "int32_t", "f32": "float"}
 PY_TYPE = {"u8": "int", "u16": "int", "u32": "int", "i8": "int", "i16": "int",
            "i32": "int", "f32": "float"}
+
+
+def cpp_literal(scalar: str, value: float) -> str:
+    """A C++ literal of `value` for a scalar type. Floats get an `F` suffix so no `double`
+    constant reaches firmware (the G474 FPU is single precision)."""
+    if scalar in FLOAT_TYPES:
+        return f"{float(value)!r}F"
+    return f"{int(value)}U" if scalar.startswith("u") else str(int(value))
 
 
 def cpp_banner() -> str:
@@ -388,6 +397,22 @@ def generate_hpp(s: Schema) -> str:
         for p in s.params:
             out.append(f"  {p.name} = 0x{p.id:04X},")
         out += ["};", ""]
+        out += [
+            "/// Default value of every parameter, from params.yaml. Firmware configs initialise",
+            "/// from these so a default is written once, in the schema, and never copied.",
+            "namespace param_defaults {",
+        ]
+        for p in s.params:
+            out.append(f"inline constexpr {CPP_TYPE[p.type]} {p.name} = {cpp_literal(p.type, p.default)};")
+        out += ["}  // namespace param_defaults", ""]
+        for bound, index in (("min", 0), ("max", 1)):
+            out.append(f"/// Inclusive {bound}imum of every parameter's range, from params.yaml.")
+            out.append(f"namespace param_{bound} {{")
+            for p in s.params:
+                out.append(f"inline constexpr {CPP_TYPE[p.type]} {p.name} = "
+                           f"{cpp_literal(p.type, p.range[index])};")
+            out.append(f"}}  // namespace param_{bound}")
+            out.append("")
 
     out += ["}  // namespace recon::protocol", ""]
     return "\n".join(out)

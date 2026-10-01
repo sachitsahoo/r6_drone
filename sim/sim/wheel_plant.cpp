@@ -52,6 +52,13 @@ void SimWheel::step(double dt_s) {
       break;
   }
 
+  // Load and extra drag: tau dw/dt = K(u - d) - (1 + c) w. Same first-order form, with the
+  // target and the time constant both divided by (1 + c).
+  const double drag = 1.0 + static_cast<double>(params_.extra_viscous_drag);
+  target_rad_s = (target_rad_s - static_cast<double>(params_.load_duty) *
+                                     params_.no_load_speed_rad_s) / drag;
+  tau_s /= drag;
+
   // Exact solution of dw/dt = (target - w)/tau over dt:
   //   w(dt)     = target + (w0 - target) e^{-dt/tau}
   //   angle(dt) = target*dt + (w0 - target) tau (1 - e^{-dt/tau})

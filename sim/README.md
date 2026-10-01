@@ -29,7 +29,7 @@ software-in-the-loop (SIL) test can exercise a real control law with no hardware
 |---|---|---|
 | `sim/sim_clock.hpp` | `hal::Clock` | Virtual time; start it near 2^32 to test the wrap |
 | `sim/sim_serial_link.hpp/.cpp` | `hal::SerialPort` x2 | 460 800 baud 8N1 line, 256 B buffers, RX overflow, seeded bit errors |
-| `sim/wheel_plant.hpp/.cpp` | `hal::WheelMotor` + `hal::WheelEncoder` | First-order duty -> speed, exact discretisation, coast/brake, wrapping counter |
+| `sim/wheel_plant.hpp/.cpp` | `hal::WheelMotor` + `hal::WheelEncoder` | First-order duty -> speed, exact discretisation, coast/brake, wrapping counter; optional constant load and extra viscous drag (slope / carpet cases) |
 | `sim/static_sensors.hpp` | `Imu`, `AbsoluteEncoder`, `PowerMonitor`, `PitchPowerStage` | Settable constant samples stamped with virtual time; no dynamics yet |
 | `sim/sim_world.hpp` | — | Owns one of everything and steps them together |
 
@@ -38,12 +38,13 @@ The library is host-only but compiled with the firmware language subset
 
 ## Known limitations
 
-- **No control law runs here yet.** The plant is checked open-loop against its analytic
-  solution; closing a loop waits for an approved motor-control design.
+- The wheel velocity loop (ADR 0013) is closed on this plant in `tests/cpp/test_sil_drive.cpp`.
+  That proves the loop's structure and logic, not its performance on hardware.
+- The constant load acts in every mode (a slope); Coulomb friction, which cannot reverse
+  motion, is not modelled.
 - Every wheel-plant constant is a placeholder (see `sim/wheel_plant.hpp`). The gear ratio
   is not chosen and nothing has been measured.
-- The output limit saturates rather than scales; see the open question in
-  `implementation-notes.html`.
+- The output limit saturates rather than scales (owner decision, ADR 0013 question 3).
 - No pitch dynamics: the IMU reports a level, still casing and the power stage only records
   duties. These arrive with the FOC and estimator designs.
 - No camera or video simulation. Visual-stability evaluation needs real optics.

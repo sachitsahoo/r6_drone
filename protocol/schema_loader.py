@@ -56,11 +56,12 @@ class SchemaError(Exception):
 def unit_suffix(unit: str) -> str:
     """Expected name suffix for a declared unit, per CLAUDE.md hard rule 5.
 
-    `m/s` -> `_m_s`, `rad/s` -> `_rad_s`, `V` -> `_V`. Case-sensitive, because unit
-    symbols are case-sensitive: `Hz` is hertz and `hz` is nothing. CLAUDE.md's own
-    examples (`voltage_V`, `current_A`) preserve symbol case.
+    `m/s` -> `_m_s`, `rad/s` -> `_rad_s`, `V` -> `_V`, `m/s^2` -> `_m_s2`. Case-sensitive,
+    because unit symbols are case-sensitive: `Hz` is hertz and `hz` is nothing. CLAUDE.md's
+    own examples (`voltage_V`, `current_A`) preserve symbol case. `^` is dropped because it
+    cannot appear in an identifier; CLAUDE.md's `dt_s` style already writes powers inline.
     """
-    return "_" + unit.replace("/", "_")
+    return "_" + unit.replace("/", "_").replace("^", "")
 
 
 @dataclass(frozen=True)

@@ -1,8 +1,12 @@
 # 0013 — Wheel velocity loop: PI with feedforward, windowed encoder speed
 
-- **Status:** **PROPOSED** (2026-10-01). Owner-reviewed area (motor control, and a protocol
-  schema change for the gains). Nothing below is implemented. Five questions for the owner
-  are at the end; each has a recommendation, so the ADR can be accepted as-is.
+- **Status:** **ACCEPTED** by the owner, 2026-10-01: all five questions answered with
+  the recommendation (see "Owner decisions" at the end). Owner-reviewed area: motor control,
+  plus a protocol schema change for the gains.
+- **Amended 2026-10-01 (owner):** feedforward defaults to `kff = 0`. The analysis below
+  claimed a first-order closed loop with feedforward included; that was wrong, and the SIL
+  test caught it. See "Amendment: feedforward off by default" at the end. Original text is
+  kept with callouts beside each affected passage.
 - **Related:** [0004](0004-pitch-axis-architecture.md) (drive and pitch are coupled),
   [0008](0008-reduced-scale-direct-drive.md) (105 mm wheels, 214 mm overall),
   `firmware/hal/hal/wheel_motor.hpp`, `firmware/hal/hal/wheel_encoder.hpp`,
@@ -87,6 +91,11 @@ I     += ki * e * dt      only if that does not push u further into saturation
 - **Feedforward** `kff ≈ 1 / (no-load speed per unit duty)` does most of the work: it is the
   steady-state duty for the requested speed. That means the PI only corrects model error and
   disturbances, so its gains can stay modest and quantisation noise stays out of the output.
+
+  > **Amended 2026-10-01:** wrong as stated. With the PI zero cancelling the plant pole, the PI
+  > alone already gives the ideal first-order response. Feedforward on top double-counts,
+  > adding a closed-loop zero and ~12% step overshoot. It does not lower kp, and it does not
+  > reduce quantisation noise. Default is now `kff = 0`; see the amendment at the end.
 - **Integral** removes steady-state error from friction, load, battery sag, and the steady
   part of the pitch actuator's reaction torque (ADR 0004).
 - **No derivative.** The derivative of a quantised speed is noise, and a first-order plant
@@ -135,6 +144,11 @@ Choose `ki / kp = 1 / τ` so the PI zero cancels the plant pole. The loop transf
 becomes `kp K / (τ s)`, an integrator, and the closed loop is first order with bandwidth
 `ωc = kp K / τ`.
 
+> **Amended 2026-10-01:** true for the feedback path, and for the reference response only
+> when `kff = 0`. With `kff = 1/K` the reference response is
+> `((1 + ωcτ)s + ωc) / ((τs + 1)(s + ωc))`, which has a zero at -14.3 rad/s, slower than both
+> poles (-20 and -50 rad/s). Hence the overshoot.
+
 The 5 ms window delay costs `ωc * 5.5 ms` of phase at crossover (window plus half a sample).
 For ωc = 50 rad/s (closed-loop τ = 20 ms, 2.5x faster than the open-loop plant) that is
 16 degrees, leaving about 74 degrees of phase margin.
@@ -144,6 +158,9 @@ For ωc = 50 rad/s (closed-loop τ = 20 ms, 2.5x faster than the open-loop plant
 | `kff` | 1 / K | 0.0318 | duty per rad/s |
 | `kp` | ωc τ / K | 0.0796 | duty per rad/s |
 | `ki` | kp / τ | 1.59 | duty per rad |
+
+> **Amended 2026-10-01:** `kff` default is **0**. 1/K = 0.0318 remains the value that gives
+> zero ramp lag, if hardware testing ever calls for it.
 
 All three are "derived from the placeholder plant — to be replaced after system ID". The
 derivation goes in `docs/theory/wheel-velocity-loop.md`, so re-deriving after system ID
@@ -158,6 +175,9 @@ carpet and hard floor. They should not, at least until data says otherwise:
   constant load with zero steady-state error is exactly what the integral term does. The
   settled integrator value is the extra duty the surface needs, so logging it gives a free
   surface signature for the research writeup.
+
+  > **Amended 2026-10-01:** with `kff = 0` the integrator holds the whole steady duty; the
+  > surface signature is the integrator *difference* at equal speed (see amendment, theory §5).
 - **Traction** limits acceleration before slip. Gains cannot add grip. The acceleration
   limiter is what keeps demands inside it.
 - **The plant dynamics** (K, τ) are set mostly by the motor, gearbox and wheel inertia, and
@@ -270,3 +290,46 @@ No message changes.
    slope; coasting is the safety machine's response to a lost link, not normal behaviour.
 5. **Saturation:** scale both wheels to preserve curvature, rather than clipping each wheel
    independently. *Recommended.*
+
+## Owner decisions (2026-10-01)
+
+All five accepted as recommended:
+
+1. PI plus feedforward, no derivative, conditional-integration anti-windup.
+2. 10-sample windowed count difference; HAL unchanged. Revisit after system ID.
+3. The output limit **saturates** (does not scale). `core` holds `wheel_duty_limit`; the
+   HAL limit is a backstop at or above it. This also settles the slice 5 open question.
+4. A zero command while ARMED actively holds zero speed.
+5. Wheel-speed saturation scales both wheels to preserve curvature.
+
+## Amendment: feedforward off by default (owner, 2026-10-01)
+
+**What went wrong.** The SIL step test (`SilDrive.StepSettlesWithin5PercentIn100ms...`)
+failed: 13% overshoot, 118 ms to settle. An independent continuous-time calculation gave
+11.8% and 127 ms, so the cause was the design, not the code. The derivation above treated
+the closed loop as first order, but it only followed the feedback path. The reference also
+enters through `kff`. Full derivation: `docs/theory/wheel-velocity-loop.md` §3.3.
+
+| Placeholder plant | `kff = 1/K` | `kff = 0` |
+|---|---|---|
+| Raw step overshoot / 5% settle | 11.8% / 127 ms | 0% / 60 ms |
+| 1 m/s² ramp: lag / corner overshoot | 11 mm/s / 5.3% | 20 mm/s / 0% |
+| Worst overshoot, plant ±50% | 18% | 4.4% |
+
+**Decision.** `kff = 0` by default; the parameter stays. A speed overshoot is an extra
+acceleration that swings the casing (ADR 0004, direction 2), the disturbance this project
+studies. The feedforward's only gain, 9 mm/s less ramp lag, is below what an operator
+would notice. Revisit with hardware data.
+
+**Derivative stays absent (recommended; owner may override).** The owner asked whether a
+`kd` slot set to 0 would also exist. Recommendation: no. a zero `kff` is a complete, working term switched off, but a `kd` without a
+derivative filter would be noise the moment it was non-zero (see "No derivative"). If
+hardware shows a need, D arrives as a designed, filtered term, not a reserved number.
+
+**Consequence for the "surface signature".** With `kff = 0` the settled integrator holds
+the whole steady duty (`d + w/K`), not only the surface's extra load. The signature is the
+difference between two surfaces at the same speed (theory §5).
+
+**Test bug fixed alongside.** `DriveLoop.ReferenceRampsAtTheAccelerationLimit` expected 50
+ramp increments from 50 steps. The first step after construction has no previous
+timestamp, so it integrates dt = 0; the code is right and the test now expects 49.

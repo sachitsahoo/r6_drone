@@ -5,6 +5,11 @@ add_library(recon_core STATIC
   time/timestamp.cpp
   protocol/cobs.cpp
   protocol/frame.cpp
+  control/wheel_speed_estimator.cpp
+  control/wheel_velocity_controller.cpp
+  control/diff_drive.cpp
+  control/rate_limiter.cpp
+  control/drive_loop.cpp
 )
 
 # The generated protocol header must exist before anything here compiles.

@@ -121,3 +121,23 @@ def test_generated_python_is_importable_and_matches_the_schema(schema, tmp_path:
     finally:
         sys.path.remove(str(out))
         sys.modules.pop("messages", None)
+
+
+def test_every_param_default_is_emitted_for_cpp(schema) -> None:
+    """Firmware initialises from param_defaults, so a missing or mistyped entry would put a
+    copied number back into core (lessons: copied figures drift silently)."""
+    hpp = generate.render(schema)["messages.hpp"]
+    assert "namespace param_defaults {" in hpp
+    for p in schema.params:
+        ctype = generate.CPP_TYPE[p.type]
+        literal = generate.cpp_literal(p.type, p.default)
+        assert f"inline constexpr {ctype} {p.name} = {literal};" in hpp
+        for bound, value in (("min", p.range[0]), ("max", p.range[1])):
+            assert f"inline constexpr {ctype} {p.name} = {generate.cpp_literal(p.type, value)};" \
+                in hpp.split(f"namespace param_{bound} {{")[1].split("}")[0]
+
+
+def test_float_param_defaults_are_single_precision_literals() -> None:
+    assert generate.cpp_literal("f32", 0.0796) == "0.0796F"
+    assert generate.cpp_literal("f32", 1) == "1.0F", "an integer YAML default still becomes a float"
+    assert generate.cpp_literal("u8", 10) == "10U"
