@@ -44,8 +44,14 @@ Pololu, possibly with their own shipping fee.
 | Stackpole CF14JT10K0: 10 kΩ 1/4 W | CF14JT10K0CT-ND | 10 | ~$0.02 | Pull-downs (ADR 0014/0015 Q5) |
 | Carling 111-16-73 toggle, SPST 6 A 125 V AC/DC | 432-1086-ND | 1 | $12.69 | Kill switch inline with the motor supply; CLAUDE.md requires one before motors run |
 
-Also needed, any source: a breadboard and male-female + male-male Dupont jumpers (the Nucleo
-has header pins). Not checked against a DigiKey listing.
+Breadboard, Dupont jumpers and spare resistors: **from the makerspace** (owner, 2026-10-02).
+
+**Pull-downs, settled for the pitch stage (2026-10-02):** the DRV8313's EN1-3 inputs have an
+internal pulldown (TI datasheet SLVSBA5D, pin functions: "Channel enable. Logic high enables
+the 1/2-H bridge channel; internal pulldown"), so a floating MCU pin after an IWDG reset leaves
+the SimpleFOCMini's outputs off. Its R1-R3 are pull-ups on nFAULT/nSLEEP/nRESET to the chip's
+own 3.3 V (SimpleFOCMini v1.1 schematic). The 10 kΩ parts above are for the **TB6612** only.
+Don't load the SimpleFOCMini's 3.3 V pin: it is the DRV8313's 10 mA internal regulator.
 
 **Wave 2 items DigiKey has (decided, can wait):**
 
