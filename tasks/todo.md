@@ -185,6 +185,22 @@ STM32 (compile + link only, verified on hardware later):
 - [x] Docs: ADR 0016, firmware/stm32 README, bring-up checklist, notes, theory/learning updates
 - [x] Prove: ctest, pytest, STM32 image links (size report), purity guard. Commit at checkpoints.
 
+## Bench serial tool (tooling, proceeds directly) — 2026-10-02
+
+**Done 2026-10-02:** 27 tests (241 Python total) green; mutation-checked.
+
+Goal: drive the Nucleo from the Mac for bring-up checklist steps 4-7
+(docs/bringup/stm32-first-image.md) before any operator app exists.
+
+- [x] Tests first (tests/python/test_bench_link.py, fake port, no pyserial): frames round-trip
+      through protocol/codec.py; magics from the schema; seq and timestamp wrap; drive values
+      outside the schema range refused locally; Fault/Nack/boot-report descriptions (reset-flag
+      bits from RCC_CSR: OBL 25, PIN 26, BOR 27, SFT 28, IWDG 29, WWDG 30, LPWR 31)
+- [x] tools/bench_link.py: `BenchLink` (pure, any byte port) + a line-based REPL with a 50 Hz
+      Heartbeat + DriveCommand stream; pyserial imported only when a real port is opened
+- [x] Safety: drive defaults to zero; on exit stop streaming and send a disarm request
+- [x] pyserial in requirements-dev.txt; tools/README; bring-up doc points at the tool
+
 ## Not now — deliberately deferred
 
 Motor control, pitch stabilization, state estimation, safety state machine, watchdog, STM32

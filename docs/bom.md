@@ -33,7 +33,7 @@ The rest of wave 1 is needed when the motor drivers are written.
 Prices and stock as shown on digikey.com that day; they move. "Marketplace" items ship from
 Pololu, possibly with their own shipping fee.
 
-**Bench kit (order now):**
+**Bench kit: ORDERED by the owner 2026-10-01.**
 
 | Item | DigiKey # | Qty | Each | Notes |
 |---|---|---|---|---|

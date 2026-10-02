@@ -13,10 +13,11 @@ page is the list of checks that settles each one. Record results in the table at
 - Nucleo-G474RE and a USB cable (BOM wave 1). Nothing else.
 - A flashing tool on the Mac. Not chosen yet; options are STM32CubeProgrammer (ST's GUI/CLI),
   `st-flash` (stlink tools), or OpenOCD. Choosing one is a small owner decision at bring-up.
-- A serial terminal or script at **460 800 baud** on the ST-LINK virtual COM port. There is no
-  operator app yet: the first useful tool is a short Python script that sends Heartbeat,
-  SafetyStateRequest and EstopRequest through `protocol/codec.py` and prints the Fault and Nack
-  frames that come back. [Not written yet; next tooling task.]
+- `tools/bench_link.py`, the bench stand-in for the operator app (needs pyserial:
+  `python -m pip install -r requirements-dev.txt`). Find the port with `ls /dev/tty.usbmodem*`,
+  then run `python tools/bench_link.py /dev/tty.usbmodemXXXX`. It streams a centred stick at
+  50 Hz from the start; `arm`, `disarm`, `estop`, `drive V W` and `stop` do what they say, and
+  every Fault and Nack is printed in words. Quitting centres the stick and requests DISARMED.
 
 ## Build
 
@@ -36,10 +37,10 @@ Each step depends on the ones before it.
 | 1 | Image runs at all | Flash; attach the debugger; break in `main()` | linker script memory map, startup file, vector table |
 | 2 | Clock is 1 MHz | Break twice ~1 s apart (by wall clock); compare `TIM2->CNT` | TIM2 prescaler on HSI16, `kSysClock_Hz` |
 | 3 | Motor loop at 1 kHz | Breakpoint counter in `TIM6_DAC_IRQHandler`, or read `MotorLoop::max_exec_us()` | TIM6 PSC/ARR, NVIC enable |
-| 4 | UART link both ways | Send a Heartbeat; expect nothing back. Send a `SafetyStateRequest(FAULT)`; expect `Nack(RANGE_REJECT)` | PA2/PA3 AF12, `kBrr`, DMAMUX request 34, DMA circular RX, TX FIFO |
+| 4 | UART link both ways | Start `bench_link.py`, then press the Nucleo's reset button: expect one `boot:` line (step 5); heartbeats themselves get no reply. Type `arm`: expect it to be accepted silently. Type `disarm`, then `stream off`, wait 1 s, `arm`: expect `arm refused: link stale` | PA2/PA3 AF12, `kBrr`, DMAMUX request 34, DMA circular RX, TX FIFO |
 | 5 | Boot report | On power-up expect one `Fault(NONE, 0x800000xx)`; the low byte is the reset flags (power-on and pin reset bits set) | RCC_CSR flag positions |
-| 6 | Arm and the comms watchdog | Stream Heartbeat + zero DriveCommand at 50 Hz, then arm, then stop streaming. Expect `Fault(COMMS_TIMEOUT)` | the whole glue path on silicon |
-| 7 | WHEEL_STALL on silicon | Armed, stream a non-zero DriveCommand. The null wheel never turns, so expect `Fault(WHEEL_STALL, 3)` about 0.5 s later | stall detector, both wheels |
+| 6 | Arm and the comms watchdog | `stream on`, `arm`, then `stream off`. Expect `FAULT COMMS_TIMEOUT: 200.0 ms`; `stream on`, `disarm`, `arm` recovers | the whole glue path on silicon |
+| 7 | WHEEL_STALL on silicon | Armed, `drive 0.1 0`. The null wheel never turns, so expect `FAULT WHEEL_STALL: left + right` about 0.5 s later. Then `stop` and `disarm` | stall detector, both wheels |
 | 8 | IWDG timeout | Temporarily add an infinite loop in `main()` after 1 s. Expect a reset, then `Fault(WATCHDOG_RESET)` and a boot report with the IWDG bit. Time it: 45–55 ms | IWDG keys, PR = /4, RLR = 399, LSI tolerance (ADR 0014) |
 | 9 | Debugger freeze | Halt at a breakpoint for 10 s; resume. No reset | DBGMCU `DBG_IWDG_STOP` |
 | 10 | Stack margin | Paint RAM between `_ebss` and `_estack` with a pattern at boot (debugger), run steps 4–7, see how much was used | `_Min_Stack_Size` = 4 KB |

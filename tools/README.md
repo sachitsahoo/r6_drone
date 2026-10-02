@@ -25,6 +25,7 @@ generated Python bindings from [`../protocol/`](../protocol/).
 
 | Script | Purpose |
 |---|---|
+| `bench_link.py` | Bench stand-in for the operator app: streams Heartbeat + DriveCommand at 50 Hz to the Nucleo over its ST-LINK serial port, sends arm/disarm/e-stop, prints Fault and Nack replies in words. Bring-up steps 4-7. Needs pyserial. |
 | `check_core_purity.py` | CI guard: enforces CLAUDE.md hard rules 1 and 2 over `firmware/core/`. |
 | `pitch_inertia_budget.py` | Inertia and torque budget for the pitch axis at the current design point. Feeds ADR 0011 and `docs/theory/`. |
 

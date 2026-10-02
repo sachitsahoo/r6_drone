@@ -8,3 +8,7 @@ PyYAML>=6.0
 
 # Property-based fuzzing of the codec (tests/python/test_codec.py).
 hypothesis>=6.100
+
+# Bench link to the Nucleo's ST-LINK serial port (tools/bench_link.py). Imported only when a
+# real port is opened, so the tests don't need it.
+pyserial>=3.5
