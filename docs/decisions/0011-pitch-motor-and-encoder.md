@@ -20,7 +20,7 @@ From the manufacturer datasheet (SparkFun CDN, `27477_27478_Datasheet.pdf`):
 
 | | |
 |---|---|
-| Outer diameter × height | 40 × 16 mm (without encoder case) |
+| Outer diameter × height | 40 × 16 mm (without encoder case); **40 × 20 mm with encoder and case** (manufacturer website, found by the owner 2026-10-02) |
 | Mass | 58.3 g |
 | Hollow bore | 8.5 mm on the rotor face |
 | Pole pairs | 11 |
@@ -32,7 +32,8 @@ From the manufacturer datasheet (SparkFun CDN, `27477_27478_Datasheet.pdf`):
 | Price | $34.95 at SparkFun, in stock |
 
 **Buy the version without the encoder case.** Its bundled AS5048A/AS5600 reads on-axis, where
-wheel A's shaft runs.
+wheel A's shaft runs. The encoder version is also 4 mm longer (40 × 20 mm), length the axial
+stack doesn't have to give, and its case covers the back face, which may close the bore.
 
 ### Candidates considered
 
