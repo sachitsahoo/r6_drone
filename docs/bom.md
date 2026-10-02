@@ -70,7 +70,7 @@ exist elsewhere, and none of these are needed until their designs exist.
 | 3S LiPo, 300 mAh, slim | 1 + spare | verified | BetaFPV 45C: 60.5 × 16 × 11.5 mm, 24.8 g. ADR 0012 |
 | LiPo charger (3S balance) | 1 | — | Check whether the makerspace has one |
 | 5 V buck regulator, ~2 A | 1 | decided | Powers the Pi from 3S |
-| Raspberry Pi Zero 2 W | 1 | decided | |
+| Raspberry Pi Zero 2 W | 1 | **bought** | Owner, 2026-10-02: Amazon kit (board + loose header, heatsink, OTG cable, mini-HDMI adapter), $99.99; approved resellers and DigiKey were out of stock. No microSD in the kit. Leave the header unsoldered: it adds ~8 mm the casing doesn't have |
 | Camera Module 3 **Wide** | 1 | decided | |
 | Pi Zero camera cable | 1 | decided | The Zero's connector is smaller than a full-size Pi's |
 | microSD card | 1 | — | |
