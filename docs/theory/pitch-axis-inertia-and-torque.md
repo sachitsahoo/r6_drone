@@ -42,7 +42,8 @@ a point mass, `I = m r^2`, at the radius ADR 0010's layout puts it:
 
 Plastic is PLA, the makerspace's only free filament and so the prototype's material
 (2026-10-03). Until then these figures assumed ABS: 140 g, 0.136e-3, total 267 g at
-0.180e-3. ABS or a lighter material remains a lever for the final build.
+0.180e-3. ABS is not allowed at the makerspace (fumes), so a lighter material is a
+final-build question, not a prototype one; the shell (R6) is the lever that remains.
 
 The full list with each part's radius and source is in the script's output.
 

@@ -225,8 +225,9 @@ PETG_DENSITY = 1.27e-3
 ABS_DENSITY = 1.04e-3
 TPU_DENSITY = 1.21e-3           # 95A TPU, typical filament datasheet figure
 #: What the reports assume. PLA because it is what the makerspace supplies (owner,
-#: 2026-10-03) and so what the prototype is printed in. ABS would be 16% lighter -- a free
-#: lever on rotating inertia, parked for the final build.
+#: 2026-10-03) and so what the prototype is printed in. ABS would be 16% lighter, but the
+#: makerspace does not allow it (fumes; owner, 2026-10-03), so it is not an option there.
+#: ABS_DENSITY stays only as a reference figure.
 PRINT_DENSITY = PLA_DENSITY
 
 
