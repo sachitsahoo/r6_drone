@@ -67,6 +67,16 @@ ROTATION_GROUP = {
     "wheel_b": "wheel_b",
 }
 
+#: Colour per rotation group in the exported STEP, so a viewer can tell at a glance which
+#: body a part turns with. Cosmetic only; RGB in 0-1 (OCCT's colour-name list is patchy).
+STEP_GROUP_COLOUR = {
+    "casing": (0.69, 0.77, 0.87),   # light steel blue
+    "chassis": (1.00, 0.55, 0.00),  # orange
+    "motor": (0.70, 0.13, 0.13),    # brick red
+    "wheel_a": (0.41, 0.41, 0.41),  # grey
+    "wheel_b": (0.41, 0.41, 0.41),
+}
+
 #: Bodies of revolution: rotating them changes nothing, so one pose is an exact check.
 AXISYMMETRIC = {"pitch_motor_envelope", "wheel_motor_a", "wheel_motor_b", "wheel_shaft_a"}
 
@@ -286,11 +296,16 @@ def main(argv: list[str]) -> int:
 
     if not args.report:
         args.out_dir.mkdir(parents=True, exist_ok=True)
-        combined = cq.Workplane("XY")
-        for wp in assembly.values():
-            combined = combined.add(wp)
+        # A named cq.Assembly, not one merged Workplane: SolidWorks and other CAD tools
+        # then show "chassis_spine" instead of thirteen components all called
+        # "Open CASCADE STEP translator", and the colour says which body each part
+        # rotates with.
+        combined = cq.Assembly(name="recon_ugv")
+        for name, wp in assembly.items():
+            colour = STEP_GROUP_COLOUR[ROTATION_GROUP.get(name, "casing")]
+            combined.add(wp, name=name, color=cq.Color(*colour))
         target = args.out_dir / "00_assembly.step"
-        cq.exporters.export(combined, str(target))
+        combined.save(str(target), exportType="STEP")
         print(f"wrote {target}\n")
 
     problems: list[str] = []
