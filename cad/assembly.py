@@ -325,7 +325,7 @@ def main(argv: list[str]) -> int:
                                           STEP_GROUP_COLOUR[ROTATION_GROUP.get(name, "casing")])
             combined.add(wp, name=name, color=cq.Color(*colour))
         target = args.out_dir / "00_assembly.step"
-        combined.save(str(target), exportType="STEP")
+        combined.export(str(target))
         print(f"wrote {target}\n")
 
     problems: list[str] = []

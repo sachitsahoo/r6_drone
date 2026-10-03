@@ -59,10 +59,11 @@ axis, which is why the IMU lies beside the waist instead (ADR 0010).
 ## What building it revealed
 
 - First design: **855 g** of plastic against a 700–900 g vehicle target, cut to 398 g by
-  rebuilding discs as rim-hub-and-spoke. Current design: **212 g**.
-- Current rotating plastic: **140 g, I = 0.136e-3 kg m^2**, within 2% of ADR 0008's hand
-  figure. With the motor stator, bearing races and electronics
-  (`tools/pitch_inertia_budget.py`): 267 g, 0.180e-3, of which the shell is 67%.
+  rebuilding discs as rim-hub-and-spoke. Current design: **295 g in PLA**, TPU tires
+  included (254 g if it were ABS).
+- Current rotating plastic, PLA: **167 g, I = 0.162e-3 kg m^2** (ABS would be 140 g and
+  0.136e-3, within 2% of ADR 0008's hand figure). With the motor stator, bearing races and
+  electronics (`tools/pitch_inertia_budget.py`): 294 g, 0.206e-3, of which the shell is 70%.
 - The first design's sweep checked one pose and passed an IMU bridge that went through a
   chassis standoff. That is what the rotation-aware sweep and its regression test are for.
 

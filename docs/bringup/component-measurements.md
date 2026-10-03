@@ -36,7 +36,9 @@ change moves everything downstream, and the sweep checks every pair at every rea
 - [ ] Wheel A shaft extension and coupler: diameter, length (~48 mm needed), coupler OD
       (must pass the cup floor's 10 mm bore -> `CUP_FLOOR_BORE`).
 - [ ] First printed TPU tire: does it stretch onto the hub by hand and stay on in a hard turn?
-      Adjust `TIRE_FIT_INTERFERENCE` (ADR 0017).
+      Adjust `TIRE_FIT_INTERFERENCE` (ADR 0017). Makerspace rule: a proctor must sign off TPU
+      slicer changes (slow, ~30 mm/s; glue stick on the bed). On a Bambu, feed from the rear
+      spool holder, not the AMS.
 
 ## Electronics
 
@@ -54,7 +56,7 @@ change moves everything downstream, and the sweep checks every pair at every rea
 
 ## Masses
 
-Weigh everything. The rotating budget assumes 267 g (140 g plastic, 127 g motor stator,
+Weigh everything. The rotating budget assumes 294 g (167 g PLA plastic, 127 g motor stator,
 bearing races and electronics), and most of the component masses are guesses.
 
 ---

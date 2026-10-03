@@ -87,6 +87,12 @@ not required:** it cuts holding heat from 0.5 W to almost nothing and leaves mar
 wire loop's spring torque and bearing drag, but nothing breaks without it. With the GM2804H
 the untrimmed case ran at 106% of rated, which is the main reason this motor replaced it.
 
+**Follow-up, 2026-10-03: printed in PLA, not ABS.** The makerspace supplies only PLA, so the
+plastic is 19% heavier than the figures above assumed: rotating assembly 294 g at
+I = 0.206e-3 kg m². The cases become 43.3 / 52.1 / 20.2 / 29.0 mN m (48 / 58 / 22 / 32% of
+rated). Every conclusion above still holds; current numbers live in
+`docs/theory/pitch-axis-inertia-and-torque.md` and `tools/pitch_inertia_budget.py`.
+
 ## Consequences
 
 - **ADR 0008's 22.5 mN m is replaced** by the budget above. Its Kt (0.106, from 90 KV) is

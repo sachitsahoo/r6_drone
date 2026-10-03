@@ -34,15 +34,19 @@ a point mass, `I = m r^2`, at the radius ADR 0010's layout puts it:
 
 | | mass | I |
 |---|---|---|
-| Printed plastic (shell, caps, IMU bridge, camera mount) | 140 g | 0.136e-3 |
+| Printed plastic (shell, caps, IMU bridge, camera mount), PLA | 167 g | 0.162e-3 |
 | DM3505 stator and windings, ~33 g at r = 12 mm (stator rides on the casing) | 33 g | 0.005e-3 |
 | Bearing outer races (6709, 6704), ~15 g at r = 24 mm | 15 g | 0.009e-3 |
 | Battery, Pi, MCU, camera, drivers, encoder, IMU, wiring | 79 g | 0.030e-3 |
-| **Total** | **267 g** | **0.180e-3 kg m^2** |
+| **Total** | **294 g** | **0.206e-3 kg m^2** |
+
+Plastic is PLA, the makerspace's only free filament and so the prototype's material
+(2026-10-03). Until then these figures assumed ABS: 140 g, 0.136e-3, total 267 g at
+0.180e-3. ABS or a lighter material remains a lever for the final build.
 
 The full list with each part's radius and source is in the script's output.
 
-### Finding 1: the shell is still 67% of the inertia
+### Finding 1: the shell is still 70% of the inertia
 
 The 107 g shell sits at r ≈ 33 mm, the largest radius in the casing. A gram removed from the
 wall saves about three times the inertia of a gram removed from a board at r ≈ 20 mm. Ribbing
@@ -88,10 +92,13 @@ At the design point (10° in 100 ms, `a` = 3 m/s^2), against the DM3505's nomina
 
 | Case | slew | hold | accel | total | % rated | current | heat while holding |
 |---|---|---|---|---|---|---|---|
-| Untrimmed, `d_h` = 10 mm | 12.6 | 26.2 | 0 | **38.8 mN m** | **43%** | 0.48 A | 0.51 W |
-| Untrimmed, plus bottom-heavy `d_v` = 10 mm | 12.6 | 26.2 | 8.0 | 46.8 mN m | 52% | 0.59 A | 0.51 W |
-| Trimmed `d_h` = 2 mm, balanced | 12.6 | 5.2 | 0 | 17.8 mN m | 20% | 0.22 A | 0.02 W |
-| Trimmed `d_h` = 2 mm, bottom-heavy `d_v` = 10 mm | 12.6 | 5.2 | 8.0 | 25.8 mN m | 29% | 0.32 A | 0.02 W |
+| Untrimmed, `d_h` = 10 mm | 14.4 | 28.9 | 0 | **43.3 mN m** | **48%** | 0.54 A | 0.62 W |
+| Untrimmed, plus bottom-heavy `d_v` = 10 mm | 14.4 | 28.9 | 8.8 | 52.1 mN m | 58% | 0.65 A | 0.62 W |
+| Trimmed `d_h` = 2 mm, balanced | 14.4 | 5.8 | 0 | 20.2 mN m | 22% | 0.25 A | 0.02 W |
+| Trimmed `d_h` = 2 mm, bottom-heavy `d_v` = 10 mm | 14.4 | 5.8 | 8.8 | 29.0 mN m | 32% | 0.36 A | 0.02 W |
+
+PLA figures (2026-10-03). The ABS figures ADR 0011 was written against were 38.8 / 46.8 /
+17.8 / 25.8 mN m; the conclusions do not change.
 
 Copper loss uses `P = 1.5 I_peak^2 R_phase`, with the datasheet's 6.34 Ω phase-to-phase.
 

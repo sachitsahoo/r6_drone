@@ -142,7 +142,7 @@ def test_wheel_is_larger_than_the_casing(built) -> None:
 
 def test_printed_mass_leaves_room_for_the_rest_of_the_robot(built) -> None:
     """The regression that matters: the first build was 855 g of plastic alone."""
-    total = sum(built[name].val().Volume() * build.density_g_mm3(name, P.ABS_DENSITY) * qty
+    total = sum(built[name].val().Volume() * build.density_g_mm3(name, P.PRINT_DENSITY) * qty
                 for name, qty in build.QUANTITIES.items())
     assert total < 500.0, (
         f"printed plastic is {total:.0f} g; the vehicle target is 700-900 g total, so this "
@@ -153,7 +153,7 @@ def test_rotating_inertia_matches_the_direct_drive_budget(built) -> None:
     """ADR 0011's budget (17.8-25.8 mN m trimmed, against the DM3505's 90 rated) is built
     on this plastic inertia plus the electronics. The slew term scales linearly with I, so a
     drift past 0.20e-3 moves the design point noticeably and should be caught here first."""
-    inertia = sum(build.inertia_kg_m2(built[name].val(), P.ABS_DENSITY) * qty
+    inertia = sum(build.inertia_kg_m2(built[name].val(), P.PRINT_DENSITY) * qty
                   for name, qty in build.ROTATING.items())
     assert 0.10e-3 < inertia < 0.20e-3, f"I = {inertia * 1e3:.3f}e-3 kg m^2"
 
@@ -166,11 +166,11 @@ def test_the_budget_tool_uses_the_current_cad_figures(built) -> None:
     import pitch_inertia_budget as budget  # noqa: PLC0415
     sys.path.remove(str(REPO_ROOT / "tools"))
 
-    mass = sum(built[n].val().Volume() * P.ABS_DENSITY * q
+    mass = sum(built[n].val().Volume() * P.PRINT_DENSITY * q
                for n, q in build.ROTATING.items()) * 1e-3
-    inertia = sum(build.inertia_kg_m2(built[n].val(), P.ABS_DENSITY) * q
+    inertia = sum(build.inertia_kg_m2(built[n].val(), P.PRINT_DENSITY) * q
                   for n, q in build.ROTATING.items())
-    shell = build.inertia_kg_m2(built["01_casing_shell"].val(), P.ABS_DENSITY)
+    shell = build.inertia_kg_m2(built["01_casing_shell"].val(), P.PRINT_DENSITY)
     assert math.isclose(budget.CAD_ROTATING_PLASTIC_KG, mass, rel_tol=0.01)
     assert math.isclose(budget.CAD_ROTATING_PLASTIC_INERTIA_KG_M2, inertia, rel_tol=0.01)
     assert math.isclose(budget.CAD_SHELL_INERTIA_KG_M2, shell, rel_tol=0.01)
@@ -178,8 +178,8 @@ def test_the_budget_tool_uses_the_current_cad_figures(built) -> None:
 
 def test_the_shell_still_dominates_rotating_inertia(built) -> None:
     """The finding that drives R6. If it stops holding, the mass strategy changes."""
-    shell = build.inertia_kg_m2(built["01_casing_shell"].val(), P.ABS_DENSITY)
-    total = sum(build.inertia_kg_m2(built[name].val(), P.ABS_DENSITY) * qty
+    shell = build.inertia_kg_m2(built["01_casing_shell"].val(), P.PRINT_DENSITY)
+    total = sum(build.inertia_kg_m2(built[name].val(), P.PRINT_DENSITY) * qty
                 for name, qty in build.ROTATING.items())
     assert shell / total > 0.70, f"shell is only {100 * shell / total:.0f}% of rotating inertia"
 

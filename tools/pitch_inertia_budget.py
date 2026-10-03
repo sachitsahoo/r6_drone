@@ -26,12 +26,13 @@ G = 9.81  # m/s^2
 
 # ------------------------------------------------------------------- printed plastic
 
-#: From `python3 cad/build.py --report`, 2026-09-30: shell, both end caps, IMU bridge and
-#: camera mount, in ABS. Re-copy these whenever the CAD changes.
-CAD_ROTATING_PLASTIC_KG = 0.1402
-CAD_ROTATING_PLASTIC_INERTIA_KG_M2 = 0.136e-3
+#: From `python3 cad/build.py --report`, 2026-10-03: shell, both end caps, IMU bridge and
+#: camera mount, in PLA (the makerspace's only filament; was ABS, 140 g / 0.136e-3, until
+#: then). Re-copy these whenever the CAD changes.
+CAD_ROTATING_PLASTIC_KG = 0.1672
+CAD_ROTATING_PLASTIC_INERTIA_KG_M2 = 0.162e-3
 #: The shell alone, same source. It is the reason mass at the wall is expensive.
-CAD_SHELL_INERTIA_KG_M2 = 0.121e-3
+CAD_SHELL_INERTIA_KG_M2 = 0.144e-3
 
 # ------------------------------------------------------------------ the pitch motor
 #

@@ -97,8 +97,8 @@ exist elsewhere, and none of these are needed until their designs exist.
 | Silicone-insulated stranded wire, 28–30 AWG | 1 spool | decided | For the wire loop (ADR 0009) |
 | XT30 or similar battery connector, JST-PH leads | a few | — | |
 | Power / kill switch | 1 | decided | Required by CLAUDE.md before motors run |
-| Filament, ABS or PETG | 1 roll | — | The mass report assumes ABS. Check whether the makerspace supplies it |
-| Filament, TPU 95A | ~50 g | decided | Two tires (ADR 0017), ~21 g each. Check whether the makerspace has it and a printer that can feed it |
+| Filament, PLA | — | decided | Free from the EXP makerspace (its only free filament); the mass report assumes PLA |
+| Filament, TPU 95A | smallest spool sold | decided | Two tires (ADR 0017), ~21 g each. **Bring your own**: the makerspace supplies PLA only. Its Ultimaker S3/S5 and Bambu printers can feed it (on a Bambu, from the rear spool holder, not the AMS) |
 
 ## Borrow before buying
 
