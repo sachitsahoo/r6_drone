@@ -65,6 +65,7 @@ ROTATION_GROUP = {
     "wheel_a": "wheel_a",
     "wheel_shaft_a": "wheel_a",
     "wheel_b": "wheel_b",
+    "wheel_shaft_b": "wheel_b",
 }
 
 #: Colour per rotation group in the exported STEP, so a viewer can tell at a glance which
@@ -78,7 +79,8 @@ STEP_GROUP_COLOUR = {
 }
 
 #: Bodies of revolution: rotating them changes nothing, so one pose is an exact check.
-AXISYMMETRIC = {"pitch_motor_envelope", "wheel_motor_a", "wheel_motor_b", "wheel_shaft_a"}
+AXISYMMETRIC = {"pitch_motor_envelope", "wheel_motor_a", "wheel_motor_b", "wheel_shaft_a",
+                "wheel_shaft_b"}
 
 
 def min_distance_mm(a: cq.Shape, b: cq.Shape) -> float:
@@ -138,6 +140,10 @@ def build_assembly() -> dict[str, cq.Workplane]:
     # Wheel A's shaft runs from wheel motor A's face, through the pitch motor's hollow bore
     # and cap A, to the wheel. This is the part that forces a hollow-shaft motor.
     shaft_a = _cylinder(P.WHEEL_SHAFT_DIA, P.Z_WHEEL_A, P.Z_WHEEL_MOTOR_A_LO)
+    # Wheel B needs no extension: wheel motor B's own output shaft crosses the standoff gap
+    # into the hub. Drawn so the model does not show wheel B floating.
+    shaft_b = _cylinder(P.WHEEL_SHAFT_DIA, P.Z_WHEEL_MOTOR_B_HI,
+                        P.Z_WHEEL_MOTOR_B_HI + P.WHEEL_MOTOR_SHAFT_LENGTH)
 
     wheel_a = parts.wheel().translate((0, 0, P.Z_WHEEL_A))
     wheel_b = parts.wheel().translate((0, 0, P.Z_WHEEL_B))
@@ -156,6 +162,7 @@ def build_assembly() -> dict[str, cq.Workplane]:
         "wheel_shaft_a": shaft_a,
         "wheel_a": wheel_a,
         "wheel_b": wheel_b,
+        "wheel_shaft_b": shaft_b,
     }
 
 

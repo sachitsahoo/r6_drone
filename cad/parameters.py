@@ -97,6 +97,7 @@ CUP_FLOOR_BORE = 10.0
 WHEEL_SHAFT_DIA = 3.0        # LISTING: N20 D-shaft
 #: The N20's own shaft is ~10 mm, so wheel A needs an extension of ~55 mm: a coupler plus
 #: a 3 mm rod. Wheel B, at the other end, reaches its wheel directly.
+WHEEL_MOTOR_SHAFT_LENGTH = 10.0   # LISTING: N20 output shaft, ~10 mm past the gearbox face
 
 # ------------------------------------------------------------------- bearings
 #
