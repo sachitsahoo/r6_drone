@@ -66,6 +66,8 @@ ROTATION_GROUP = {
     "wheel_shaft_a": "wheel_a",
     "wheel_b": "wheel_b",
     "wheel_shaft_b": "wheel_b",
+    "tire_a": "wheel_a",
+    "tire_b": "wheel_b",
 }
 
 #: Colour per rotation group in the exported STEP, so a viewer can tell at a glance which
@@ -76,6 +78,12 @@ STEP_GROUP_COLOUR = {
     "motor": (0.70, 0.13, 0.13),    # brick red
     "wheel_a": (0.41, 0.41, 0.41),  # grey
     "wheel_b": (0.41, 0.41, 0.41),
+}
+
+#: Parts that override their group colour: the tires are rubber, not hub plastic.
+STEP_PART_COLOUR = {
+    "tire_a": (0.12, 0.12, 0.12),
+    "tire_b": (0.12, 0.12, 0.12),
 }
 
 #: Bodies of revolution: rotating them changes nothing, so one pose is an exact check.
@@ -147,6 +155,8 @@ def build_assembly() -> dict[str, cq.Workplane]:
 
     wheel_a = parts.wheel().translate((0, 0, P.Z_WHEEL_A))
     wheel_b = parts.wheel().translate((0, 0, P.Z_WHEEL_B))
+    tire_a = parts.tire(as_printed=False).translate((0, 0, P.Z_WHEEL_A))
+    tire_b = parts.tire(as_printed=False).translate((0, 0, P.Z_WHEEL_B))
 
     return {
         "casing_shell": shell,
@@ -163,6 +173,8 @@ def build_assembly() -> dict[str, cq.Workplane]:
         "wheel_a": wheel_a,
         "wheel_b": wheel_b,
         "wheel_shaft_b": shaft_b,
+        "tire_a": tire_a,
+        "tire_b": tire_b,
     }
 
 
@@ -309,7 +321,8 @@ def main(argv: list[str]) -> int:
         # rotates with.
         combined = cq.Assembly(name="recon_ugv")
         for name, wp in assembly.items():
-            colour = STEP_GROUP_COLOUR[ROTATION_GROUP.get(name, "casing")]
+            colour = STEP_PART_COLOUR.get(name,
+                                          STEP_GROUP_COLOUR[ROTATION_GROUP.get(name, "casing")])
             combined.add(wp, name=name, color=cq.Color(*colour))
         target = args.out_dir / "00_assembly.step"
         combined.save(str(target), exportType="STEP")

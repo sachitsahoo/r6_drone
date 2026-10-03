@@ -35,7 +35,8 @@ change moves everything downstream, and the sweep checks every pair at every rea
       radial offset directly.
 - [ ] Wheel A shaft extension and coupler: diameter, length (~48 mm needed), coupler OD
       (must pass the cup floor's 10 mm bore -> `CUP_FLOOR_BORE`).
-- [ ] O-rings: cross-section and inside diameter against the wheel groove.
+- [ ] First printed TPU tire: does it stretch onto the hub by hand and stay on in a hard turn?
+      Adjust `TIRE_FIT_INTERFERENCE` (ADR 0017).
 
 ## Electronics
 

@@ -22,7 +22,7 @@ STEP files open in any CAD package if you want to edit by hand; STLs go straight
 | File | Role |
 |---|---|
 | `parameters.py` | Every dimension, tagged OWNER / DERIVED / **ASSUMPTION**, and the axial layout as derived stations. The only place literals live. |
-| `parts.py` | Seven printed parts: shell, two end caps, chassis spine, IMU bridge, camera mount, wheel. |
+| `parts.py` | Eight printed parts: shell, two end caps, chassis spine, IMU bridge, camera mount, wheel hub, and its TPU tire (ADR 0017). |
 | `bought_parts.py` | Envelopes for bought components, tagged MEASURED / LISTING / GUESS. |
 | `assembly.py` | Places everything and sweeps every pair for interference over relative rotation. |
 | `build.py` | Exports, and computes mass and rotating inertia from the actual geometry. |

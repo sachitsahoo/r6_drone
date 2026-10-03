@@ -90,7 +90,6 @@ exist elsewhere, and none of these are needed until their designs exist.
 | 6704ZZ bearing, 20 × 27 × 4 | 1 | decided | End B, on the spine boss |
 | M5 threaded rod, or 5 mm brass/aluminium tube | ~100 mm | decided | Spine waist. Tube if wheel motor A's wires run through it |
 | 3 mm rod + 3-to-3 mm coupler | ~50 mm | decided | Wheel A's shaft extension (~48 mm). Coupler must pass a 10 mm bore |
-| O-rings, 3 mm cross-section, ~100 mm ID | 2 + spares | decided | Wheel treads; size from the groove |
 | M3 screws for the end caps | 12 | decided | |
 | M2.5 screws (motor, 8) and M2 screws (camera 4, IMU 2) | 14 | decided | Motor patterns from the DM3505 drawing |
 | M3 heat-set inserts | ~20 | decided | Not yet in the CAD, which taps plastic directly |
@@ -99,6 +98,7 @@ exist elsewhere, and none of these are needed until their designs exist.
 | XT30 or similar battery connector, JST-PH leads | a few | — | |
 | Power / kill switch | 1 | decided | Required by CLAUDE.md before motors run |
 | Filament, ABS or PETG | 1 roll | — | The mass report assumes ABS. Check whether the makerspace supplies it |
+| Filament, TPU 95A | ~50 g | decided | Two tires (ADR 0017), ~21 g each. Check whether the makerspace has it and a printer that can feed it |
 
 ## Borrow before buying
 

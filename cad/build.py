@@ -54,10 +54,21 @@ QUANTITIES = {
     "05_imu_bridge": 1,
     "06_camera_mount": 1,
     "07_wheel": 2,
+    "08_tire": 2,
+}
+
+#: Parts printed in something other than the main material. The tire is TPU (ADR 0017).
+PART_DENSITY = {
+    "08_tire": P.TPU_DENSITY,
 }
 
 #: ADR 0008's figure for the 70 x 182 casing, computed before this geometry existed.
 ADR_0008_INERTIA_KG_M2 = 0.133e-3
+
+
+def density_g_mm3(name: str, default: float) -> float:
+    """Density to weigh part `name` with: its own material if listed, else `default`."""
+    return PART_DENSITY.get(name, default)
 
 
 def volume_mm3(shape: cq.Shape) -> float:
@@ -103,14 +114,15 @@ def main(argv: list[str]) -> int:
         print(f"exported {2 * len(built)} files to {args.out_dir}\n")
 
     rho = args.density
-    print(f"=== MASS BUDGET (density {rho * 1000:.2f} g/cm^3) ===")
+    print(f"=== MASS BUDGET (density {rho * 1000:.2f} g/cm^3; tire TPU "
+          f"{P.TPU_DENSITY * 1000:.2f}) ===")
     print(f"{'part':<34}{'qty':>4}{'each g':>9}{'total g':>9}")
     total_mass = 0.0
     for name, wp in built.items():
         qty = QUANTITIES.get(name, 0)
         if qty == 0:
             continue
-        mass = volume_mm3(wp.val()) * rho
+        mass = volume_mm3(wp.val()) * density_g_mm3(name, rho)
         total_mass += mass * qty
         print(f"{name:<34}{qty:>4}{mass:>9.1f}{mass * qty:>9.1f}")
     print(f"{'PRINTED PLASTIC TOTAL':<34}{'':>4}{'':>9}{total_mass:>9.1f}")

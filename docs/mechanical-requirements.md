@@ -117,13 +117,14 @@ Seven printed parts. `cad/parts.py` is the source; this is the overview.
 | 4 | Chassis spine | solid of revolution: cup, two motor pockets, waist, boss | chassis |
 | 5 | IMU bridge | arm plus carrier plate beside the waist | casing |
 | 6 | Camera mount | flat plate | casing |
-| 7 | Wheel × 2 | rim, hub, spoke web, O-ring groove | its wheel |
+| 7 | Wheel × 2 | rim, hub, spoke web, tire-locating ridge | its wheel |
+| 8 | Tire × 2 (TPU) | ring, staggered transverse tread, inner channel (ADR 0017) | its wheel |
 
 The spine is drawn as one solid, but it is built as two printed ends joined by a bought rod at
 the waist (M5 threaded rod or a 5 mm tube).
 
 **Bought, not modelled:** the DM3505, 6709ZZ and 6704ZZ bearings, the waist rod, wheel A's
-3 mm shaft extension and coupler, O-ring treads, screws and heat-set inserts.
+3 mm shaft extension and coupler, screws and heat-set inserts.
 `cad/bought_parts.py` holds envelopes for the electronics; `docs/bom.md` is the shopping list.
 
 ## Modelling notes

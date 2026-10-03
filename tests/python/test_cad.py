@@ -34,7 +34,8 @@ def built():
 
 
 def test_every_part_builds_as_a_solid(built) -> None:
-    assert len(built) == 7, "seven printed parts once direct drive deleted the belt train"
+    assert len(built) == 8, "seven printed parts once direct drive deleted the belt train, " \
+        "plus the TPU tire (ADR 0017)"
     for name, wp in built.items():
         solid = wp.val()
         assert solid.Volume() > 0.0, f"{name} has no volume"
@@ -141,7 +142,7 @@ def test_wheel_is_larger_than_the_casing(built) -> None:
 
 def test_printed_mass_leaves_room_for_the_rest_of_the_robot(built) -> None:
     """The regression that matters: the first build was 855 g of plastic alone."""
-    total = sum(built[name].val().Volume() * P.ABS_DENSITY * qty
+    total = sum(built[name].val().Volume() * build.density_g_mm3(name, P.ABS_DENSITY) * qty
                 for name, qty in build.QUANTITIES.items())
     assert total < 500.0, (
         f"printed plastic is {total:.0f} g; the vehicle target is 700-900 g total, so this "
@@ -297,6 +298,33 @@ def test_trim_bosses_do_not_pierce_the_impact_surface(built) -> None:
 
 def test_wheels_clear_the_rotating_casing(assembly) -> None:
     asm, parts_map = assembly
-    for wheel in ("wheel_a", "wheel_b"):
+    for wheel in ("wheel_a", "wheel_b", "tire_a", "tire_b"):
         gap = asm.min_distance_mm(parts_map["casing_shell"].val(), parts_map[wheel].val())
         assert gap > 1.0, f"{wheel} is {gap:.2f} mm from the casing"
+
+
+# ------------------------------------------------------------------- tire (ADR 0017)
+
+def test_tire_sets_the_wheel_diameter(built) -> None:
+    """The tire, not the hub, touches the ground, so ADR 0008's 105 mm is the tire's OD."""
+    bb = built["08_tire"].val().BoundingBox()
+    assert math.isclose(bb.xlen, P.WHEEL_OD, abs_tol=0.01)
+    assert math.isclose(bb.zlen, P.WHEEL_WIDTH, abs_tol=0.01)
+
+
+def test_hub_sits_inside_the_tire_with_no_ground_contact(built) -> None:
+    """Only TPU reaches the ground; the hub's outer surface is a tire thickness inboard."""
+    bb = built["07_wheel"].val().BoundingBox()
+    assert bb.xlen < P.WHEEL_OD - 2 * (P.TIRE_THICKNESS - P.TIRE_RIDGE_HEIGHT) + 0.01
+
+
+def test_tire_keeps_material_under_tread_and_ridge() -> None:
+    """Thinnest TPU is where a tread groove sits over the hub's retaining ridge."""
+    thinnest = P.TIRE_THICKNESS - P.TREAD_DEPTH - P.TIRE_RIDGE_HEIGHT
+    assert thinnest >= 1.5, f"only {thinnest} mm of TPU left over the ridge"
+
+
+def test_tire_is_a_stretch_fit_on_the_hub() -> None:
+    """Printed undersize so it grips the rim; the ridge stops it walking off sideways."""
+    assert 0.0 < P.TIRE_FIT_INTERFERENCE < 1.5
+    assert P.TIRE_RIDGE_WIDTH < P.WHEEL_WIDTH / 2

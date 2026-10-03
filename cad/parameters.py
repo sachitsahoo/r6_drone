@@ -126,9 +126,23 @@ OVERALL_WIDTH = 214.0        # OWNER: ADR 0008
 WHEEL_STANDOFF = 4.0         # ASSUMPTION: gap between wheel and casing end
 WHEEL_WIDTH = (OVERALL_WIDTH - CASING_LENGTH) / 2 - WHEEL_STANDOFF   # DERIVED: 12.0
 WHEEL_BORE = WHEEL_SHAFT_DIA # DERIVED
-WHEEL_ORING_CROSS_SECTION = 3.0   # ASSUMPTION: O-ring tread (R7 trick)
 WHEEL_HUB_OD = 16.0          # ASSUMPTION
 WHEEL_SPOKE_COUNT = 5        # ASSUMPTION: cosmetic and mass reduction
+
+# Tire (ADR 0017): a separate TPU tire stretched over the printed hub replaces the single
+# O-ring. Full-width tread for grip, and a soft layer between the ground and the hub on
+# landings.
+TIRE_THICKNESS = 5.0         # ASSUMPTION: radial, tread included. Hub rim OD = 105 - 10 = 95
+TREAD_DEPTH = 1.5            # ASSUMPTION: shallow enough that TPU blocks do not fold over
+TREAD_GROOVE_WIDTH = 2.5     # ASSUMPTION: wider than a 0.4 mm nozzle can bridge-sag into
+TREAD_PITCH_COUNT = 30       # ASSUMPTION: blocks ~11 mm long around the 105 mm circumference
+#: Raised band round the middle of the hub rim, sitting in a matching channel inside the
+#: tire, so side loads in a turn cannot walk the tire off the rim.
+TIRE_RIDGE_WIDTH = 3.0       # ASSUMPTION
+TIRE_RIDGE_HEIGHT = 1.5      # ASSUMPTION
+#: Tire bore printed this much under the rim diameter, so it grips by stretch alone, no
+#: glue. GUESS for 95A TPU -- print one, try it on, adjust.
+TIRE_FIT_INTERFERENCE = 0.5  # GUESS: on diameter
 
 # ------------------------------------------------------------------------------ camera
 
@@ -209,6 +223,7 @@ END_CAP_A_SHAFT_BORE = PITCH_MOTOR_HOLLOW_BORE                       # DERIVED
 PLA_DENSITY = 1.24e-3           # g/mm^3
 PETG_DENSITY = 1.27e-3
 ABS_DENSITY = 1.04e-3
+TPU_DENSITY = 1.21e-3           # 95A TPU, typical filament datasheet figure
 PRINT_DENSITY = ABS_DENSITY     # what the reports assume; ABS is 18% lighter than
                                 # PETG, which is a free lever on rotating inertia
 

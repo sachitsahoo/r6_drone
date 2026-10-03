@@ -345,25 +345,28 @@ def camera_mount() -> cq.Workplane:
 # --------------------------------------------------------------------------- part 7
 
 def wheel() -> cq.Workplane:
-    """Rim, hub and a thin spoke web, with an O-ring tread groove. Two needed.
+    """Wheel hub: rim, hub and a thin spoke web, carrying the TPU tire. Two needed.
 
-    Shape: cylinder. The O-ring is the tread (R7 trick): no tread pattern to model, and it
-    is replaceable when it wears. Built as a thin rim carrying the tread, a small hub, and a
+    Shape: cylinder. The tire (tire() below, ADR 0017) is the only thing that touches the
+    ground, so the rim's outer radius sits a tire thickness inside WHEEL_OD. A raised ridge
+    round the middle of the rim locates the tire. Built as a thin rim, a small hub and a
     recessed web between them, because a near-solid wheel was once close to half the
     vehicle's mass budget.
 
     WHEEL_OD must exceed CASING_OD or the casing drags; ground clearance is
     (WHEEL_OD - CASING_OD) / 2.
     """
-    r_out = P.WHEEL_OD / 2
+    r_rim = P.WHEEL_OD / 2 - P.TIRE_THICKNESS
     width = P.WHEEL_WIDTH
-    groove = P.WHEEL_ORING_CROSS_SECTION
     rim_thickness = 4.0
     web_thickness = 3.0
     hub_outer = P.WHEEL_HUB_OD / 2
     spoke_width = 8.0
 
-    rim = cq.Workplane("XY").circle(r_out).circle(r_out - rim_thickness).extrude(width)
+    rim = cq.Workplane("XY").circle(r_rim).circle(r_rim - rim_thickness).extrude(width)
+    ridge = (cq.Workplane("XY", origin=(0, 0, (width - P.TIRE_RIDGE_WIDTH) / 2))
+             .circle(r_rim + P.TIRE_RIDGE_HEIGHT).circle(r_rim - 0.1)
+             .extrude(P.TIRE_RIDGE_WIDTH))
     hub = cq.Workplane("XY").circle(hub_outer).extrude(width)
 
     web_z = (width - web_thickness) / 2
@@ -372,21 +375,52 @@ def wheel() -> cq.Workplane:
         angle = math.degrees(math.atan2(y, x))
         spokes = spokes.union(
             cq.Workplane("XY", origin=(0, 0, web_z))
-            .rect(r_out * 2, spoke_width).extrude(web_thickness)
+            .rect(r_rim * 2, spoke_width).extrude(web_thickness)
             .rotate((0, 0, 0), (0, 0, 1), angle))
     spokes = spokes.intersect(
         cq.Workplane("XY", origin=(0, 0, web_z))
-        .circle(r_out - rim_thickness).extrude(web_thickness))
+        .circle(r_rim - rim_thickness).extrude(web_thickness))
 
-    body = rim.union(hub).union(spokes)
-
-    body = body.cut(
-        cq.Workplane("XY", origin=(0, 0, (width - groove) / 2))
-        .circle(r_out).circle(r_out - groove * 0.6)
-        .extrude(groove))
-
+    body = rim.union(ridge).union(hub).union(spokes)
     body = body.faces(">Z").workplane().circle(P.WHEEL_BORE / 2).cutThruAll()
     return body
+
+
+def tire(as_printed: bool = True) -> cq.Workplane:
+    """TPU tire for wheel(), printed separately and stretched on (ADR 0017). Two needed.
+
+    Shape: ring, WHEEL_OD outside, with a channel inside that takes the hub's ridge. Tread
+    is transverse grooves, staggered between the two halves of the width so a block is
+    always under the contact patch -- an unbroken groove across the full width would let
+    the robot drop into it on every revolution.
+
+    as_printed: True shrinks the bore by TIRE_FIT_INTERFERENCE, which is the STL to print.
+    False gives the nominal bore, which is what the assembly uses so the stretch fit does
+    not read as an interference.
+    """
+    r_out = P.WHEEL_OD / 2
+    width = P.WHEEL_WIDTH
+    r_bore = P.WHEEL_OD / 2 - P.TIRE_THICKNESS
+    if as_printed:
+        r_bore -= P.TIRE_FIT_INTERFERENCE / 2
+
+    body = cq.Workplane("XY").circle(r_out).circle(r_bore).extrude(width)
+    body = body.cut(
+        cq.Workplane("XY", origin=(0, 0, (width - P.TIRE_RIDGE_WIDTH) / 2))
+        .circle(r_bore + P.TIRE_RIDGE_HEIGHT).circle(r_bore - 0.1)
+        .extrude(P.TIRE_RIDGE_WIDTH))
+
+    # One cutter per groove: a box straddling the outer surface, TREAD_DEPTH into it.
+    half = width / 2
+    pitch_deg = 360.0 / P.TREAD_PITCH_COUNT
+    cutters = cq.Workplane("XY")
+    for i in range(P.TREAD_PITCH_COUNT):
+        for z0, phase in ((0.0, 0.0), (half, pitch_deg / 2)):
+            cutters = cutters.union(
+                cq.Workplane("XY", origin=(r_out, 0, z0))
+                .rect(2 * P.TREAD_DEPTH, P.TREAD_GROOVE_WIDTH).extrude(half)
+                .rotate((0, 0, 0), (0, 0, 1), i * pitch_deg + phase))
+    return body.cut(cutters)
 
 
 ALL_PARTS = {
@@ -397,4 +431,5 @@ ALL_PARTS = {
     "05_imu_bridge": imu_bridge,
     "06_camera_mount": camera_mount,
     "07_wheel": wheel,
+    "08_tire": tire,
 }
