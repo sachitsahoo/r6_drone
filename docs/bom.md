@@ -57,7 +57,7 @@ Don't load the SimpleFOCMini's 3.3 V pin: it is the DRV8313's 10 mA internal reg
 
 | Item | DigiKey # | Each | Notes |
 |---|---|---|---|
-| SparkFun ROB-27477 DM3505 | 1568-ROB-27477-ND | $41.88 | 17 in stock. **ADR 0011 is still proposed**: accept it before buying |
+| SparkFun ROB-27477 DM3505 | 1568-ROB-27477-ND | $41.88 | 17 in stock. ADR 0011 accepted 2026-10-03: **clear to buy** (the version without the encoder case) |
 | Pololu #2858 D24V22F5, 5 V 2.2 A buck | 2183-2858-ND | $18.95 | Pi power from 3S. Marketplace |
 | Raspberry Pi Camera Module 3 Wide (SC1224) | 2648-SC1224-ND | $35.00 | 7,410 in stock |
 | Adafruit 5211 Pi Zero camera cable, 30 cm | 1528-5211-ND | $3.95 | From a search result, not the product page; length may be long for the casing |

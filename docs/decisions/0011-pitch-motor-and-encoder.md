@@ -1,7 +1,7 @@
 # 0011 — Pitch motor and encoder: DM3505, one off-axis encoder
 
-- **Status:** **PROPOSED** (2026-09-30). The owner chose the motor in conversation; the CAD
-  and budget implement it.
+- **Status:** **ACCEPTED** by the owner, 2026-10-03 (reviewed with 0009–0012 together). Proposed 2026-09-30; the CAD
+  and budget implement it. The encoder *hardware* remains open (below).
 - **Amends:** [0008](0008-reduced-scale-direct-drive.md) (which assumed a 2208 motor)
 - **Related:** [0007](0007-foc-implementation.md) (FOC), [0010](0010-direct-drive-axial-layout.md)
   (the motor's position), [0012](0012-power-and-electronics-placement.md) (supply voltage)

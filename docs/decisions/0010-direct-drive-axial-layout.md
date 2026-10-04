@@ -1,6 +1,6 @@
 # 0010 — Direct-drive axial layout: a spine chassis, and the IMU beside the axis
 
-- **Status:** **PROPOSED** (2026-09-30). The owner approved the layout in conversation; the
+- **Status:** **ACCEPTED** by the owner, 2026-10-03 (reviewed with 0009–0012 together). Proposed 2026-09-30; the
   CAD implements it.
 - **Amends:** [0005](0005-imu-placement.md) (IMU mounting geometry) and R2 in
   `docs/mechanical-requirements.md`

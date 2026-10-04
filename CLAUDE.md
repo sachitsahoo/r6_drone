@@ -28,8 +28,7 @@ ICM-42688-P IMU (SPI), INA226 power monitor (I2C).
 Machine (decided — ADR 0008): 70 x 182 mm casing, 105 mm wheels, 214 mm overall, **direct
 drive** pitch actuator, no gearbox or belt.
 Decided (ADR 0007): a bought DRV8313 power stage, with our own voltage-mode FOC on the G474.
-Proposed, awaiting owner approval (ADRs 0009–0012) — treat as the working design, but do not
-build on them as settled:
+Decided (ADRs 0009–0012, accepted by the owner 2026-10-03):
 - Chassis is a single **spine** on the axis; nothing on the casing can reach the axis (0010).
 - Pitch motor: **DM3505** (SparkFun ROB-27477) hollow-shaft gimbal motor, stator on the casing, wheel A's
   shaft through its bore. **One** absolute encoder, read off-axis, serves both FOC and

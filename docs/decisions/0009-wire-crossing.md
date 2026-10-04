@@ -1,7 +1,10 @@
 # 0009 — Crossing the rotating joint
 
-- **Status:** **PROPOSED — awaiting owner approval.** Revised 2026-09-30 after ADRs
+- **Status:** **ACCEPTED** by the owner, 2026-10-03 (reviewed with 0009–0012 together). Revised 2026-09-30 after ADRs
   0010–0012: the spine removed the slip ring fallback, and the budget figures are now ADR 0011's.
+- **Follow-up, 2026-10-03:** printing in PLA moved the trimmed budget to **20.2–29.0 mN m**
+  (ADR 0011's follow-up note). The figures below are the ABS ones; the conclusion is unchanged,
+  since the most optimistic slip ring (20 mN m) is still about the whole budget.
 - **Related:** [0008](0008-reduced-scale-direct-drive.md), [0004](0004-pitch-axis-architecture.md),
   [0010](0010-direct-drive-axial-layout.md), [0011](0011-pitch-motor-and-encoder.md),
   [0012](0012-power-and-electronics-placement.md)

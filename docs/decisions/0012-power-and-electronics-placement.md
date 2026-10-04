@@ -1,6 +1,6 @@
 # 0012 — Power: a 3S battery, and every electronic part in the casing
 
-- **Status:** **PROPOSED** (2026-09-30)
+- **Status:** **ACCEPTED** by the owner, 2026-10-03 (reviewed with 0009–0012 together). Proposed 2026-09-30.
 - **Amends:** [0005](0005-imu-placement.md) (the battery trade-off it left open) and
   [0008](0008-reduced-scale-direct-drive.md) (its 45 × 25 × 12 battery guess)
 - **Related:** [0007](0007-foc-implementation.md), [0009](0009-wire-crossing.md),
@@ -76,7 +76,8 @@ The chassis is then just the spine, two wheel motors and their wires.
 
 ## What remains open after acceptance
 
-1. The TB6612FNG's maximum VM from the datasheet, before the first 12.6 V power-up.
+1. ~~The TB6612FNG's maximum VM~~ — closed 2026-10-01: 15 V absolute per SparkFun's 14450 listing,
+   13.5 V recommended; a full 3S pack is 12.6 V (`docs/bom.md`).
 2. The pack's real dimensions on arrival, and that it fits beside the waist alongside the
    camera and the IMU. The electronics aren't placed in `cad/assembly.py` yet.
 3. The actual power draw, measured with the INA226.
