@@ -20,13 +20,13 @@ The rest of wave 1 is needed when the motor drivers are written.
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| Nucleo-G474RE + USB cable | 1 | decided | Development board, never goes in the robot. Its built-in ST-LINK can likely also flash the small robot board later (to confirm) |
+| Nucleo-G474RE + USB cable | 1 | **bought** (cable: see below) | Development board, never goes in the robot. Its built-in ST-LINK can likely also flash the small robot board later (to confirm) |
 | ICM-42688-P breakout, SPI | 1 | decided | Pick one with **nothing taller than ~1 mm on the chip side** and room for headers on the back (ADR 0010) |
-| INA226 breakout | 1 | decided | |
-| TB6612FNG breakout | 1 | decided | |
-| N20 gearmotor, **12 V**, magnetic encoder | 2 | verified | 12 V because the supply is 3S (ADR 0012). **100:1** (owner, 2026-10-01): Pololu #5216, see the DigiKey order |
+| INA226 breakout | 1 | **bought** | AliExpress CJMCU-226, 2026-10-02 |
+| TB6612FNG breakout | 1 | **bought** | DigiKey order |
+| N20 gearmotor, **12 V**, magnetic encoder | 2 | **bought** | 12 V because the supply is 3S (ADR 0012). **100:1** (owner, 2026-10-01): Pololu #5216, see the DigiKey order |
 | Breadboard + jumper wires | 1 set | — | |
-| 10 kΩ resistors (pull-downs) | ~10 | decided | TB6612 STBY and PWM inputs, so a chip in reset drives nothing (ADR 0014; owner, ADR 0015 Q5: fitted before the first motor is powered). Value is an initial guess; check the breakout doesn't already fit them |
+| 10 kΩ resistors (pull-downs) | ~10 | **bought** (25) | TB6612 STBY and PWM inputs, so a chip in reset drives nothing (ADR 0014; owner, ADR 0015 Q5: fitted before the first motor is powered). Value is an initial guess; check the breakout doesn't already fit them |
 
 ## DigiKey order — checked against listings 2026-10-01
 
@@ -72,20 +72,20 @@ exist elsewhere, and none of these are needed until their designs exist.
 |---|---|---|---|
 | **Mercury DM3505 gimbal motor, without encoder** — SparkFun ROB-27477 | 1 | verified | 40 × 16 mm, 8.5 mm bore, 0.09 N m nominal, 12 V, $34.95 SparkFun / $41.88 DigiKey. ADR 0011. Confirm the bore runs through |
 | Pitch encoder: MA732-class board + diametric ring magnet | 1 | **open** | Has to read off-axis (ADR 0011). Sizes to match on purchase |
-| SimpleFOCMini v1 (DRV8313) | 1 | decided | ADR 0007. v2.3 adds current sensing, worth considering for research reasons |
+| SimpleFOCMini v1 (DRV8313) | 1 | **bought** (AliExpress, 2026-10-02) | ADR 0007. v2.3 adds current sensing, worth considering for research reasons |
 | 3S LiPo, 300 mAh, slim | 1 + spare | verified | BetaFPV 45C: 60.5 × 16 × 11.5 mm, 24.8 g. ADR 0012 |
 | LiPo charger (3S balance) | 1 | — | Check whether the makerspace has one |
 | 5 V buck regulator, ~2 A | 1 | decided | Powers the Pi from 3S |
 | Raspberry Pi Zero 2 W | 1 | **bought** | Owner, 2026-10-02: Amazon kit (board + loose header, heatsink, OTG cable, mini-HDMI adapter), $99.99; approved resellers and DigiKey were out of stock. No microSD in the kit. Leave the header unsoldered: it adds ~8 mm the casing doesn't have |
 | Camera Module 3 **Wide** | 1 | decided | |
-| Pi Zero camera cable | 1 | decided | The Zero's connector is smaller than a full-size Pi's |
+| Pi Zero camera cable | 1 | **bought** (AliExpress 15 cm FFC, 2026-10-02) | The Zero's connector is smaller than a full-size Pi's |
 | microSD card | 1 | — | |
 
 ## Wave 3 — robot build
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| Small STM32G474 board | 1 | **open** | Must fit a 65 mm bore; the Nucleo cannot |
+| Small STM32G474 board | 1 | **bought** | WeAct STM32G474CEU6 core board (AliExpress, 2026-10-02). Must fit a 65 mm bore; pinout vs firmware not yet checked |
 | 6709ZZ bearing, 45 × 55 × 6 | 1 | verified | End A, on the cup wall |
 | 6704ZZ bearing, 20 × 27 × 4 | 1 | decided | End B, on the spine boss |
 | M5 threaded rod, or 5 mm brass/aluminium tube | ~100 mm | decided | Spine waist. Tube if wheel motor A's wires run through it |
@@ -96,7 +96,7 @@ exist elsewhere, and none of these are needed until their designs exist.
 | Trim masses: M3 screws, nuts, brass | assorted | decided | Recommended: trimming the sideways CoM to ≤ 2 mm cuts holding heat (ADR 0011) |
 | Silicone-insulated stranded wire, 28–30 AWG | 1 spool | decided | For the wire loop (ADR 0009) |
 | XT30 or similar battery connector, JST-PH leads | a few | — | |
-| Power / kill switch | 1 | decided | Required by CLAUDE.md before motors run |
+| Power / kill switch | 1 | decided | Required by CLAUDE.md before motors run. The bench toggle (Carling 111-16-73) is bought but large for a 65 mm bore; a small one is likely needed in the robot |
 | Filament, PLA | — | decided | Free from the EXP makerspace (its only free filament); the mass report assumes PLA |
 | Filament, TPU 95A | smallest spool sold | decided | Two tires (ADR 0017), ~21 g each. **Bring your own**: the makerspace supplies PLA only. Its Ultimaker S3/S5 and Bambu printers can feed it (on a Bambu, from the rear spool holder, not the AMS) |
 
