@@ -2,6 +2,8 @@
 
 - **Status:** Accepted (2026-09-30). The decision — IMU on the casing — stands. Parts of
   its consequences have since been decided, each marked inline:
+  - **the part → [0018](0018-imu-part-lsm6dso.md)**: LSM6DSO replaces the ICM-42688-P named
+    below (supply); every placement argument here is chip-independent
   - **mounting geometry → [0010](0010-direct-drive-axial-layout.md)**: on-axis placement is
     impossible with a continuous chassis; the IMU lies 3.8 mm beside the spine's waist
   - the actuator tension → direct drive, [0008](0008-reduced-scale-direct-drive.md), with one

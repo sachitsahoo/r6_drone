@@ -67,7 +67,7 @@ CASING_COMPONENTS: list[Component] = [
     Component("imu_breakout", "box", (P.IMU_BOARD_LENGTH, P.IMU_BOARD_WIDTH,
                                       P.IMU_BOARD_THICKNESS + P.IMU_CHIP_SIDE_HEIGHT),
               2.0, "GUESS",
-              "ICM-42688-P breakout, SPI. Needs NOTHING taller than the chip on the chip side "
+              "LSM6DSO breakout, Pololu #2798, SPI (ADR 0018). Needs NOTHING taller than the chip on the chip side "
               "and headers on the back: it lies chip-down beside the spine waist (ADR 0010)."),
     Component("pitch_encoder", "box", (12.0, 12.0, 3.0), 3.0, "GUESS",
               "ONE encoder: with direct drive the rotor angle is the casing angle, so it does "

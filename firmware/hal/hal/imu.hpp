@@ -21,7 +21,7 @@ struct ImuSample {
   bool valid;
 };
 
-/// The ICM-42688-P on the rotating casing (ADR 0005), 3.8 mm beside the axis (ADR 0010).
+/// The LSM6DSO (ADR 0018) on the rotating casing (ADR 0005), 3.8 mm beside the axis (ADR 0010).
 ///
 /// Unfiltered. Filtering and the offset correction for that 3.8 mm are estimation, which
 /// belongs to `core`. The implementation owns the chip's mounting orientation: it rotates

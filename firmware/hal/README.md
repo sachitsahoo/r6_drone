@@ -11,7 +11,7 @@ ADR 0014 (accepted 2026-10-01):
 |---|---|
 | `Clock` | microsecond timebase |
 | `SerialPort` | UART to the Pi |
-| `Imu` | ICM-42688-P on the casing |
+| `Imu` | LSM6DSO on the casing (ADR 0018) |
 | `AbsoluteEncoder` | the single pitch encoder (ADR 0011) |
 | `WheelEncoder` | N20 quadrature encoders |
 | `WheelMotor` | TB6612FNG channels |

@@ -7,7 +7,7 @@ look the way they do. Design record: [`firmware/hal/design-proposal.md`](../../f
 
 The control code in `firmware/core/` never touches a register. When it needs the IMU, it
 calls `imu.latest()` on an object it was handed, and doesn't know whether that object is the
-real ICM-42688-P on SPI, the simulator, or a test fake. Each `hal::` class is a contract:
+real LSM6DSO on SPI, the simulator, or a test fake. Each `hal::` class is a contract:
 what the call returns, in what units, with what sign, and whether it is safe to call from an
 interrupt. The STM32 code, the simulator and the fakes each implement the same contract. That
 is what lets the whole control stack be tested on a laptop.

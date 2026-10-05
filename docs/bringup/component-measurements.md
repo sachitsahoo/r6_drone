@@ -47,7 +47,7 @@ change moves everything downstream, and the sweep checks every pair at every rea
       -> `CAMERA_MOUNT_HOLE_SPACING_*`, `CAMERA_APERTURE_*`. Also its true horizontal FOV.
 - [ ] Small G474 board (not yet chosen): outline and height -> `bought_parts.mcu_board`. The
       Nucleo-G474RE is bench-only; it is wider than the bore.
-- [ ] ICM-42688-P breakout: outline, hole spacing, and **the tallest part on the chip side**
+- [ ] LSM6DSO breakout (Pololu #2798): outline, hole spacing, and **the tallest part on the chip side**
       -> `IMU_BOARD_*`, `IMU_CHIP_SIDE_HEIGHT`, `IMU_MOUNT_HOLE_INSET`. The chip-side height
       sets the IMU offset.
 - [ ] Encoder board and ring magnet: outline, magnet OD/ID, working distance.

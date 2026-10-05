@@ -23,7 +23,7 @@ Three tiers. The faster and more safety-critical a loop, the closer to hardware 
 | Operator | Laptop | Xbox input (SDL2), video display + telemetry overlay, logging, replay, parameter tuning, simulator, future autonomy |
 
 Bench hardware: TB6612FNG motor driver, 2x 12 V N20 gearmotors with magnetic encoders,
-ICM-42688-P IMU (SPI), INA226 power monitor (I2C).
+LSM6DSO IMU on a Pololu #2798 carrier (SPI; ADR 0018), INA226 power monitor (I2C).
 
 Machine (decided — ADR 0008): 70 x 182 mm casing, 105 mm wheels, 214 mm overall, **direct
 drive** pitch actuator, no gearbox or belt.

@@ -21,7 +21,7 @@ The rest of wave 1 is needed when the motor drivers are written.
 | Item | Qty | Status | Notes |
 |---|---|---|---|
 | Nucleo-G474RE + USB cable | 1 | **bought** (cable: see below) | Development board, never goes in the robot. Its built-in ST-LINK can likely also flash the small robot board later (to confirm) |
-| ICM-42688-P breakout, SPI | 1 | decided | Pick one with **nothing taller than ~1 mm on the chip side** and room for headers on the back (ADR 0010) |
+| IMU breakout: **Pololu #2798, LSM6DSO**, SPI | 1 | decided | $21.95, 12.7 × 22.9 mm (ADR 0018; replaces the ICM-42688-P, out of stock until 2027). Lies chip-side down beside the waist (ADR 0010): solder headers on the back, measure the tallest chip-side part |
 | INA226 breakout | 1 | **bought** | AliExpress CJMCU-226, 2026-10-02 |
 | TB6612FNG breakout | 1 | **bought** | DigiKey order |
 | N20 gearmotor, **12 V**, magnetic encoder | 2 | **bought** | 12 V because the supply is 3S (ADR 0012). **100:1** (owner, 2026-10-01): Pololu #5216, see the DigiKey order |
@@ -62,7 +62,7 @@ Don't load the SimpleFOCMini's 3.3 V pin: it is the DRV8313's 10 mA internal reg
 | Raspberry Pi Camera Module 3 Wide (SC1224) | 2648-SC1224-ND | $35.00 | 7,410 in stock |
 | Adafruit 5211 Pi Zero camera cable, 30 cm | 1528-5211-ND | $3.95 | From a search result, not the product page; length may be long for the casing |
 
-**Not from DigiKey:** Pi Zero 2 W (out of stock there), ICM-42688-P (only a $55.51 Pmod board),
+**Not from DigiKey:** Pi Zero 2 W (out of stock there), the IMU (Pololu #2798 direct, or DigiKey Marketplace if listed),
 INA226 (only TI's $58.80 EVM), SimpleFOCMini, 3S LiPo, microSD. Cheaper generic breakouts
 exist elsewhere, and none of these are needed until their designs exist.
 
@@ -119,4 +119,4 @@ Calipers and a 0.1 g scale are needed for the measurement checklist
 - Hollow-shaft encoder approach: [SimpleFOC community thread](https://community.simplefoc.com/t/recommended-absolute-encoder-mounting-for-hollow-shaft-motor/1677).
 - 6709ZZ: [VXB](https://vxb.com/products/6709zz-thin-section-shielded-ball-bearing-45x55x6).
 - 3S 300 mAh: [BetaFPV](https://betafpv.com/products/300mah-3s-45c-lipo-battery-s-version-2pcs).
-- ICM-42688-P package, 2.5 × 3 × 0.91 mm LGA-14: [LCSC](https://support.lcsc.com/product-detail/Attitude-Sensor-Gyroscope_TDK-InvenSense-ICM-42688-P_C1850418.html).
+- LSM6DSO carrier, 0.5 × 0.9 in: [Pololu #2798](https://www.pololu.com/product/2798). Package 2.5 × 3 × 0.83 mm LGA-14 (ST datasheet, owner-checked 2026-10-04).

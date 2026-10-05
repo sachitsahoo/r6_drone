@@ -165,13 +165,13 @@ CAMERA_LENS_HOLE_DIA = 10.0          # ASSUMPTION
 # spine's waist instead, running along it, CHIP SIDE FACING THE ROD. Centred over the rod,
 # the chip's distance from the axis is just the stack-up below, wherever the chip sits on the
 # board -- so no custom PCB is needed (custom PCBs are out of scope, CLAUDE.md).
-IMU_BOARD_LENGTH = 20.0          # GUESS: breakout outline, along the axis once mounted
-IMU_BOARD_WIDTH = 16.0           # GUESS: tangential once mounted
+IMU_BOARD_LENGTH = 22.9          # LISTING: Pololu #2798, 0.9 in, along the axis once mounted
+IMU_BOARD_WIDTH = 12.7           # LISTING: Pololu #2798, 0.5 in, tangential once mounted
 IMU_BOARD_THICKNESS = 1.6        # GUESS: standard FR-4
 #: Tallest thing on the chip side of the breakout. If a capacitor or regulator is taller
 #: than the IMU package, it sets the gap, not the chip. Headers must go on the back.
-IMU_CHIP_SIDE_HEIGHT = 1.0       # GUESS: measure the real breakout
-IMU_PACKAGE_THICKNESS = 0.91     # LISTING: ICM-42688-P LGA, TDK datasheet package outline
+IMU_CHIP_SIDE_HEIGHT = 1.0       # GUESS: Pololu's regulator height unknown -- measure
+IMU_PACKAGE_THICKNESS = 0.83     # LISTING: LSM6DSO LGA-14, 2.5 x 3 x 0.83 mm (ST datasheet; ADR 0018)
 IMU_WAIST_CLEARANCE = 0.75       # ASSUMPTION: running gap between board and spine waist
 IMU_CARRIER_THICKNESS = 3.0      # ASSUMPTION: printed plate the breakout screws to
 IMU_CARRIER_MARGIN = 1.0         # ASSUMPTION: carrier overhang past the board on each side
