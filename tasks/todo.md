@@ -15,20 +15,31 @@ Mechanical work beyond Phase 1 has also happened: ADRs 0004–0012, a torque bud
 (`tools/pitch_inertia_budget.py`), and a parametric CAD model in `cad/` at the 70 x 182
 direct-drive design point. See `docs/mechanical-requirements.md`.
 
+## Checkpoint 2026-10-04 (paused for a macOS update)
+
+Done 2026-10-03/04: CAD re-exported (named/coloured assembly STEP, wheel B shaft, TPU tire,
+LSM6DSO outline); mass model is PLA (makerspace: PLA free, TPU bring-your-own, ABS not
+allowed); BOM marks the DigiKey/AliExpress orders bought; ADRs 0009-0012, 0017, 0018 accepted.
+**Next:** push; order Pololu #2798 (IMU) + DM3505 (no encoder case) + TPU 95A spool; then lay
+out the pitch encoder options for the owner.
+
 ## Awaiting the owner
 
 Each is written to be accepted as-is; open items listed in each are parameters, not blockers.
 
 - [x] ADR 0007 — bought power stage, own voltage-mode FOC. **Accepted 2026-09-30.**
-- [ ] ADR 0009 — wire loop with software unwind (the only option the spine leaves)
-- [ ] ADR 0010 — spine chassis, IMU 3.8 mm beside the axis
-- [ ] ADR 0011 — DM3505 (SparkFun ROB-27477), one off-axis encoder, stator on the casing
-- [ ] ADR 0012 — 3S battery, every board in the casing
+- [x] ADR 0009 — wire loop with software unwind (the only option the spine leaves). **Accepted 2026-10-03.**
+- [x] ADR 0010 — spine chassis, IMU 3.8 mm beside the axis. **Accepted 2026-10-03.**
+- [x] ADR 0011 — DM3505 (SparkFun ROB-27477), one off-axis encoder, stator on the casing. **Accepted 2026-10-03.**
+- [x] ADR 0012 — 3S battery, every board in the casing. **Accepted 2026-10-03.**
 - [x] `firmware/hal/design-proposal.md` — approved 2026-10-01 and implemented.
 - [x] ADR 0013 — wheel velocity loop. **Accepted 2026-10-01**, all five as recommended.
 - [x] ADR 0014 — safety state machine, comms watchdog, IWDG. **Accepted 2026-10-01**, all six as recommended.
 - [x] ADR 0015 — MCU loop timing, IWDG driver, safety glue. **Accepted 2026-10-01**, all five as recommended.
 - [x] ADR 0016 — STM32 register access: CMSIS headers only. **Owner choice 2026-10-01.**
+- [x] ADR 0017 — TPU tire on a printed hub. **Accepted 2026-10-03.**
+- [x] ADR 0018 — LSM6DSO (Pololu #2798) replaces the ICM-42688-P. **Accepted 2026-10-04.**
+- [ ] Pitch encoder hardware (MA732-class + diametric ring magnet), ADR 0011's open item: next decision
 - [ ] Boot-report encoding, Fault(NONE, 0x80000000 | reset flags) vs a schema code (implementation-notes, Phase 2.3)
 - [ ] ADR 0014 implementation interpretations (4, each with a recommendation): implementation-notes.html, Phase 2.2
 - [ ] Protocol proposals 2–7 (`protocol/design-proposal.md`): 6 assigns `0x03` as a target-angle
