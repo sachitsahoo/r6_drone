@@ -21,7 +21,7 @@ The rest of wave 1 is needed when the motor drivers are written.
 | Item | Qty | Status | Notes |
 |---|---|---|---|
 | Nucleo-G474RE + USB cable | 1 | **bought** (cable: see below) | Development board, never goes in the robot. Its built-in ST-LINK can likely also flash the small robot board later (to confirm) |
-| IMU breakout: **Pololu #2798, LSM6DSO**, SPI | 1 | decided | $21.95, 12.7 × 22.9 mm (ADR 0018; replaces the ICM-42688-P, out of stock until 2027). Lies chip-side down beside the waist (ADR 0010): solder headers on the back, measure the tallest chip-side part |
+| IMU breakout: **Pololu #2798, LSM6DSO**, SPI | 1 | **ordered** 2026-10-05 ($19.95) | $21.95, 12.7 × 22.9 mm (ADR 0018; replaces the ICM-42688-P, out of stock until 2027). Lies chip-side down beside the waist (ADR 0010): solder headers on the back, measure the tallest chip-side part |
 | INA226 breakout | 1 | **bought** | AliExpress CJMCU-226, 2026-10-02 |
 | TB6612FNG breakout | 1 | **bought** | DigiKey order |
 | N20 gearmotor, **12 V**, magnetic encoder | 2 | **bought** | 12 V because the supply is 3S (ADR 0012). **100:1** (owner, 2026-10-01): Pololu #5216, see the DigiKey order |
@@ -33,7 +33,7 @@ The rest of wave 1 is needed when the motor drivers are written.
 Prices and stock as shown on digikey.com that day; they move. "Marketplace" items ship from
 Pololu, possibly with their own shipping fee.
 
-**Bench kit: ORDERED by the owner 2026-10-01.**
+**Bench kit: ORDERED by the owner 2026-10-01, ARRIVED 2026-10-05.**
 
 | Item | DigiKey # | Qty | Each | Notes |
 |---|---|---|---|---|
@@ -70,13 +70,13 @@ exist elsewhere, and none of these are needed until their designs exist.
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| **Mercury DM3505 gimbal motor, without encoder** — SparkFun ROB-27477 | 1 | verified | 40 × 16 mm, 8.5 mm bore, 0.09 N m nominal, 12 V, $34.95 SparkFun / $41.88 DigiKey. ADR 0011. Confirm the bore runs through |
+| **Mercury DM3505 gimbal motor, without encoder** — SparkFun ROB-27477 | 1 | **ordered** 2026-10-05 | 40 × 16 mm, 8.5 mm bore, 0.09 N m nominal, 12 V, $34.95 SparkFun / $41.88 DigiKey. ADR 0011. Confirm the bore runs through |
 | Pitch encoder: MA732-class board + diametric ring magnet | 1 | **open** | Has to read off-axis (ADR 0011). Sizes to match on purchase |
 | SimpleFOCMini v1 (DRV8313) | 1 | **bought** (AliExpress, 2026-10-02) | ADR 0007. v2.3 adds current sensing, worth considering for research reasons |
 | 3S LiPo, 300 mAh, slim | 1 + spare | verified | BetaFPV 45C: 60.5 × 16 × 11.5 mm, 24.8 g. ADR 0012 |
 | LiPo charger (3S balance) | 1 | — | Check whether the makerspace has one |
 | 5 V buck regulator, ~2 A | 1 | decided | Powers the Pi from 3S |
-| Raspberry Pi Zero 2 W | 1 | **bought** | Owner, 2026-10-02: Amazon kit (board + loose header, heatsink, OTG cable, mini-HDMI adapter), $99.99; approved resellers and DigiKey were out of stock. No microSD in the kit. Leave the header unsoldered: it adds ~8 mm the casing doesn't have |
+| Raspberry Pi Zero 2 W | 1 | **arrived** 2026-10-05 | Owner, 2026-10-02: Amazon kit (board + loose header, heatsink, OTG cable, mini-HDMI adapter), $99.99; approved resellers and DigiKey were out of stock. No microSD in the kit. Leave the header unsoldered: it adds ~8 mm the casing doesn't have |
 | Camera Module 3 **Wide** | 1 | decided | |
 | Pi Zero camera cable | 1 | **bought** (AliExpress 15 cm FFC, 2026-10-02) | The Zero's connector is smaller than a full-size Pi's |
 | microSD card | 1 | — | |
