@@ -24,7 +24,7 @@ The rest of wave 1 is needed when the motor drivers are written.
 | IMU breakout: **Pololu #2798, LSM6DSO**, SPI | 1 | **arrived** by 2026-10-14 ($19.95) | $21.95, 12.7 × 22.9 mm (ADR 0018; replaces the ICM-42688-P, out of stock until 2027). Lies chip-side down beside the waist (ADR 0010): solder headers on the back, measure the tallest chip-side part |
 | INA226 breakout | 1 | **bought** | AliExpress CJMCU-226, 2026-10-02 |
 | TB6612FNG breakout | 1 | **bought** | DigiKey order |
-| N20 gearmotor, **12 V**, magnetic encoder | 2 | **bought** | 12 V because the supply is 3S (ADR 0012). **100:1** (owner, 2026-10-01): Pololu #5216, see the DigiKey order |
+| N20 gearmotor, **12 V**, magnetic encoder | 2 | **not received** (2026-10-14) | 12 V because the supply is 3S (ADR 0012). **100:1** (owner, 2026-10-01): Pololu #5216, see the DigiKey order |
 | Breadboard + jumper wires | 1 set | — | |
 | 10 kΩ resistors (pull-downs) | ~10 | **bought** (25) | TB6612 STBY and PWM inputs, so a chip in reset drives nothing (ADR 0014; owner, ADR 0015 Q5: fitted before the first motor is powered). Value is an initial guess; check the breakout doesn't already fit them |
 
@@ -33,7 +33,7 @@ The rest of wave 1 is needed when the motor drivers are written.
 Prices and stock as shown on digikey.com that day; they move. "Marketplace" items ship from
 Pololu, possibly with their own shipping fee.
 
-**Bench kit: ORDERED by the owner 2026-10-01, ARRIVED 2026-10-05.**
+**Bench kit: ORDERED by the owner 2026-10-01, ARRIVED 2026-10-05, except the Pololu Marketplace items (#5216 motors, #4763 cables): owner has neither as of 2026-10-14. Not yet known whether they were ordered or are still shipping.**
 
 | Item | DigiKey # | Qty | Each | Notes |
 |---|---|---|---|---|
