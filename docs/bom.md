@@ -21,7 +21,7 @@ The rest of wave 1 is needed when the motor drivers are written.
 | Item | Qty | Status | Notes |
 |---|---|---|---|
 | Nucleo-G474RE + USB cable | 1 | **bought** (cable: see below) | Development board, never goes in the robot. Its built-in ST-LINK can likely also flash the small robot board later (to confirm) |
-| IMU breakout: **Pololu #2798, LSM6DSO**, SPI | 1 | **ordered** 2026-10-05 ($19.95) | $21.95, 12.7 × 22.9 mm (ADR 0018; replaces the ICM-42688-P, out of stock until 2027). Lies chip-side down beside the waist (ADR 0010): solder headers on the back, measure the tallest chip-side part |
+| IMU breakout: **Pololu #2798, LSM6DSO**, SPI | 1 | **arrived** by 2026-10-14 ($19.95) | $21.95, 12.7 × 22.9 mm (ADR 0018; replaces the ICM-42688-P, out of stock until 2027). Lies chip-side down beside the waist (ADR 0010): solder headers on the back, measure the tallest chip-side part |
 | INA226 breakout | 1 | **bought** | AliExpress CJMCU-226, 2026-10-02 |
 | TB6612FNG breakout | 1 | **bought** | DigiKey order |
 | N20 gearmotor, **12 V**, magnetic encoder | 2 | **bought** | 12 V because the supply is 3S (ADR 0012). **100:1** (owner, 2026-10-01): Pololu #5216, see the DigiKey order |
@@ -70,7 +70,7 @@ exist elsewhere, and none of these are needed until their designs exist.
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| **Mercury DM3505 gimbal motor, without encoder** — SparkFun ROB-27477 | 1 | **ordered** 2026-10-05 | 40 × 16 mm, 8.5 mm bore, 0.09 N m nominal, 12 V, $34.95 SparkFun / $41.88 DigiKey. ADR 0011. Confirm the bore runs through |
+| **Mercury DM3505 gimbal motor, without encoder** — SparkFun ROB-27477 | 1 | **arrived** by 2026-10-14 | 40 × 16 mm, 8.5 mm bore, 0.09 N m nominal, 12 V, $34.95 SparkFun / $41.88 DigiKey. ADR 0011. Confirm the bore runs through |
 | Pitch encoder: MA732-class board + diametric ring magnet | 1 | **open** | Has to read off-axis (ADR 0011). Sizes to match on purchase |
 | SimpleFOCMini v1 (DRV8313) | 1 | **bought** (AliExpress, 2026-10-02) | ADR 0007. v2.3 adds current sensing, worth considering for research reasons |
 | 3S LiPo, 300 mAh, slim | 1 + spare | verified | BetaFPV 45C: 60.5 × 16 × 11.5 mm, 24.8 g. ADR 0012 |
