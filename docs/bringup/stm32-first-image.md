@@ -11,8 +11,10 @@ page is the list of checks that settles each one. Record results in the table at
 ## You need
 
 - Nucleo-G474RE and a USB cable (BOM wave 1). Nothing else.
-- A flashing tool on the Mac. Not chosen yet; options are STM32CubeProgrammer (ST's GUI/CLI),
-  `st-flash` (stlink tools), or OpenOCD. Choosing one is a small owner decision at bring-up.
+- **OpenOCD** (owner choice, 2026-10-14; `brew install open-ocd`, 0.12.0). Picked over
+  STM32CubeProgrammer and `st-flash` because one tool both flashes and serves the debugger,
+  and step 1 needs the debugger. Board config: `board/st_nucleo_g4.cfg` (ships with OpenOCD).
+  Debugger: `arm-none-eabi-gdb`, from the Arm toolchain already installed.
 - `tools/bench_link.py`, the bench stand-in for the operator app (needs pyserial:
   `python -m pip install -r requirements-dev.txt`). Find the port with `ls /dev/tty.usbmodem*`,
   then run `python tools/bench_link.py /dev/tty.usbmodemXXXX`. It streams a centred stick at
@@ -27,6 +29,36 @@ cmake -B build-stm32 -DTARGET=stm32 && cmake --build build-stm32
 
 Output: `build-stm32/firmware/stm32/recon_firmware.elf` (debugger) and `.bin` (flasher).
 The link prints FLASH and RAM use. At the time of writing that is 11.2 KB / 7.4 KB.
+
+## Flash and debug (OpenOCD)
+
+Probe first. It should report a Cortex-M4 target and a 3.3 V target voltage:
+
+```
+openocd -f board/st_nucleo_g4.cfg -c "init; targets; shutdown"
+```
+
+Flash, verify and reset in one go (the `.elf` carries its load address, so none is given):
+
+```
+openocd -f board/st_nucleo_g4.cfg -c "program build-stm32/firmware/stm32/recon_firmware.elf verify reset exit"
+```
+
+Debug: leave OpenOCD running as a GDB server in one terminal (it listens on port 3333)...
+
+```
+openocd -f board/st_nucleo_g4.cfg
+```
+
+...and in a second terminal:
+
+```
+arm-none-eabi-gdb build-stm32/firmware/stm32/recon_firmware.elf -ex "target extended-remote :3333" -ex "monitor reset halt" -ex "break main" -ex "continue"
+```
+
+Useful once halted: `x/wx 0x40000024` reads `TIM2->CNT` (step 2; TIM2 base 0x40000000 + CNT offset 0x24, RM0440. GDB has no CMSIS macros without `-g3`), `info registers`, `bt`, `monitor reset halt`.
+[UNCLEAR] If the IWDG fires while you sit at a breakpoint before `DBG_IWDG_STOP` is set
+(step 9 checks it), the chip resets under GDB. That is the watchdog working, not a fault.
 
 ## Checks, in order
 
