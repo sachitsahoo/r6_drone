@@ -33,7 +33,7 @@ The rest of wave 1 is needed when the motor drivers are written.
 Prices and stock as shown on digikey.com that day; they move. "Marketplace" items ship from
 Pololu, possibly with their own shipping fee.
 
-**Bench kit: ORDERED by the owner 2026-10-01, ARRIVED 2026-10-05, except the Pololu Marketplace items (#5216 motors, #4763 cables): owner has neither as of 2026-10-14. Not yet known whether they were ordered or are still shipping.**
+**Bench kit: ORDERED by the owner 2026-10-01, ARRIVED 2026-10-05, except the Pololu Marketplace items (#5216 motors, #4763 cables): owner reports the package lost (2026-10-14). Claim to file with DigiKey; stopgap for the prototype: generic 12 V N20 with Hall encoder (record ratio and CPR before buying).**
 
 | Item | DigiKey # | Qty | Each | Notes |
 |---|---|---|---|---|
